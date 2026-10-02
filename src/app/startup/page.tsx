@@ -81,6 +81,7 @@ export default function Startup() {
   const handleReset = () => {
     if (confirm("모든 설정 내역을 초기화하시겠습니까?")) {
       setFormData({
+        apiKey: formData.apiKey, // Keep the API key during reset
         era: '',
         worldview: '역사적',
         character: '',
