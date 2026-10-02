@@ -1,0 +1,124 @@
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.formPanel {
+  width: 100%;
+  max-width: 900px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.fieldsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px 32px;
+  margin-bottom: 24px;
+}
+
+.title {
+  text-align: center;
+  color: var(--gold-accent);
+  font-size: 1.8rem;
+  letter-spacing: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+  padding-bottom: 16px;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.fieldLabel {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 1.1rem;
+}
+
+.inputField, .selectField {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--panel-border);
+  color: var(--text-main);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.inputField:focus, .selectField:focus {
+  outline: none;
+  border-color: var(--gold-accent);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.selectField option {
+  background: var(--bg-dark);
+}
+
+.instruction {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-top: 16px;
+  text-align: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.buttonContainer {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  position: sticky;
+  bottom: -40px; /* Align with formPanel padding */
+  background: rgba(30, 41, 59, 0.85); /* var(--panel-bg) equivalent */
+  padding: 24px 40px;
+  margin: 0 -40px -40px -40px;
+  border-top: 1px solid var(--panel-border);
+  border-radius: 0 0 12px 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10;
+}
+
+.actionBtn {
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid var(--gold-accent);
+  color: var(--gold-hover);
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.actionBtn:hover {
+  background: var(--gold-accent);
+  color: var(--bg-dark);
+  transform: translateY(-2px);
+}
+
+.primaryBtn {
+  background: var(--gold-accent);
+  color: var(--bg-dark);
+}
+
+.primaryBtn:hover {
+  background: var(--gold-hover);
+  color: var(--bg-dark);
+  transform: translateY(-2px);
+}
