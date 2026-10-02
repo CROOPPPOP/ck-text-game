@@ -1,12 +1,17 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_API_KEY_HERE");
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { formData } = body;
+    const apiKey = formData.apiKey;
 
+    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
+    if (!finalApiKey) {
+      return new Response(JSON.stringify({ error: "Gemini API 키가 제공되지 않았습니다." }), { status: 400 });
+    }
+
+    const genAI = new GoogleGenerativeAI(finalApiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const systemInstruction = `

@@ -37,6 +37,7 @@ export default function Startup() {
   const [worldviewType, setWorldviewType] = useState('역사적');
 
   const [formData, setFormData] = useState({
+    apiKey: '',
     era: '',
     worldview: '역사적',
     character: '',
@@ -50,6 +51,13 @@ export default function Startup() {
     traits: '[초보자] 이제 막 모험을 시작했습니다.',
     inheritedState: null as any
   });
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem("ck_api_key");
+    if (savedKey) {
+      setFormData(fd => ({ ...fd, apiKey: savedKey }));
+    }
+  }, []);
 
   useEffect(() => {
     const inheritedData = localStorage.getItem("ck_inheritance");
@@ -282,6 +290,10 @@ export default function Startup() {
 
         {currentStep === 1 && (
           <div className={styles.fieldsGrid} style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '10px' }}>
+            <div className={styles.fieldRow}>
+              <label className={styles.fieldLabel} style={{color: 'var(--gold-accent)'}}>API Key (필수):</label>
+              <input type="password" name="apiKey" className={styles.inputField} placeholder="Gemini API 키 입력 (저장됨)" value={formData.apiKey} onChange={(e) => { handleChange(e); localStorage.setItem("ck_api_key", e.target.value); }} />
+            </div>
             <div className={styles.fieldRow}>
               <label className={styles.fieldLabel}>시대:</label>
               <input type="text" name="era" className={styles.inputField} placeholder="입력" value={formData.era} onChange={handleChange} />

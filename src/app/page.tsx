@@ -170,12 +170,16 @@ export default function Home() {
         body: JSON.stringify({ 
           action: config, 
           isInitialSetup: true,
-          currentState: null
+          currentState: null,
+          apiKey: localStorage.getItem('ck_api_key') || ''
         })
       });
       const data = await response.json();
       if (data.parsed) {
         setGameState(data.parsed);
+      } else if (data.error) {
+        alert("API 에러: " + data.error);
+        if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
       } else {
         alert("시작 설정 파싱에 실패했습니다.");
       }
@@ -194,7 +198,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: actionText, 
-          currentState: gameState // JSON Save System
+          currentState: gameState, // JSON Save System
+          apiKey: localStorage.getItem('ck_api_key') || ''
         })
       });
       const data = await response.json();
@@ -219,6 +224,9 @@ export default function Home() {
             familyState: data.parsed.familyState || prevState.familyState
           };
         });
+      } else if (data.error) {
+        alert("API 에러: " + data.error);
+        if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
       } else {
         alert("파싱에 실패했습니다. AI가 포맷을 어겼을 수 있습니다.");
       }

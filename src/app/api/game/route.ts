@@ -1,14 +1,17 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { parseLLMResponse } from "@/lib/parser";
 
-// 환경변수에서 Gemini API 키를 가져옵니다. (.env 파일에 설정 필요)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_API_KEY_HERE");
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, currentState, isInitialSetup } = body;
+    const { action, currentState, isInitialSetup, apiKey } = body;
 
+    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
+    if (!finalApiKey) {
+      return new Response(JSON.stringify({ error: "Gemini API 키가 제공되지 않았습니다. 시작 화면에서 API 키를 입력해주세요." }), { status: 400 });
+    }
+
+    const genAI = new GoogleGenerativeAI(finalApiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     // AI에게 시뮬레이터 엔진으로서의 역할과 엄격한 출력 포맷을 강제하는 프롬프트
