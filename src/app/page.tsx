@@ -132,6 +132,7 @@ export default function Home() {
   const [freeAction, setFreeAction] = useState("");
   const [hasAutoSave, setHasAutoSave] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective'>('inventory');
+  const [activeModal, setActiveModal] = useState<'character' | 'rightPanel' | null>(null);
 
   useEffect(() => {
     const configStr = localStorage.getItem("ck_startup_config");
@@ -358,121 +359,17 @@ export default function Home() {
         </div>
       </header>
       {/* Left Panel */}
-      <aside className={`glass-panel ${styles.leftPanel}`}>
-        {gameState.personalInfo && (
-          <Accordion title="【 개인 정보 】">
-            {Object.entries(gameState.personalInfo).map(([key, value]) => (
-              <div className={styles.statRow} key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...(key === '칭호' ? { background: 'rgba(212,175,55,0.1)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(212,175,55,0.4)', margin: '4px 0' } : {}) }}>
-                <span style={{ flexShrink: 0, marginRight: '10px', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold' } : {}) }}>{key === '칭호' ? '👑 칭호' : key}</span>
-                <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold', textShadow: '0 0 8px rgba(212,175,55,0.6)' } : {}) }} title={value as string}>{value as string}</span>
-              </div>
-            ))}
-          </Accordion>
-        )}
-
-        {gameState.playerStatus && (
-          <Accordion title="【 플레이어 상태 】">
-            {gameState.playerStatus.map((status, idx) => {
-              const isDanger = status.risk.includes('위험') && !status.risk.includes('안전') && !status.risk.includes('주의');
-              const isWarning = status.risk.includes('주의');
-              return (
-              <div className={styles.statRow} key={idx} title={`${status.description}\n(위험도: ${status.risk})`} style={{marginBottom: '8px', cursor: 'help', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                <span style={{ fontSize: '1.1rem' }}>{getStatusIcon(status.name)}</span>
-                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{status.name}</span>
-                <span className={styles.statValue} style={{
-                  color: isDanger ? 'var(--danger)' : isWarning ? '#ffa64d' : 'var(--gold-accent)',
-                  fontWeight: isDanger ? 'bold' : 'normal',
-                  animation: isDanger ? 'pulse 1.5s infinite' : 'none',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {status.value}
-                </span>
-              </div>
-              );
-            })}
-          </Accordion>
-        )}
-
-        
-        {gameState.stats && (Object.keys(gameState.stats.innate || {}).length > 0 || Object.keys(gameState.stats.acquired || {}).length > 0) && (
-          <Accordion title="【 개인 능력치 】">
-            {gameState.stats.innate && Object.keys(gameState.stats.innate).length > 0 && (
-              <div style={{ marginBottom: '15px' }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px', paddingBottom: '3px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>[선천 능력치]</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Object.entries(gameState.stats.innate).map(([key, value]) => (
-                    <div className={styles.statRow} key={key} style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ flexShrink: 0 }}>{key}</span>
-                      <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StatValue value={value as string} /></span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {gameState.stats.acquired && Object.keys(gameState.stats.acquired).length > 0 && (
-              <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px', paddingBottom: '3px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>[후천 능력치]</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Object.entries(gameState.stats.acquired).map(([key, value]) => (
-                    <div className={styles.statRow} key={key} style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ flexShrink: 0 }}>{key}</span>
-                      <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StatValue value={value as string} /></span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Accordion>
-        )}
-        
-        {gameState.traits && gameState.traits.length > 0 && (
-          <Accordion title="【 특성 및 기술 】">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {gameState.traits.map((trait, idx) => {
-                const style = getTraitColor(trait.category);
-                return (
-                  <div key={idx} title={trait.description} style={{
-                    padding: '6px 12px',
-                    background: style.bg,
-                    border: `1px solid ${style.border}`,
-                    borderRadius: '6px',
-                    color: style.color,
-                    cursor: 'help',
-                    animation: style.animation || 'none',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    minWidth: '80px'
-                  }}>
-                    <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>{getTraitIcon(trait.category)} {trait.category}</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', textAlign: 'center' }}>{trait.name}</span>
-                    {trait.tier && (
-                      <span style={{ 
-                        fontSize: '0.75rem', 
-                        marginTop: '2px', 
-                        color: trait.tier.includes('강한') ? '#c084fc' : 
-                               trait.tier.includes('확립된') ? '#fbbf24' : 
-                               trait.tier.includes('잠재') ? '#94a3b8' : 
-                               trait.tier.includes('반복') ? '#d97706' : '#64748b',
-                        fontWeight: 'bold',
-                        textShadow: trait.tier.includes('강한') || trait.tier.includes('확립된') ? '0 0 5px currentColor' : 'none'
-                      }}>
-                        {trait.tier.includes('강한') ? '★★★✨' : trait.tier.includes('확립된') ? '★★★' : trait.tier.includes('잠재') ? '★★' : trait.tier.includes('반복') ? '★' : '☆'} {trait.tier}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </Accordion>
-        )}
-      </aside>
+      
 
       {/* Center Panel */}
       <section className={`glass-panel ${styles.centerPanel}`}>
+      <div className={styles.navBar}>
+        <button className={styles.navBtn} onClick={() => setActiveModal('character')}>👤 캐릭터 정보</button>
+        <button className={styles.navBtn} onClick={() => { setActiveTab('inventory'); setActiveModal('rightPanel'); }}>🎒 자원/세력</button>
+        <button className={styles.navBtn} onClick={() => { setActiveTab('relations'); setActiveModal('rightPanel'); }}>🤝 인간관계</button>
+        <button className={styles.navBtn} onClick={() => { setActiveTab('objective'); setActiveModal('rightPanel'); }}>📜 목표/로그</button>
+      </div>
+
         {gameState.ending ? (
           <div className={styles.narrativeArea} style={{textAlign: 'center', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
              <h1 style={{color: 'var(--danger)', fontSize: '4rem', marginBottom: '30px', textShadow: '0 0 15px rgba(239,68,68,0.5)', letterSpacing: '5px'}}>GAME OVER</h1>
@@ -619,7 +516,134 @@ export default function Home() {
       </section>
 
       {/* Right Panel */}
-      <aside className={`glass-panel ${styles.rightPanel}`}>
+      
+    
+      {activeModal && (
+        <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
+          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+              <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
+            </div>
+            {activeModal === 'character' && (
+              <div>
+                <h2 style={{color: 'var(--gold-accent)', marginBottom: '20px', textAlign: 'center'}}>👤 캐릭터 정보</h2>
+                
+        {gameState.personalInfo && (
+          <Accordion title="【 개인 정보 】">
+            {Object.entries(gameState.personalInfo).map(([key, value]) => (
+              <div className={styles.statRow} key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...(key === '칭호' ? { background: 'rgba(212,175,55,0.1)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(212,175,55,0.4)', margin: '4px 0' } : {}) }}>
+                <span style={{ flexShrink: 0, marginRight: '10px', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold' } : {}) }}>{key === '칭호' ? '👑 칭호' : key}</span>
+                <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold', textShadow: '0 0 8px rgba(212,175,55,0.6)' } : {}) }} title={value as string}>{value as string}</span>
+              </div>
+            ))}
+          </Accordion>
+        )}
+
+        {gameState.playerStatus && (
+          <Accordion title="【 플레이어 상태 】">
+            {gameState.playerStatus.map((status, idx) => {
+              const isDanger = status.risk.includes('위험') && !status.risk.includes('안전') && !status.risk.includes('주의');
+              const isWarning = status.risk.includes('주의');
+              return (
+              <div className={styles.statRow} key={idx} title={`${status.description}\n(위험도: ${status.risk})`} style={{marginBottom: '8px', cursor: 'help', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <span style={{ fontSize: '1.1rem' }}>{getStatusIcon(status.name)}</span>
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{status.name}</span>
+                <span className={styles.statValue} style={{
+                  color: isDanger ? 'var(--danger)' : isWarning ? '#ffa64d' : 'var(--gold-accent)',
+                  fontWeight: isDanger ? 'bold' : 'normal',
+                  animation: isDanger ? 'pulse 1.5s infinite' : 'none',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {status.value}
+                </span>
+              </div>
+              );
+            })}
+          </Accordion>
+        )}
+
+        
+        {gameState.stats && (Object.keys(gameState.stats.innate || {}).length > 0 || Object.keys(gameState.stats.acquired || {}).length > 0) && (
+          <Accordion title="【 개인 능력치 】">
+            {gameState.stats.innate && Object.keys(gameState.stats.innate).length > 0 && (
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px', paddingBottom: '3px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>[선천 능력치]</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {Object.entries(gameState.stats.innate).map(([key, value]) => (
+                    <div className={styles.statRow} key={key} style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ flexShrink: 0 }}>{key}</span>
+                      <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StatValue value={value as string} /></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {gameState.stats.acquired && Object.keys(gameState.stats.acquired).length > 0 && (
+              <div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px', paddingBottom: '3px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>[후천 능력치]</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {Object.entries(gameState.stats.acquired).map(([key, value]) => (
+                    <div className={styles.statRow} key={key} style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ flexShrink: 0 }}>{key}</span>
+                      <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StatValue value={value as string} /></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Accordion>
+        )}
+        
+        {gameState.traits && gameState.traits.length > 0 && (
+          <Accordion title="【 특성 및 기술 】">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {gameState.traits.map((trait, idx) => {
+                const style = getTraitColor(trait.category);
+                return (
+                  <div key={idx} title={trait.description} style={{
+                    padding: '6px 12px',
+                    background: style.bg,
+                    border: `1px solid ${style.border}`,
+                    borderRadius: '6px',
+                    color: style.color,
+                    cursor: 'help',
+                    animation: style.animation || 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    minWidth: '80px'
+                  }}>
+                    <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>{getTraitIcon(trait.category)} {trait.category}</span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', textAlign: 'center' }}>{trait.name}</span>
+                    {trait.tier && (
+                      <span style={{ 
+                        fontSize: '0.75rem', 
+                        marginTop: '2px', 
+                        color: trait.tier.includes('강한') ? '#c084fc' : 
+                               trait.tier.includes('확립된') ? '#fbbf24' : 
+                               trait.tier.includes('잠재') ? '#94a3b8' : 
+                               trait.tier.includes('반복') ? '#d97706' : '#64748b',
+                        fontWeight: 'bold',
+                        textShadow: trait.tier.includes('강한') || trait.tier.includes('확립된') ? '0 0 5px currentColor' : 'none'
+                      }}>
+                        {trait.tier.includes('강한') ? '★★★✨' : trait.tier.includes('확립된') ? '★★★' : trait.tier.includes('잠재') ? '★★' : trait.tier.includes('반복') ? '★' : '☆'} {trait.tier}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </Accordion>
+        )}
+      
+              </div>
+            )}
+            {activeModal === 'rightPanel' && (
+              <div>
+                
         <div style={{ display: 'flex', gap: '5px', marginBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', flexShrink: 0 }}>
           <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'inventory' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'inventory' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('inventory')}>자원/세력</button>
           <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'relations' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'relations' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('relations')}>인간관계</button>
@@ -921,7 +945,12 @@ export default function Home() {
           </Accordion>
           </div>
         )}
-      </aside>
-    </main>
+      
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+\n    </main>
   );
 }

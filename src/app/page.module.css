@@ -1,11 +1,31 @@
 .container {
-  display: grid;
-  grid-template-columns: 250px minmax(0, 1fr) 250px;
-  grid-template-rows: 60px calc(100vh - 80px);
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100vh;
   padding: 20px;
-  height: 100vh;
-  min-width: 0;
+}
+.modalOverlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(5px);
+  z-index: 1000; display: flex; justify-content: center; align-items: center;
+}
+.modalContent {
+  background: var(--panel-bg); width: 90%; max-width: 600px; max-height: 85vh;
+  overflow-y: auto; border-radius: 12px; border: 1px solid var(--panel-border);
+  padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+.navBar {
+  display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.navBtn {
+  background: rgba(0,0,0,0.4); border: 1px solid var(--panel-border);
+  color: var(--text-main); padding: 10px 16px; border-radius: 8px;
+  cursor: pointer; transition: all 0.2s ease; font-size: 0.95rem; font-weight: bold;
+}
+.navBtn:hover {
+  background: rgba(212,175,55,0.15); border-color: var(--gold-accent); color: var(--gold-accent);
 }
 
 @media (max-width: 1024px) {
