@@ -20,7 +20,7 @@
 body {
   background-color: var(--bg-dark);
   color: var(--text-main);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Noto Serif KR', 'KoPub Batang', 'Nanum Myeongjo', 'Batang', serif;
   height: 100vh;
   overflow: hidden;
   background-image: 

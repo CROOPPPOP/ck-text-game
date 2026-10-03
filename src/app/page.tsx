@@ -131,6 +131,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [freeAction, setFreeAction] = useState("");
   const [hasAutoSave, setHasAutoSave] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective'>('inventory');
 
   useEffect(() => {
     const configStr = localStorage.getItem("ck_startup_config");
@@ -601,6 +602,14 @@ export default function Home() {
 
       {/* Right Panel */}
       <aside className={`glass-panel ${styles.rightPanel}`}>
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', flexShrink: 0 }}>
+          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'inventory' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'inventory' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('inventory')}>자원/세력</button>
+          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'relations' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'relations' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('relations')}>인간관계</button>
+          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'objective' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'objective' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('objective')}>목표/로그</button>
+        </div>
+        
+        {activeTab === 'inventory' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <Accordion title="【 국가 및 세력 현황 】">
           {gameState.factionState && !gameState.factionState.none ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}>
@@ -637,7 +646,11 @@ export default function Home() {
             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '10px' }}>통치 중인 영지 없음</div>
           )}
         </Accordion>
+          </div>
+        )}
 
+        {activeTab === 'relations' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <Accordion title="【 외교 및 인간 관계 】">
           {gameState.relationships ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -778,7 +791,11 @@ export default function Home() {
             )}
           </div>
         </Accordion>
+          </div>
+        )}
 
+        {activeTab === 'objective' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {gameState.objective && (
           <Accordion title="【 목표 현황 】">
             <div style={{ marginBottom: '16px' }}>
@@ -848,8 +865,11 @@ export default function Home() {
             </div>
           </Accordion>
         )}
+          </div>
+        )}
 
-        {gameState.inventory && (Object.keys(gameState.inventory).length > 0) && (
+        {activeTab === 'inventory' && gameState.inventory && (Object.keys(gameState.inventory).length > 0) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <Accordion title="【 소지품 및 자원 】">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {Object.entries(gameState.inventory).map(([category, items]) => {
@@ -881,6 +901,7 @@ export default function Home() {
               })}
             </div>
           </Accordion>
+          </div>
         )}
       </aside>
     </main>
