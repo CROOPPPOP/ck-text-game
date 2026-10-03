@@ -348,8 +348,18 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <img src="/logo.jpg" alt="CHRONICLES" style={{ height: '40px', borderRadius: '4px', border: '1px solid var(--gold-accent)' }} />
         </div>
-        <div className={styles.statusInfo} style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
-          <span>{gameState.dateLocation || "날짜/위치 알 수 없음"}</span>
+        <div className={styles.statusInfo} style={{display: 'flex', gap: '12px', alignItems: 'center'}}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '5px 12px', borderRadius: '20px', border: '1px solid var(--panel-border)' }}>
+            <span style={{ color: 'var(--gold-accent)' }}>📅</span>
+            <span style={{ color: 'var(--text-main)', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }} title={(gameState.dateLocation || "").replace(/\[턴 수:.*\]/, "").trim()}>
+              {(gameState.dateLocation || "").replace(/\[턴 수:.*\]/, "").trim() || "날짜/위치 알 수 없음"}
+            </span>
+          </div>
+          {((gameState.dateLocation || "").match(/\[턴 수:\s*(\d+)\]/) || [])[1] && (
+             <div style={{ background: 'var(--gold-accent)', color: '#121212', fontWeight: 'bold', padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem' }}>
+               TURN {((gameState.dateLocation || "").match(/\[턴 수:\s*(\d+)\]/) || [])[1]}
+             </div>
+          )}
           <button className={styles.actionBtn} style={{padding: '6px 12px', fontSize: '0.9rem', background: 'var(--panel-bg)', color: 'var(--text-main)'}} onClick={handleReturnToTitle}>🏠 메인 타이틀로</button>
           <button className={styles.actionBtn} style={{padding: '6px 12px', fontSize: '0.9rem'}} onClick={handleSave}>저장하기</button>
           <label className={styles.actionBtn} style={{padding: '6px 12px', fontSize: '0.9rem', cursor: 'pointer'}}>
