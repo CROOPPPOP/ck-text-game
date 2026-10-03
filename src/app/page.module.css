@@ -83,12 +83,9 @@
 }
 
 .narrativeArea {
-  flex-grow: 1;
-  overflow-y: auto;
   font-size: 1.15rem;
   line-height: 1.8;
   margin-bottom: 20px;
-  padding-right: 10px;
 }
 
 .narrativeText {
@@ -96,13 +93,13 @@
 }
 
 .choicesArea {
+  flex: 4;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-top: 20px;
-  border-top: 1px solid var(--panel-border);
-  max-height: 35vh;
   overflow-y: auto;
+  padding-left: 15px;
+  border-left: 1px solid var(--panel-border);
   padding-right: 10px;
 }
 
@@ -175,4 +172,36 @@
 
 .accordionHeader:hover {
   color: var(--gold-hover);
+}
+
+.contentSplit {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  gap: 30px;
+  min-height: 0;
+  overflow: hidden;
+}
+.leftPane {
+  flex: 6;
+  overflow-y: auto;
+  padding-right: 15px;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 1024px) {
+  .contentSplit {
+    flex-direction: column;
+  }
+  .leftPane {
+    flex: auto;
+    padding-right: 0;
+  }
+  .choicesArea {
+    border-left: none !important;
+    padding-left: 0 !important;
+    border-top: 1px solid var(--panel-border) !important;
+    padding-top: 20px !important;
+    max-height: none !important;
+  }
 }

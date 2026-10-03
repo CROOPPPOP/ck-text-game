@@ -382,7 +382,9 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <div className={styles.narrativeArea}>
+            <div className={styles.contentSplit}>
+              <div className={styles.leftPane}>
+                <div className={styles.narrativeArea}>
               {loading ? (
                  <p className={styles.narrativeText} style={{textAlign: 'center', marginTop: '50px', color: 'var(--gold-accent)'}}>
                    AI가 행동의 인과율을 판정하고 있습니다.<br/>잠시만 기다려주세요...
@@ -475,6 +477,7 @@ export default function Home() {
               </div>
             )}
 
+            </div>
             {!loading && gameState.choices && !gameState.ending && (
               <div className={styles.choicesArea}>
                 {gameState.choices.map((choice, idx) => {
@@ -511,6 +514,7 @@ export default function Home() {
                 </div>
               </div>
             )}
+            </div>
           </>
         )}
       </section>
