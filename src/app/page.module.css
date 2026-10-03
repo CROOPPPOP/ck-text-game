@@ -3,8 +3,9 @@
   flex-direction: column;
   max-width: 900px;
   margin: 0 auto;
-  min-height: 100vh;
+  height: 100vh;
   padding: 20px;
+  overflow: hidden;
 }
 .modalOverlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -77,6 +78,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
+  flex-grow: 1;
 }
 
 .narrativeArea {
