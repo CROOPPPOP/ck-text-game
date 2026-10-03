@@ -22,8 +22,8 @@ export function parseLLMResponse(text: string): ParsedState {
 
   // 헬퍼 함수: 특정 헤더(예: '현재 상황') 안의 내용을 추출합니다.
   const extractSection = (headerPattern: string) => {
-    // 【 헤더 】 부터 다음 【 헤더 】가 나오기 전까지 추출
-    const regex = new RegExp(`【 ${headerPattern} 】\\n([\\s\\S]*?)(?=\\n【 |$)`);
+    // 【 헤더 】 부터 다음 【 헤더 】가 나오기 전까지 추출 (공백 유연하게 허용)
+    const regex = new RegExp(`【\\s*${headerPattern}\\s*】\\s*\\n([\\s\\S]*?)(?=\\n\\s*【|$)`);
     const match = text.match(regex);
     return match ? match[1].trim() : null;
   };
@@ -44,11 +44,19 @@ export function parseLLMResponse(text: string): ParsedState {
   if (envMatch) {
     const env: Record<string, string> = {};
     envMatch.split('\n').forEach(line => {
-      const match = line.match(/^\[(.*?)\]\s*:\s*(.*)/);
+      // AI가 **[국경 동향]:** 이나 - [국경 동향]: 등으로 출력할 수 있으므로 느슨하게 매칭
+      const match = line.match(/\[(.*?)\]\s*[:：]?\s*(.*)/);
       if (match) {
-        env[match[1].trim()] = match[2].trim();
+        let key = match[1].replace(/[*_]/g, '').trim();
+        let val = match[2].replace(/[*_]/g, '').trim();
+        if (key && val) env[key] = val;
       }
     });
+    // 키가 하나도 없더라도 원문 자체가 있으면 임의의 키로 통째로 넣기 (오류 방지)
+    if (Object.keys(env).length === 0 && envMatch.trim().length > 0) {
+      env['환경 정보'] = envMatch.trim();
+    }
+    
     if (Object.keys(env).length > 0) result.environment = env;
   }
 
