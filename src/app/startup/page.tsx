@@ -8,8 +8,8 @@ export default function Startup() {
   const innateStatsList = ['근력', '체력', '지구력', '민첩성', '반사 신경', '속도', '신체 조정력', '지각력', '지능', '기억력', '학습 능력', '의지력', '집중력'];
   const acquiredStatsList = ['통솔력', '매력', '외교력', '설득력', '기만술', '위협', '행정력', '전략', '전술', '전투력', '무기 숙련도', '기마술', '생존술', '의술', '학문', '기술 숙련도', '장인 기술', '은밀 행동', '수사력'];
   const [customStatsMode, setCustomStatsMode] = useState(false);
-  const [statsData, setStatsData] = useState<Record<string, number>>(() => {
-    const initial: Record<string, number> = {};
+  const [statsData, setStatsData] = useState<Record<string, number | string>>(() => {
+    const initial: Record<string, number | string> = {};
     innateStatsList.forEach(stat => initial[stat] = 50);
     acquiredStatsList.forEach(stat => initial[stat] = 0);
     return initial;
@@ -17,8 +17,8 @@ export default function Startup() {
 
   const totalInnatePoints = 650;
   const totalAcquiredPoints = 200;
-  const usedInnatePoints = innateStatsList.reduce((acc, stat) => acc + statsData[stat], 0);
-  const usedAcquiredPoints = acquiredStatsList.reduce((acc, stat) => acc + statsData[stat], 0);
+  const usedInnatePoints = innateStatsList.reduce((acc, stat) => acc + (typeof statsData[stat] === 'number' ? statsData[stat] as number : 0), 0);
+  const usedAcquiredPoints = acquiredStatsList.reduce((acc, stat) => acc + (typeof statsData[stat] === 'number' ? statsData[stat] as number : 0), 0);
   const remainingInnatePoints = totalInnatePoints - usedInnatePoints;
   const remainingAcquiredPoints = totalAcquiredPoints - usedAcquiredPoints;
 
@@ -95,7 +95,7 @@ export default function Startup() {
         traits: '[초보자] 이제 막 모험을 시작했습니다.',
         inheritedState: null as any
       });
-      const initialStats: Record<string, number> = {};
+      const initialStats: Record<string, number | string> = {};
       innateStatsList.forEach(stat => initialStats[stat] = 50);
       acquiredStatsList.forEach(stat => initialStats[stat] = 0);
       setStatsData(initialStats);
@@ -108,23 +108,29 @@ export default function Startup() {
 
   const handleStatChange = (stat: string, delta: number) => {
     setStatsData(prev => {
-      const newVal = Math.max(0, Math.min(100, prev[stat] + delta));
+      const currentVal = typeof prev[stat] === 'number' ? prev[stat] as number : 0;
+      const newVal = Math.max(0, Math.min(100, currentVal + delta));
       const nextData = { ...prev, [stat]: newVal };
       if (!customStatsMode) {
-         setFormData(fd => ({ ...fd, stats: Object.entries(nextData).map(([k,v]) => `${k}: ${v}`).join(', ') }));
+         setFormData(fd => ({ ...fd, stats: Object.entries(nextData).map(([k,v]) => `${k}: ${v === '' ? 0 : v}`).join(', ') }));
       }
       return nextData;
     });
   };
 
   const handleStatInput = (stat: string, value: string) => {
-    let newVal = parseInt(value, 10);
-    if (isNaN(newVal)) newVal = 0;
-    newVal = Math.max(0, Math.min(100, newVal));
     setStatsData(prev => {
-      const nextData = { ...prev, [stat]: newVal };
+      const nextData = { ...prev };
+      if (value === "") {
+        nextData[stat] = "";
+      } else {
+        let newVal = parseInt(value, 10);
+        if (isNaN(newVal)) return prev;
+        newVal = Math.max(0, Math.min(100, newVal));
+        nextData[stat] = newVal;
+      }
       if (!customStatsMode) {
-         setFormData(fd => ({ ...fd, stats: Object.entries(nextData).map(([k,v]) => `${k}: ${v}`).join(', ') }));
+         setFormData(fd => ({ ...fd, stats: Object.entries(nextData).map(([k,v]) => `${k}: ${v === '' ? 0 : v}`).join(', ') }));
       }
       return nextData;
     });
@@ -398,7 +404,7 @@ export default function Startup() {
                           <input 
                             type="number" 
                             min="0" max="100" 
-                            value={statsData[stat] || 0} 
+                            value={statsData[stat] === 0 ? 0 : (statsData[stat] || '')} 
                             onChange={(e) => handleStatInput(stat, e.target.value)} 
                             style={{ width: '40px', textAlign: 'center', fontWeight: 'bold', color: 'var(--gold-hover)', fontSize: '0.9rem', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.2)', outline: 'none', WebkitAppearance: 'none' }} 
                           />
@@ -426,7 +432,7 @@ export default function Startup() {
                           <input 
                             type="number" 
                             min="0" max="100" 
-                            value={statsData[stat] || 0} 
+                            value={statsData[stat] === 0 ? 0 : (statsData[stat] || '')} 
                             onChange={(e) => handleStatInput(stat, e.target.value)} 
                             style={{ width: '40px', textAlign: 'center', fontWeight: 'bold', color: 'var(--gold-hover)', fontSize: '0.9rem', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.2)', outline: 'none', WebkitAppearance: 'none' }} 
                           />
