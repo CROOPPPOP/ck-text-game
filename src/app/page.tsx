@@ -372,21 +372,24 @@ export default function Home() {
 
         {gameState.playerStatus && (
           <Accordion title="【 플레이어 상태 】">
-            {gameState.playerStatus.map((status, idx) => (
+            {gameState.playerStatus.map((status, idx) => {
+              const isDanger = status.risk.includes('위험') && !status.risk.includes('안전') && !status.risk.includes('주의');
+              const isWarning = status.risk.includes('주의');
+              return (
               <div className={styles.statRow} key={idx} title={`${status.description}\n(위험도: ${status.risk})`} style={{marginBottom: '8px', cursor: 'help', display: 'flex', alignItems: 'center', gap: '8px'}}>
                 <span style={{ fontSize: '1.1rem' }}>{getStatusIcon(status.name)}</span>
                 <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{status.name}</span>
                 <span className={styles.statValue} style={{
-                  color: status.risk.includes('위험') ? 'var(--danger)' : 
-                         status.risk.includes('주의') ? '#ffa64d' : 'var(--gold-accent)',
-                  fontWeight: status.risk.includes('위험') ? 'bold' : 'normal',
-                  animation: status.risk.includes('위험') ? 'pulse 1.5s infinite' : 'none',
+                  color: isDanger ? 'var(--danger)' : isWarning ? '#ffa64d' : 'var(--gold-accent)',
+                  fontWeight: isDanger ? 'bold' : 'normal',
+                  animation: isDanger ? 'pulse 1.5s infinite' : 'none',
                   whiteSpace: 'nowrap'
                 }}>
                   {status.value}
                 </span>
               </div>
-            ))}
+              );
+            })}
           </Accordion>
         )}
 
