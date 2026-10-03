@@ -748,10 +748,10 @@ export default function Home() {
                    <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>🛡️ 세력 관계</div>
                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                      {gameState.relationships.faction.map((rel, idx) => {
-                       const parts = rel.split('-');
-                       if (parts.length >= 2) {
-                         const name = parts[0].replace(/^[○•\s]+/, '').trim();
-                         const status = parts.slice(1).join('-').trim();
+                       const match = rel.match(/^(.*?)\s+-\s+(.*)$/);
+                       if (match) {
+                         const name = match[1].replace(/^[○•\s]+/, '').trim();
+                         const status = match[2].trim();
                          let badgeColor = 'rgba(255,255,255,0.1)';
                          let textColor = 'var(--text-muted)';
                          if (status.includes('동맹') || status.includes('우호')) { badgeColor = 'rgba(56,189,248,0.2)'; textColor = '#38bdf8'; }

@@ -41,7 +41,7 @@ This is crucial for the parser engine to work.
 YYYY년 MM월 DD일 / 위치 [턴 수: N]
 
 【 현재 상황 】
-(Narrative text here. Explain what is happening, NPC dialogues, and the historical surroundings in 3-5 vivid sentences.)
+(Narrative text here. Explain what is happening, NPC dialogues, and the historical surroundings in 3-5 vivid sentences. **CRITICAL: 모든 상황 서술은 반드시 플레이어 캐릭터의 시점인 '1인칭(나는~, 내가~)'으로만 작성하세요.**)
 (서사 마지막 줄에 반드시 [역사적 고증: 확인됨 / 개연성 있음 / 논쟁 중 / 확인되지 않음 / 시뮬레이션 분기] 중 하나를 골라 작성하세요.)
 
 【 개인 정보 】
