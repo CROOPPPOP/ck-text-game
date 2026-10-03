@@ -516,6 +516,21 @@ export default function Home() {
                       </div>
                     </div>
                   )}
+                  {gameState.environment && (
+                    <div style={{ marginBottom: '30px', padding: '15px 20px', background: gameState.factionState && !gameState.factionState.none ? 'rgba(212,175,55,0.05)' : 'rgba(0,0,0,0.4)', border: gameState.factionState && !gameState.factionState.none ? '1px solid rgba(212,175,55,0.2)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', backgroundImage: gameState.factionState && !gameState.factionState.none ? 'linear-gradient(to bottom right, rgba(212,175,55,0.05), transparent)' : 'linear-gradient(to bottom right, rgba(255,255,255,0.02), transparent)' }}>
+                      <div style={{ color: 'var(--gold-accent)', fontSize: '0.95rem', marginBottom: '12px', fontWeight: 'bold', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '6px' }}>
+                        {gameState.factionState && !gameState.factionState.none ? '🗺️ 주변 정세 (지도자 시야)' : '👀 현장 상황 (개인 시야)'}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {Object.entries(gameState.environment).map(([key, val], idx) => (
+                          <div key={idx} style={{ display: 'flex', gap: '10px', fontSize: '0.95rem' }}>
+                            <strong style={{ color: 'var(--text-muted)', flexShrink: 0, minWidth: '80px' }}>[{key}]</strong>
+                            <span style={{ color: 'var(--text-main)', lineHeight: '1.4' }}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className={styles.narrativeText} style={{ position: 'relative' }}>
                     <strong style={{color: 'var(--gold-accent)'}}>【 현재 상황 】</strong>
                     {gameState.historicalTag && (

@@ -23,6 +23,8 @@ body {
   font-family: 'Noto Serif KR', 'KoPub Batang', 'Nanum Myeongjo', 'Batang', serif;
   height: 100vh;
   overflow: hidden;
+  word-break: keep-all;
+  overflow-wrap: break-word;
   background-image: 
     linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.9)),
     url('/bg.jpg');

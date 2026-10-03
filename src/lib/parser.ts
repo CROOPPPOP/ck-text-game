@@ -14,6 +14,7 @@ export interface ParsedState {
   historicalTag?: string;
   choices?: Array<{ id: string; type: string; text: string; probability: string; groupType?: string }>;
   ending?: string;
+  environment?: Record<string, string>;
 }
 
 export function parseLLMResponse(text: string): ParsedState {
@@ -38,7 +39,20 @@ export function parseLLMResponse(text: string): ParsedState {
     }
   }
 
-  // 2. 날짜 / 위치
+  // 2. 주변 정세 및 환경
+  const envMatch = extractSection('주변 정세 및 환경');
+  if (envMatch) {
+    const env: Record<string, string> = {};
+    envMatch.split('\n').forEach(line => {
+      const match = line.match(/^\[(.*?)\]\s*:\s*(.*)/);
+      if (match) {
+        env[match[1].trim()] = match[2].trim();
+      }
+    });
+    if (Object.keys(env).length > 0) result.environment = env;
+  }
+
+  // 2.5 날짜 / 위치
   result.dateLocation = extractSection('날짜 / 위치') || undefined;
 
   // 3. 판정 결과 (있을 경우)

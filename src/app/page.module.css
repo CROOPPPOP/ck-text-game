@@ -1,10 +1,26 @@
 .container {
   display: grid;
-  grid-template-columns: 300px 1fr 300px;
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
   grid-template-rows: 60px calc(100vh - 80px);
   gap: 20px;
   padding: 20px;
   height: 100vh;
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .container {
+    grid-template-columns: 250px minmax(0, 1fr) 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    height: auto;
+    overflow-y: auto;
+  }
 }
 
 .header {
@@ -33,12 +49,14 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 /* Center Panel specifically */
 .centerPanel {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .narrativeArea {
