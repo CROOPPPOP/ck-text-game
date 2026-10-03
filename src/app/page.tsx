@@ -951,6 +951,7 @@ export default function Home() {
           </div>
         </div>
       )}
-\n    </main>
+
+    </main>
   );
 }
