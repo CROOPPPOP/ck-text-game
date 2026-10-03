@@ -362,9 +362,9 @@ export default function Home() {
         {gameState.personalInfo && (
           <Accordion title="【 개인 정보 】">
             {Object.entries(gameState.personalInfo).map(([key, value]) => (
-              <div className={styles.statRow} key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ flexShrink: 0, marginRight: '10px' }}>{key}</span>
-                <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }} title={value as string}>{value as string}</span>
+              <div className={styles.statRow} key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...(key === '칭호' ? { background: 'rgba(212,175,55,0.1)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(212,175,55,0.4)', margin: '4px 0' } : {}) }}>
+                <span style={{ flexShrink: 0, marginRight: '10px', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold' } : {}) }}>{key === '칭호' ? '👑 칭호' : key}</span>
+                <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold', textShadow: '0 0 8px rgba(212,175,55,0.6)' } : {}) }} title={value as string}>{value as string}</span>
               </div>
             ))}
           </Accordion>
