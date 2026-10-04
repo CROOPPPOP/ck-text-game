@@ -129,7 +129,7 @@ YYYY년 MM월 DD일 / 위치 [턴 수: N]
 [인구]: 수치(상태) | [세력 재정]: 수치(상태) | [행정력]: 수치(상태) | [치안]: 수치(상태) | [민심]: 수치(상태) | [병력]: 수치(상태) | [군사 준비도]: 수치(상태) | [정치 안정도]: 수치(상태) | [개발도]: 수치(상태)
 
 【 외교 및 인간 관계 】
-(관계에 변동이 있을 때만 갱신하며, 반드시 2가지 카테고리로 분리하여 출력)
+(경고 - 절대 누락 금지: 관계에 변동이 없더라도 이전 턴의 모든 관계를 절대 생략하거나 축약하지 말고 100% 그대로 복사해서 유지하세요. 반드시 2가지 카테고리로 분리하여 출력)
 ▶ <인간 관계>: [NPC 이름] | 신뢰도 [0~100] - [단계] | 애정도(또는 우정도) [0~100] - [단계] | 관계: [요약 설명]
 (경고: 단계 명칭을 섞어 쓰지 마세요. 예를 들어 신뢰도 68일 때 애정도 표에 있는 '호감'을 쓰면 안 됩니다. 반드시 각 범주의 수치 구간에 지정된 단어만 정확하게 출력하세요.)
 (※ 신뢰도 단계 룰: 0-12 경계, 13-24 어색함, 25-37 관심, 38-49 호기심, 50-62 우호, 63-74 친밀, 75-89 신뢰, 90-100 동반)
@@ -205,20 +205,35 @@ YYYY년 MM월 DD일 / 위치 [턴 수: N]
          }
       }
       
-      // 2. Check Traits
+      
+      // 2. Check Traits Omission
       if (currentState?.traits && currentState.traits.length > 0) {
          if (!finalParsedData.traits || finalParsedData.traits.length === 0) {
-            errorMsgs.push("【 특성 및 기술 】 항목이 누락되었거나 비어 있습니다. 변동이 없더라도 기존의 특성을 절대 생략하지 말고 모두 출력하세요.");
+            errorMsgs.push("【 특성 및 기술 】 항목이 완전히 누락되었습니다. 기존 특성을 모두 출력하세요.");
+         } else if (finalParsedData.traits.length < currentState.traits.length) {
+            errorMsgs.push("【 특성 및 기술 】의 갯수가 이전 턴보다 줄었습니다. 특성을 잃어버린 극적인 이벤트가 발생한 것이 아니라면 절대 누락하지 마세요.");
          }
       }
 
-      // 3. Check Inventory
+      // 3. Check Inventory Omission
       if (currentState?.inventory && Object.keys(currentState.inventory).length > 0) {
-         if (!finalParsedData.inventory || Object.keys(finalParsedData.inventory).length === 0) {
-            errorMsgs.push("【 소지품 / 자원 】 항목이 누락되었거나 비어 있습니다. 기존의 자원을 생략하지 말고 모두 출력하세요.");
+         const curInvCount = Object.values(currentState.inventory).flat().length;
+         const newInvCount = finalParsedData.inventory ? Object.values(finalParsedData.inventory).flat().length : 0;
+         if (newInvCount === 0) {
+            errorMsgs.push("【 소지품 / 자원 】 항목이 누락되었습니다. 기존의 자원을 모두 출력하세요.");
+         } else if (newInvCount < curInvCount) {
+            errorMsgs.push("【 소지품 / 자원 】의 갯수가 줄었습니다. 자원을 확실히 소비한 것이 아니라면 임의로 누락하거나 축약하지 마세요.");
          }
       }
-
+      
+      // 4. Check Relationships Omission
+      if (currentState?.relationships) {
+         const curRelCount = (currentState.relationships.personal?.length || 0) + (currentState.relationships.faction?.length || 0);
+         const newRelCount = finalParsedData.relationships ? (finalParsedData.relationships.personal?.length || 0) + (finalParsedData.relationships.faction?.length || 0) : 0;
+         if (curRelCount > 0 && newRelCount < curRelCount) {
+            errorMsgs.push("【 외교 및 인간 관계 】의 갯수가 이전 턴보다 줄었습니다. NPC가 사망한 것이 아니라면 변동이 없더라도 절대 누락하지 말고 100% 출력하세요.");
+         }
+      }
       if (errorMsgs.length > 0 && maxRetries > 1) {
          console.warn("Validation failed. Retrying... Errors:", errorMsgs);
          userPrompt += `\n\n[SYSTEM ERROR - AUTO CORRECTION]\n당신이 생성할 응답에서 다음의 규칙 위반이 예상(또는 발생)되었습니다:\n${errorMsgs.map(e => "- " + e).join("\n")}\n\n이 피드백을 반영하여 반드시 위의 엄격한 포맷을 모두 지켜서 다시 텍스트를 생성하십시오.`;

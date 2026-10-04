@@ -208,22 +208,53 @@ export default function Home() {
       if (data.parsed) {
         setGameState(prevState => {
           if (!prevState) return data.parsed;
-          return {
+          
+            // 스마트 병합 함수 정의 (배열 누락 방지)
+            const mergeArrayByKey = <T,>(prevArr: T[] = [], newArr: T[] = [], extractKey: (item: T) => string): T[] => {
+               const map = new Map<string, T>();
+               prevArr.forEach(item => map.set(extractKey(item), item));
+               newArr.forEach(item => map.set(extractKey(item), item));
+               return Array.from(map.values());
+            };
+
+            const mergedTraits = mergeArrayByKey(
+               prevState.traits || [], 
+               data.parsed.traits || [], 
+               (t: any) => t.name
+            );
+
+            const mergedPersonalRels = mergeArrayByKey(
+               prevState.relationships?.personal || [],
+               data.parsed.relationships?.personal || [],
+               (r: string) => r.split('|')[0].trim()
+            );
+
+            const mergedFactionRels = mergeArrayByKey(
+               prevState.relationships?.faction || [],
+               data.parsed.relationships?.faction || [],
+               (r: string) => r.split('-')[0].trim()
+            );
+
+            const mergedRelationships = {
+               personal: mergedPersonalRels,
+               faction: mergedFactionRels
+            };
+            
+            return {
             ...prevState,
             ...data.parsed,
-            // AI가 블록 통째로 누락(환각) 시 이전 상태 유지하는 안전장치
-            
             objective: data.parsed.objective || prevState.objective,
             longTermPlan: data.parsed.longTermPlan !== undefined ? data.parsed.longTermPlan : prevState.longTermPlan,
             inventory: data.parsed.inventory || prevState.inventory,
-            traits: data.parsed.traits || prevState.traits,
+            traits: mergedTraits,
             stats: {
               innate: mergeObject(prevState.stats?.innate, data.parsed.stats?.innate),
               acquired: mergeObject(prevState.stats?.acquired, data.parsed.stats?.acquired)
             },
             personalInfo: mergeObject(prevState.personalInfo, data.parsed.personalInfo),
             factionState: data.parsed.factionState?.none ? { none: "true" } : mergeObject(prevState.factionState, data.parsed.factionState),
-            relationships: data.parsed.relationships || prevState.relationships,
+            relationships: mergedRelationships,
+
             playerStatus: data.parsed.playerStatus || prevState.playerStatus,
             familyState: data.parsed.familyState || prevState.familyState
           };
