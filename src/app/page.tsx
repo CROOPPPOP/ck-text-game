@@ -212,7 +212,9 @@ export default function Home() {
             ...prevState,
             ...data.parsed,
             // AI가 블록 통째로 누락(환각) 시 이전 상태 유지하는 안전장치
+            
             objective: data.parsed.objective || prevState.objective,
+            longTermPlan: data.parsed.longTermPlan !== undefined ? data.parsed.longTermPlan : prevState.longTermPlan,
             inventory: data.parsed.inventory || prevState.inventory,
             traits: data.parsed.traits || prevState.traits,
             stats: {

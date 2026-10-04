@@ -1,4 +1,5 @@
 export interface ParsedState {
+  longTermPlan?: string | null;
   judgment?: { result: string; positive: string; negative: string; };
   dateLocation?: string;
   narrative?: string;
@@ -296,6 +297,13 @@ export function parseLLMResponse(text: string): ParsedState {
       else if (line.startsWith('[지정 후계자]:')) result.familyState!.heir = line.replace('[지정 후계자]:', '').trim();
       else if (line.startsWith('[계승법]:')) result.familyState!.successionLaw = line.replace('[계승법]:', '').trim();
     });
+  }
+
+  
+  // 10. 장기 계획 파싱
+  const longTermPlanMatch = extractSection('장기 계획');
+  if (longTermPlanMatch) {
+    result.longTermPlan = longTermPlanMatch.trim();
   }
 
   return result;
