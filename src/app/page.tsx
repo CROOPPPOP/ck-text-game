@@ -211,28 +211,37 @@ export default function Home() {
           
             // 스마트 병합 함수 정의 (배열 누락 방지 및 AI 명칭 변경 대응 퍼지 병합)
             const mergeArrayByKey = <T,>(prevArr: T[] = [], newArr: T[] = [], extractKey: (item: T) => string): T[] => {
-               const finalArr: T[] = [...newArr];
-               
-               const getCoreName = (s: string) => s.replace(/\[|\]|\(|\)/g, '').replace(/\s+(전\s)?(여)?(남작|자작|백작|후작|공작|대공|영주|국왕|황제|교황|추기경|대주교|주교|사제|신부|수녀|촌장|기사|용병대장)/g, '').trim();
+               const getCoreName = (s: string) => {
+                   let c = s.replace(/\[|\]|\(|\)/g, '');
+                   c = c.replace(/\s+(전\s)?(여)?(남작|자작|백작|후작|공작|대공|영주|국왕|황제|교황|추기경|대주교|주교|사제|신부|수녀|촌장|기사|용병대장)/g, '');
+                   c = c.replace(/\s+(왕국|제국|백국|공국|후국|왕조|공화국)/g, '');
+                   c = c.replace(/\s+및\s+.*?(\s|$)/g, ' ');
+                   return c.trim();
+               };
 
-               prevArr.forEach(oldItem => {
-                  const oldKey = extractKey(oldItem);
-                  const cOld = getCoreName(oldKey);
+               const allItems = [...prevArr, ...newArr];
+               const uniqueItems: T[] = [];
+               
+               allItems.forEach(item => {
+                  const key = extractKey(item);
+                  const cKey = getCoreName(key);
                   
-                  let foundMatch = false;
-                  for (const newItem of newArr) {
-                     const cNew = getCoreName(extractKey(newItem));
-                     if (cOld === cNew || (cOld.length > 2 && cNew.startsWith(cOld)) || (cNew.length > 2 && cOld.startsWith(cNew))) {
-                        foundMatch = true;
-                        break;
-                     }
-                  }
+                  const matchIndex = uniqueItems.findIndex(existingItem => {
+                      const cExisting = getCoreName(extractKey(existingItem));
+                      return cKey === cExisting || (cKey.length > 2 && cExisting.startsWith(cKey)) || (cExisting.length > 2 && cKey.startsWith(cExisting));
+                  });
                   
-                  if (!foundMatch) {
-                     finalArr.push(oldItem);
+                  if (matchIndex !== -1) {
+                      uniqueItems[matchIndex] = item;
+                  } else {
+                      uniqueItems.push(item);
                   }
                });
-               return finalArr;
+               
+               return uniqueItems.filter(item => {
+                   const desc = String(item);
+                   return !desc.includes('(사망)') && !desc.includes('(멸망)') && !desc.includes('사망함') && !desc.includes('멸망함') && !desc.includes('단절됨');
+               });
             };
 
             const mergedTraits = mergeArrayByKey(
