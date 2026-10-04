@@ -209,12 +209,30 @@ export default function Home() {
         setGameState(prevState => {
           if (!prevState) return data.parsed;
           
-            // 스마트 병합 함수 정의 (배열 누락 방지)
+            // 스마트 병합 함수 정의 (배열 누락 방지 및 AI 명칭 변경 대응 퍼지 병합)
             const mergeArrayByKey = <T,>(prevArr: T[] = [], newArr: T[] = [], extractKey: (item: T) => string): T[] => {
-               const map = new Map<string, T>();
-               prevArr.forEach(item => map.set(extractKey(item), item));
-               newArr.forEach(item => map.set(extractKey(item), item));
-               return Array.from(map.values());
+               const finalArr: T[] = [...newArr];
+               
+               const getCoreName = (s: string) => s.replace(/\[|\]|\(|\)/g, '').replace(/\s+(전\s)?(여)?(남작|자작|백작|후작|공작|대공|영주|국왕|황제|교황|추기경|대주교|주교|사제|신부|수녀|촌장|기사|용병대장)/g, '').trim();
+
+               prevArr.forEach(oldItem => {
+                  const oldKey = extractKey(oldItem);
+                  const cOld = getCoreName(oldKey);
+                  
+                  let foundMatch = false;
+                  for (const newItem of newArr) {
+                     const cNew = getCoreName(extractKey(newItem));
+                     if (cOld === cNew || (cOld.length > 2 && cNew.startsWith(cOld)) || (cNew.length > 2 && cOld.startsWith(cNew))) {
+                        foundMatch = true;
+                        break;
+                     }
+                  }
+                  
+                  if (!foundMatch) {
+                     finalArr.push(oldItem);
+                  }
+               });
+               return finalArr;
             };
 
             const mergedTraits = mergeArrayByKey(
