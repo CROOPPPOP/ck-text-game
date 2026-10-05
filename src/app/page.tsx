@@ -131,8 +131,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [freeAction, setFreeAction] = useState("");
   const [hasAutoSave, setHasAutoSave] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective' | 'estate'>('inventory');
   const [activeModal, setActiveModal] = useState<'character' | 'rightPanel' | null>(null);
+  const [constructionQueue, setConstructionQueue] = useState<{building: string, turnsLeft: number}[]>([]);
 
   useEffect(() => {
     const configStr = localStorage.getItem("ck_startup_config");
@@ -148,7 +149,7 @@ export default function Home() {
   // Auto Save
   useEffect(() => {
     if (gameState && !loading) {
-      localStorage.setItem("ck_auto_save", JSON.stringify(gameState));
+      localStorage.setItem("ck_auto_save", JSON.stringify({ ...gameState, _constructionQueue: constructionQueue }));
     }
   }, [gameState, loading]);
 
@@ -156,7 +157,9 @@ export default function Home() {
     const saveStr = localStorage.getItem("ck_auto_save");
     if (saveStr) {
       try {
-        setGameState(JSON.parse(saveStr));
+        const loaded = JSON.parse(saveStr);
+        setGameState(loaded);
+        if (loaded._constructionQueue) setConstructionQueue(loaded._constructionQueue);
       } catch (err) {
         alert("자동 저장 데이터를 불러오지 못했습니다.");
       }
@@ -437,7 +440,8 @@ export default function Home() {
         <button className={styles.navBtn} onClick={() => setActiveModal('character')}>👤 캐릭터 정보</button>
         <button className={styles.navBtn} onClick={() => { setActiveTab('inventory'); setActiveModal('rightPanel'); }}>🎒 자원/세력</button>
         <button className={styles.navBtn} onClick={() => { setActiveTab('relations'); setActiveModal('rightPanel'); }}>🤝 인간관계</button>
-        <button className={styles.navBtn} onClick={() => { setActiveTab('objective'); setActiveModal('rightPanel'); }}>📜 목표/로그</button>
+        <button className={styles.navBtn} onClick={() => { setActiveTab('estate'); setActiveModal('rightPanel'); }}>🏕️ 거점/영지</button>
+        <button className={styles.navBtn} onClick={() => { setActiveTab('objective'); setActiveModal('rightPanel'); }}>📜 로그/상황</button>
       </div>
 
         {gameState.ending ? (

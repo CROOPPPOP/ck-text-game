@@ -1,4 +1,5 @@
 export interface ParsedState {
+  estate?: { type: string, level: string, buildings: {name: string, desc: string}[] };
   longTermPlan?: string | null;
   judgment?: { result: string; positive: string; negative: string; };
   dateLocation?: string;
@@ -267,24 +268,43 @@ export function parseLLMResponse(text: string): ParsedState {
     result.choices = choices;
   }
 
-  // 9. 목표 현황 파싱
-  const objectiveMatch = extractSection('목표 현황') || extractSection('최종 목표 현황');
-  if (objectiveMatch) {
-    result.objective = { ultimateGoal: '', currentGoal: '', currentProgress: '0', totalProgress: '0', status: '', summary: '' };
-    objectiveMatch.split('\n').forEach(line => {
+  // 9. 현재 국면 및 야망 파싱 (기존 목표 현황 대체)
+  const phaseMatch = extractSection('현재 국면 및 야망') || extractSection('목표 현황');
+  if (phaseMatch) {
+    result.objective = { ultimateGoal: '', currentGoal: '', currentProgress: '', totalProgress: '', status: '', summary: '' };
+    phaseMatch.split('\n').forEach(line => {
       const cleanLine = line.trim();
-      if (cleanLine.startsWith('[궁극적 목표]:')) result.objective!.ultimateGoal = cleanLine.replace('[궁극적 목표]:', '').trim();
+      if (cleanLine.startsWith('[현재 주요 국면]:')) result.objective!.ultimateGoal = cleanLine.replace('[현재 주요 국면]:', '').trim();
+      else if (cleanLine.startsWith('[단기 야망]:')) result.objective!.currentGoal = cleanLine.replace('[단기 야망]:', '').trim();
+      else if (cleanLine.startsWith('[진행 상태]:')) result.objective!.status = cleanLine.replace('[진행 상태]:', '').trim();
+      else if (cleanLine.startsWith('[상황 요약]:')) result.objective!.summary = cleanLine.replace('[상황 요약]:', '').trim();
+      // 호환성
+      else if (cleanLine.startsWith('[궁극적 목표]:')) result.objective!.ultimateGoal = cleanLine.replace('[궁극적 목표]:', '').trim();
       else if (cleanLine.startsWith('[현재 단기 목표]:')) result.objective!.currentGoal = cleanLine.replace('[현재 단기 목표]:', '').trim();
-      else if (cleanLine.startsWith('[단기 목표 달성률]:')) result.objective!.currentProgress = cleanLine.replace('[단기 목표 달성률]:', '').trim();
-      else if (cleanLine.startsWith('[전체 진행도]:')) result.objective!.totalProgress = cleanLine.replace('[전체 진행도]:', '').trim();
-      else if (cleanLine.startsWith('[목표 상태]:')) result.objective!.status = cleanLine.replace('[목표 상태]:', '').trim();
       else if (cleanLine.startsWith('[요약]:')) result.objective!.summary = cleanLine.replace('[요약]:', '').trim();
-      // 호환성 유지용 (이전 턴의 포맷이 남아있을 경우)
-      else if (cleanLine.startsWith('목표:')) result.objective!.ultimateGoal = cleanLine.replace('목표:', '').trim();
-      else if (cleanLine.startsWith('상태:')) result.objective!.status = cleanLine.replace('상태:', '').trim();
-      else if (cleanLine.startsWith('진행도:')) result.objective!.totalProgress = cleanLine.replace('진행도:', '').trim();
-      else if (cleanLine.startsWith('요약:')) result.objective!.summary = cleanLine.replace('요약:', '').trim();
     });
+  }
+
+  // 9.5 영지 및 야영지 상태 파싱
+  const estateMatch = extractSection('영지 및 야영지 상태');
+  if (estateMatch) {
+    result.estate = { type: '거점 없음', level: '', buildings: [] };
+    estateMatch.split('\n').forEach(line => {
+      const cleanLine = line.trim();
+      if (cleanLine.startsWith('[거점 형태]:')) result.estate!.type = cleanLine.replace('[거점 형태]:', '').trim();
+      else if (cleanLine.startsWith('[거점 규모]:')) result.estate!.level = cleanLine.replace('[거점 규모]:', '').trim();
+      else if (cleanLine.startsWith('▶')) {
+         const buildingMatch = cleanLine.match(/▶\s*(.*?):\s*(.*)/);
+         if(buildingMatch) {
+             result.estate!.buildings.push({ name: buildingMatch[1].trim(), desc: buildingMatch[2].trim() });
+         } else {
+             result.estate!.buildings.push({ name: cleanLine.replace('▶', '').trim(), desc: '' });
+         }
+      }
+    });
+    if (result.estate.type === '거점 없음' && result.estate.buildings.length === 0) {
+      delete result.estate;
+    }
   }
 
   // 10. 가문 및 계승 현황 파싱
@@ -300,11 +320,7 @@ export function parseLLMResponse(text: string): ParsedState {
   }
 
   
-  // 10. 장기 계획 파싱
-  const longTermPlanMatch = extractSection('장기 계획');
-  if (longTermPlanMatch) {
-    result.longTermPlan = longTermPlanMatch.trim();
-  }
+// 장기 계획 삭제됨
 
   return result;
 }
