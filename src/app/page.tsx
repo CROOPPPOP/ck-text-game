@@ -276,6 +276,7 @@ export default function Home() {
             objective: data.parsed.objective || prevState.objective,
             longTermPlan: data.parsed.longTermPlan !== undefined ? data.parsed.longTermPlan : prevState.longTermPlan,
             inventory: data.parsed.inventory || prevState.inventory,
+            estate: data.parsed.estate || prevState.estate,
             traits: mergedTraits,
             stats: {
               innate: mergeObject(prevState.stats?.innate, data.parsed.stats?.innate),
@@ -725,7 +726,8 @@ export default function Home() {
         <div style={{ display: 'flex', gap: '5px', marginBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', flexShrink: 0 }}>
           <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'inventory' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'inventory' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('inventory')}>자원/세력</button>
           <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'relations' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'relations' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('relations')}>인간관계</button>
-          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'objective' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'objective' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('objective')}>목표/로그</button>
+          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'estate' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'estate' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('estate')}>🏕️ 거점/영지</button>
+          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'objective' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'objective' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('objective')}>📜 로그/상황</button>
         </div>
         
         {activeTab === 'inventory' && (
@@ -917,16 +919,16 @@ export default function Home() {
         {activeTab === 'objective' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {gameState.objective && (
-          <Accordion title="【 목표 현황 】">
+          <Accordion title="【 현재 국면 및 상황 】">
             <div style={{ marginBottom: '16px' }}>
-              <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold' }}>[궁극적 목표]</span> 
+              <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold' }}>[현재 주요 국면]</span> 
               <div style={{ color: 'var(--text-main)', fontWeight: 'bold', marginTop: '4px', paddingLeft: '8px', borderLeft: '3px solid var(--gold-accent)', lineHeight: '1.4' }}>
                 {gameState.objective.ultimateGoal}
               </div>
             </div>
             {gameState.objective.currentGoal && (
               <div style={{ marginBottom: '16px' }}>
-                <span style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold' }}>[현재 단기 목표]</span> 
+                <span style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold' }}>[단기 야망]</span> 
                 <div style={{ color: 'var(--text-main)', fontWeight: 'bold', marginTop: '4px', paddingLeft: '8px', borderLeft: '3px solid #38bdf8', lineHeight: '1.4' }}>
                   {gameState.objective.currentGoal}
                 </div>
@@ -947,44 +949,61 @@ export default function Home() {
               </span>
             </div>
             
-            <div style={{ marginBottom: '16px' }}>
-              {(() => {
-                const totalStr = gameState.objective.totalProgress || '';
-                const totalProgress = Math.min(100, Math.max(0, parseInt(totalStr.replace(/[^0-9]/g, '') || '0', 10)));
-                const currentStr = gameState.objective.currentProgress || '';
-                const currentProgress = Math.min(100, Math.max(0, parseInt(currentStr.replace(/[^0-9]/g, '') || '0', 10)));
-                
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {gameState.objective.currentGoal && (
-                      <div>
-                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                           <span>단기 목표 달성률</span>
-                           <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{currentProgress}%</span>
-                         </div>
-                         <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.4)', borderRadius: '4px', overflow: 'hidden' }}>
-                           <div style={{ width: `${currentProgress}%`, height: '100%', background: 'linear-gradient(90deg, rgba(56,189,248,0.5) 0%, #38bdf8 100%)', transition: 'width 1s ease-in-out' }} />
-                         </div>
-                      </div>
-                    )}
-                    <div>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                         <span>전체 진행도 (궁극적 목표)</span>
-                         <span style={{ color: 'var(--gold-hover)', fontWeight: 'bold' }}>{totalProgress}%</span>
-                       </div>
-                       <div style={{ width: '100%', height: '10px', background: 'rgba(0,0,0,0.4)', borderRadius: '5px', overflow: 'hidden', border: '1px solid var(--panel-border)' }}>
-                         <div style={{ width: `${totalProgress}%`, height: '100%', background: 'linear-gradient(90deg, rgba(212,175,55,0.5) 0%, var(--gold-accent) 100%)', transition: 'width 1s ease-in-out' }} />
-                       </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
             <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.5', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
               {gameState.objective.summary}
             </div>
           </Accordion>
         )}
+          </div>
+        )}
+
+        {activeTab === 'estate' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <Accordion title="【 거점 및 영지 현황 】">
+              {gameState.estate ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold' }}>거점 형태</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{gameState.estate.type}</span>
+                  </div>
+                  {gameState.estate.level && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold' }}>거점 규모</span>
+                      <span style={{ color: 'var(--text-main)' }}>{gameState.estate.level}</span>
+                    </div>
+                  )}
+                  {gameState.estate.buildings.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>🏛️ 시설 및 건물</div>
+                      {gameState.estate.buildings.map((b, idx) => (
+                        <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{b.name}</span>
+                          {b.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{b.desc}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>아직 지어진 시설이 없습니다.</div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                  현재 보유한 거점이나 영지가 없습니다. 이야기 속에서 거점을 얻거나 건설하면 이곳에 표시됩니다.
+                </div>
+              )}
+            </Accordion>
+            {constructionQueue.length > 0 && (
+              <Accordion title="【 건설 진행 현황 】">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {constructionQueue.map((q, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>🔨 {q.building}</span>
+                      <span style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold' }}>{q.turnsLeft}턴 남음</span>
+                    </div>
+                  ))}
+                </div>
+              </Accordion>
+            )}
           </div>
         )}
 
