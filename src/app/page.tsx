@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { ParsedState } from '@/lib/parser';
+import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
   const [currentText, setCurrentText] = useState('');
@@ -133,7 +134,9 @@ export default function Home() {
   const [hasAutoSave, setHasAutoSave] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective' | 'estate'>('inventory');
   const [activeModal, setActiveModal] = useState<'character' | 'rightPanel' | null>(null);
-  const [constructionQueue, setConstructionQueue] = useState<{building: string, turnsLeft: number}[]>([]);
+  const [constructionQueue, setConstructionQueue] = useState<QueueItem[]>([]);
+  const [turn, setTurn] = useState(0);
+  const [constructionNotice, setConstructionNotice] = useState('');
 
   useEffect(() => {
     const configStr = localStorage.getItem("ck_startup_config");
@@ -149,17 +152,26 @@ export default function Home() {
   // Auto Save
   useEffect(() => {
     if (gameState && !loading) {
-      localStorage.setItem("ck_auto_save", JSON.stringify({ ...gameState, _constructionQueue: constructionQueue }));
+      localStorage.setItem("ck_auto_save", JSON.stringify({ ...gameState, _constructionQueue: constructionQueue, _turn: turn }));
     }
-  }, [gameState, loading]);
+  }, [gameState, loading, constructionQueue, turn]);
+
+  // 저장 데이터 복원 (건설 큐/턴 포함, 구버전 {building, turnsLeft} 호환)
+  const restoreSave = (loaded: any) => {
+    const { _constructionQueue, _turn, ...rest } = loaded;
+    const t = parseTurnNumber(rest.dateLocation) ?? (typeof _turn === 'number' ? _turn : 0);
+    setGameState(rest);
+    setTurn(t);
+    setConstructionQueue(normalizeQueue(_constructionQueue, t));
+    setConstructionNotice('');
+  };
 
   const handleAutoLoad = () => {
     const saveStr = localStorage.getItem("ck_auto_save");
     if (saveStr) {
       try {
         const loaded = JSON.parse(saveStr);
-        setGameState(loaded);
-        if (loaded._constructionQueue) setConstructionQueue(loaded._constructionQueue);
+        restoreSave(loaded);
       } catch (err) {
         alert("자동 저장 데이터를 불러오지 못했습니다.");
       }
@@ -182,6 +194,9 @@ export default function Home() {
       const data = await response.json();
       if (data.parsed) {
         setGameState(data.parsed);
+        setTurn(parseTurnNumber(data.parsed.dateLocation) ?? 1);
+        setConstructionQueue([]);
+        setConstructionNotice('');
       } else if (data.error) {
         alert("API 에러: " + data.error);
         if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
@@ -196,14 +211,17 @@ export default function Home() {
   };
 
   const handleAction = async (actionText: string) => {
+    // 투트랙 건설: 착수/완공 시스템 명령을 플레이어 행동 뒤에 덧붙입니다.
+    const sys = buildSystemCommands(constructionQueue, turn);
+    const finalAction = sys.text ? `${actionText}\n\n${sys.text}` : actionText;
     setLoading(true);
     try {
       const response = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: actionText, 
-          currentState: gameState, // JSON Save System
+          action: finalAction, 
+          currentState: { ...gameState, constructionQueue: summarizeQueue(constructionQueue, turn) }, // JSON Save System
           apiKey: localStorage.getItem('ck_api_key') || ''
         })
       });
@@ -277,6 +295,8 @@ export default function Home() {
             longTermPlan: data.parsed.longTermPlan !== undefined ? data.parsed.longTermPlan : prevState.longTermPlan,
             inventory: data.parsed.inventory || prevState.inventory,
             estate: data.parsed.estate || prevState.estate,
+            buildOptions: data.parsed.buildOptions ?? prevState.buildOptions,
+            constructionRejected: undefined,
             traits: mergedTraits,
             stats: {
               innate: mergeObject(prevState.stats?.innate, data.parsed.stats?.innate),
@@ -290,6 +310,18 @@ export default function Home() {
             familyState: data.parsed.familyState || prevState.familyState
           };
         });
+        // 투트랙 건설: 턴 갱신 및 큐 정리 (완공/거부 항목 제거, 착수 명령 전송 표시)
+        const newTurn = parseTurnNumber(data.parsed.dateLocation) ?? turn + 1;
+        const rejected: string[] = data.parsed.constructionRejected || [];
+        setTurn(newTurn);
+        setConstructionQueue(prev => applyTurnResult(prev, sys, rejected));
+        setConstructionNotice(
+          rejected.length > 0
+            ? `건설 거부: ${rejected.join(', ')} (비용은 차감되지 않았습니다)`
+            : sys.completedIds.length > 0
+              ? '시설이 완공되었습니다. 거점/영지 탭에서 확인하세요.'
+              : ''
+        );
       } else if (data.error) {
         alert("API 에러: " + data.error);
         if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
@@ -305,7 +337,7 @@ export default function Home() {
 
   const handleSave = () => {
     if (!gameState) return;
-    const jsonStr = JSON.stringify(gameState, null, 2);
+    const jsonStr = JSON.stringify({ ...gameState, _constructionQueue: constructionQueue, _turn: turn }, null, 2);
     const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -331,7 +363,7 @@ export default function Home() {
 
   const handleReturnToTitle = () => {
     if (gameState && !loading) {
-      localStorage.setItem("ck_auto_save", JSON.stringify(gameState));
+      localStorage.setItem("ck_auto_save", JSON.stringify({ ...gameState, _constructionQueue: constructionQueue, _turn: turn }));
     }
     setGameState(null);
   };
@@ -343,13 +375,29 @@ export default function Home() {
     reader.onload = (event) => {
       try {
         const loadedState = JSON.parse(event.target?.result as string);
-        setGameState(loadedState);
+        restoreSave(loadedState);
         alert("성공적으로 세계를 불러왔습니다!");
       } catch (err) {
         alert("잘못된 세이브 파일입니다.");
       }
     };
     reader.readAsText(file);
+  };
+
+  // 투트랙 건설: 병렬 슬롯 수와 건설 지시/취소
+  const maxSlots = getMaxSlots(gameState?.estate);
+
+  const handleOrderBuild = (opt: BuildOption) => {
+    if (loading) return;
+    if (constructionQueue.length >= maxSlots) return;
+    if (constructionQueue.some(q => sameBuildingName(q.building, opt.name))) return;
+    setConstructionQueue(prev => [...prev, createQueueItem(opt, turn)]);
+    setConstructionNotice('');
+  };
+
+  // 아직 AI에 착수 명령(비용 차감)을 보내지 않은 항목만 취소할 수 있습니다.
+  const handleCancelBuild = (id: string) => {
+    setConstructionQueue(prev => prev.filter(q => q.id !== id || q.commandSent));
   };
 
   // 게임 시작 전 화면
@@ -992,18 +1040,63 @@ export default function Home() {
                 </div>
               )}
             </Accordion>
+            {constructionNotice && (
+              <div style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold-accent)', color: 'var(--gold-hover)', padding: '10px 12px', borderRadius: '6px', fontSize: '0.9rem', lineHeight: '1.4' }}>
+                📢 {constructionNotice}
+              </div>
+            )}
+            <Accordion title={`【 건설 가능 시설 · 병렬 슬롯 ${constructionQueue.length}/${maxSlots} 】`}>
+              {gameState.buildOptions && gameState.buildOptions.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {gameState.buildOptions.map((opt, idx) => {
+                    const already = constructionQueue.some(q => sameBuildingName(q.building, opt.name));
+                    const full = constructionQueue.length >= maxSlots;
+                    const disabled = loading || already || full;
+                    return (
+                      <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{opt.name}</span>
+                          <span style={{ color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>⏱ {opt.turns}턴</span>
+                        </div>
+                        {opt.cost && <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)' }}>💰 {opt.cost}</span>}
+                        {opt.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{opt.desc}</span>}
+                        <button
+                          disabled={disabled}
+                          onClick={() => handleOrderBuild(opt)}
+                          style={{ marginTop: '4px', padding: '8px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, background: disabled ? 'rgba(0,0,0,0.3)' : 'var(--gold-accent)', color: disabled ? 'var(--text-muted)' : '#000', transition: 'all 0.2s' }}
+                        >
+                          {already ? '🔨 공사 중' : full ? '슬롯 가득 참' : '🏗️ 건설 지시'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--text-muted)', lineHeight: '1.5', fontSize: '0.9rem' }}>
+                  현재 제안된 건설 후보가 없습니다. 이야기를 진행하면 상황에 맞는 시설이 제안됩니다.
+                </div>
+              )}
+            </Accordion>
             {constructionQueue.length > 0 && (
               <Accordion title="【 건설 진행 현황 】">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {constructionQueue.map((q, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>🔨 {q.building}</span>
-                      <span style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold' }}>{q.turnsLeft}턴 남음</span>
+                  {constructionQueue.map((q) => (
+                    <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                        <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>🔨 {q.building}</span>
+                        <span style={{ color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                          {q.commandSent ? `${turnsLeft(q, turn)}턴 남음` : `${q.completeTurn - q.startTurn}턴 소요 · 다음 행동 때 비용 차감`}
+                        </span>
+                      </div>
+                      {!q.commandSent && (
+                        <button onClick={() => handleCancelBuild(q.id)} disabled={loading} style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', cursor: 'pointer', whiteSpace: 'nowrap' }}>취소</button>
+                      )}
                     </div>
                   ))}
                 </div>
               </Accordion>
             )}
+
           </div>
         )}
 

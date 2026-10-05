@@ -1,5 +1,7 @@
 export interface ParsedState {
   estate?: { type: string, level: string, buildings: {name: string, desc: string}[] };
+  buildOptions?: { name: string; cost: string; turns: number; desc: string }[];
+  constructionRejected?: string[];
   longTermPlan?: string | null;
   judgment?: { result: string; positive: string; negative: string; };
   dateLocation?: string;
@@ -305,6 +307,42 @@ export function parseLLMResponse(text: string): ParsedState {
     if (result.estate.type === '거점 없음' && result.estate.buildings.length === 0) {
       delete result.estate;
     }
+  }
+
+  // 9.6 건설 가능 시설 및 건설 거부 파싱 (투트랙 영지 건설)
+  const buildSection = extractSection('건설 가능 시설');
+  if (buildSection) {
+    const options: { name: string; cost: string; turns: number; desc: string }[] = [];
+    const rejected: string[] = [];
+    buildSection.split('\n').forEach(raw => {
+      const line = raw.replace(/[*_]/g, '').trim();
+      if (!line) return;
+      const rej = line.match(/\[건설 거부\s*[:：]\s*(.*?)\]/);
+      if (rej) {
+        const nm = rej[1].split(/\s[-–—]\s/)[0].trim();
+        if (nm) rejected.push(nm);
+        return;
+      }
+      if (!/^[▶▷○•\-]/.test(line)) return;
+      const parts = line.replace(/^[▶▷○•\-]\s*/, '').split('|').map(s => s.trim()).filter(Boolean);
+      if (parts.length < 2) return;
+      const name = parts[0].replace(/^\[|\]$/g, '').trim();
+      if (!name || /^(없음|건설 불가)/.test(name)) return;
+      let cost = '';
+      let desc = '';
+      let turns = 3;
+      parts.slice(1).forEach(p => {
+        const costM = p.match(/^비용\s*[:：]?\s*(.*)$/);
+        const descM = p.match(/^효과\s*[:：]?\s*(.*)$/);
+        const turnM = p.match(/^(\d+)\s*턴/);
+        if (costM) cost = costM[1].trim();
+        else if (descM) desc = descM[1].trim();
+        else if (turnM) turns = Math.min(12, Math.max(1, parseInt(turnM[1], 10)));
+      });
+      options.push({ name, cost, turns, desc });
+    });
+    result.buildOptions = options;
+    if (rejected.length > 0) result.constructionRejected = rejected;
   }
 
   // 10. 가문 및 계승 현황 파싱
