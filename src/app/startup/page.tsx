@@ -352,10 +352,7 @@ export default function Startup() {
                 <option value="혼합">혼합</option>
               </select>
             </div>
-            <div className={styles.fieldRow}>
-              <label className={styles.fieldLabel}>최종 목표:</label>
-              <input type="text" name="finalGoal" className={styles.inputField} placeholder="입력" value={formData.finalGoal} onChange={handleChange} />
-            </div>
+
             <div className={styles.fieldRow}>
               <label className={styles.fieldLabel}>플레이어 신분:</label>
               <input type="text" name="playerStatus" className={styles.inputField} placeholder="예: 입력하신 시대에 맞는 신분 (양반, 영주 등)" value={formData.playerStatus} onChange={handleChange} />
