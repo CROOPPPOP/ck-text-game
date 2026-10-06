@@ -1,6 +1,18 @@
 export interface ParsedState {
-  estate?: { type: string, level: string, buildings: {name: string, desc: string}[] };
-  buildOptions?: { name: string; cost: string; turns: number; desc: string }[];
+  estate?: { 
+    type: string; 
+    level: string; 
+    buildings: { name: string; desc: string; level: number; tags: string[] }[]; 
+  };
+  buildOptions?: { 
+    name: string; 
+    cost: string; 
+    turns: number; 
+    desc: string; 
+    kind?: 'new' | 'upgrade' | 'promote'; 
+    targetLevel?: number; 
+    tags?: string[]; 
+  }[];
   constructionRejected?: string[];
   longTermPlan?: string | null;
   judgment?: { result: string; positive: string; negative: string; };
@@ -287,20 +299,35 @@ export function parseLLMResponse(text: string): ParsedState {
     });
   }
 
-  // 9.5 영지 및 야영지 상태 파싱
-  const estateMatch = extractSection('영지 및 야영지 상태');
+    // 9.5 영지 및 야영지 상태 파싱
+  const estateMatch = extractSection('영지 및 야영지 상태') || extractSection('거점 및 야영지 상태');
   if (estateMatch) {
     result.estate = { type: '거점 없음', level: '', buildings: [] };
     estateMatch.split('\n').forEach(line => {
       const cleanLine = line.trim();
       if (cleanLine.startsWith('[거점 형태]:')) result.estate!.type = cleanLine.replace('[거점 형태]:', '').trim();
       else if (cleanLine.startsWith('[거점 규모]:')) result.estate!.level = cleanLine.replace('[거점 규모]:', '').trim();
-      else if (cleanLine.startsWith('▶')) {
-         const buildingMatch = cleanLine.match(/▶\s*(.*?):\s*(.*)/);
-         if(buildingMatch) {
-             result.estate!.buildings.push({ name: buildingMatch[1].trim(), desc: buildingMatch[2].trim() });
+      else if (/^[▶▷○•\-]/.test(cleanLine)) {
+         const buildingMatch = cleanLine.match(/^[▶▷○•\-]\s*(.*?)(?:\[(.*?)\])?:\s*(.*)/);
+         if (buildingMatch) {
+             const nameWithLv = buildingMatch[1].trim();
+             const rawTags = buildingMatch[2] ? buildingMatch[2].trim() : '';
+             const desc = buildingMatch[3].trim();
+
+             const lvMatch = nameWithLv.match(/Lv\.?\s*(\d+)/i);
+             const level = lvMatch ? parseInt(lvMatch[1], 10) : 1;
+
+             const tags = rawTags ? rawTags.split(/[·,\s]+/).filter(Boolean) : ['기타'];
+
+             result.estate!.buildings.push({ 
+               name: nameWithLv, 
+               desc: desc,
+               level: level,
+               tags: tags
+             });
          } else {
-             result.estate!.buildings.push({ name: cleanLine.replace('▶', '').trim(), desc: '' });
+             const fallbackName = cleanLine.replace(/^[▶▷○•\-]/, '').trim();
+             result.estate!.buildings.push({ name: fallbackName, desc: '', level: 1, tags: ['기타'] });
          }
       }
     });
@@ -312,7 +339,15 @@ export function parseLLMResponse(text: string): ParsedState {
   // 9.6 건설 가능 시설 및 건설 거부 파싱 (투트랙 영지 건설)
   const buildSection = extractSection('건설 가능 시설');
   if (buildSection) {
-    const options: { name: string; cost: string; turns: number; desc: string }[] = [];
+    const options: { 
+      name: string; 
+      cost: string; 
+      turns: number; 
+      desc: string; 
+      kind?: 'new' | 'upgrade' | 'promote'; 
+      targetLevel?: number; 
+      tags?: string[]; 
+    }[] = [];
     const rejected: string[] = [];
     buildSection.split('\n').forEach(raw => {
       const line = raw.replace(/[*_]/g, '').trim();
@@ -326,11 +361,34 @@ export function parseLLMResponse(text: string): ParsedState {
       if (!/^[▶▷○•\-]/.test(line)) return;
       const parts = line.replace(/^[▶▷○•\-]\s*/, '').split('|').map(s => s.trim()).filter(Boolean);
       if (parts.length < 2) return;
-      const name = parts[0].replace(/^\[|\]$/g, '').trim();
+      
+      const rawNameAndTags = parts[0];
+      const tagsMatch = rawNameAndTags.match(/\[(.*?)\]/);
+      const rawTags = tagsMatch ? tagsMatch[1] : '';
+      const nameMatchRaw = rawNameAndTags.replace(/\[.*?\]/, '').trim();
+      const name = nameMatchRaw.replace(/^\[|\]$/g, '').trim();
+
       if (!name || /^(없음|건설 불가)/.test(name)) return;
       let cost = '';
       let desc = '';
       let turns = 3;
+      let kind: 'new' | 'upgrade' | 'promote' = 'new';
+      let targetLevel = 1;
+
+      const upgradeMatch = name.match(/Lv\.?(\d+)\s*→\s*(\d+)/i) || name.match(/→\s*Lv\.?(\d+)/i);
+      if (upgradeMatch) {
+        kind = 'upgrade';
+        if (upgradeMatch.length === 3) {
+          targetLevel = parseInt(upgradeMatch[2], 10);
+        } else {
+          targetLevel = parseInt(upgradeMatch[1], 10);
+        }
+      } else if (name.includes('승격')) {
+        kind = 'promote';
+      }
+
+      const tags = rawTags ? rawTags.split(/[·,\s]+/).filter(Boolean) : [];
+
       parts.slice(1).forEach(p => {
         const costM = p.match(/^비용\s*[:：]?\s*(.*)$/);
         const descM = p.match(/^효과\s*[:：]?\s*(.*)$/);
@@ -338,8 +396,16 @@ export function parseLLMResponse(text: string): ParsedState {
         if (costM) cost = costM[1].trim();
         else if (descM) desc = descM[1].trim();
         else if (turnM) turns = Math.min(12, Math.max(1, parseInt(turnM[1], 10)));
+        else if (p.includes('턴')) {
+          const t = p.match(/(\d+)/);
+          if (t) turns = Math.min(12, Math.max(1, parseInt(t[1], 10)));
+        } else if (!cost) {
+          cost = p;
+        } else {
+          desc = p;
+        }
       });
-      options.push({ name, cost, turns, desc });
+      options.push({ name, cost, turns, desc, kind, targetLevel, tags: tags.length > 0 ? tags : undefined });
     });
     result.buildOptions = options;
     if (rejected.length > 0) result.constructionRejected = rejected;

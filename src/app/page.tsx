@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
 import { ParsedState } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
 
@@ -376,17 +377,46 @@ export default function Home() {
       try {
         const loadedState = JSON.parse(event.target?.result as string);
         restoreSave(loadedState);
-        alert("성공적으로 세계를 불러왔습니다!");
+        alert("성공적으로 세이브를 불러왔습니다!");
       } catch (err) {
-        alert("잘못된 세이브 파일입니다.");
+        alert("올바르지 않은 세이브 파일입니다.");
       }
     };
     reader.readAsText(file);
   };
 
-  // 투트랙 건설: 병렬 슬롯 수와 건설 지시/취소
+  // 투트랙 건설: 슬롯 한도 및 건설 지시
   const maxSlots = getMaxSlots(gameState?.estate);
 
+  let promotionOption: any = null;
+  let derivedUpgradeOptions: any[] = [];
+
+  if (gameState?.estate && gameState.estate.level) {
+    const estateLevelMatch = gameState.estate.level.match(/Lv\.?\s*(\d+)/i);
+    const estateLevel = estateLevelMatch ? parseInt(estateLevelMatch[1], 10) : 1;
+
+    const promoCheck = checkPromotion(estateLevel, gameState.estate.buildings, gameState.factionState, !!gameState.factionState);
+    if (promoCheck.canPromote) {
+      promotionOption = {
+        name: `거점 승격 공사 (Lv.${estateLevel} → Lv.${estateLevel + 1})`,
+        cost: `(기준가 × ${estateLevel})`,
+        turns: estateLevel + 2,
+        desc: '거점의 규모를 다음 단계로 승격시킵니다. 건설 슬롯과 건물 레벨 상한이 늘어납니다.',
+        kind: 'promote',
+        targetLevel: estateLevel + 1
+      };
+    }
+
+    const upgradeCandidates = getUpgradeCandidates(estateLevel, gameState.estate.buildings);
+    derivedUpgradeOptions = upgradeCandidates.map(c => ({
+      name: `${c.buildingName} 업그레이드 (Lv.${c.currentLevel}→${c.targetLevel})`,
+      cost: `약 ${c.cost} 단위`,
+      turns: c.turns,
+      desc: '해당 건물의 기능을 강화합니다.',
+      kind: 'upgrade',
+      targetLevel: c.targetLevel
+    }));
+  }
   const handleOrderBuild = (opt: BuildOption) => {
     if (loading) return;
     if (constructionQueue.length >= maxSlots) return;
@@ -1022,10 +1052,15 @@ export default function Home() {
                   )}
                   {gameState.estate.buildings.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>🏛️ 시설 및 건물</div>
+                      <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>주요 시설 및 건물</div>
                       {gameState.estate.buildings.map((b, idx) => (
                         <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{b.name}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{b.name} <span style={{fontSize: '0.8rem', color: '#60a5fa'}}>Lv.{b.level}</span></span>
+                            {b.tags && b.tags.length > 0 && (
+                              <span style={{ fontSize: '0.75rem', background: 'rgba(96,165,250,0.2)', color: '#93c5fd', padding: '2px 6px', borderRadius: '4px' }}>{b.tags.join('·')}</span>
+                            )}
+                          </div>
                           {b.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{b.desc}</span>}
                         </div>
                       ))}
@@ -1036,19 +1071,44 @@ export default function Home() {
                 </div>
               ) : (
                 <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                  현재 보유한 거점이나 영지가 없습니다. 이야기 속에서 거점을 얻거나 건설하면 이곳에 표시됩니다.
+                  현재 보유한 거점이나 영지가 없습니다. 야영지 등의 거점을 먼저 건설하면 이곳에 표시됩니다.
                 </div>
               )}
             </Accordion>
             {constructionNotice && (
               <div style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold-accent)', color: 'var(--gold-hover)', padding: '10px 12px', borderRadius: '6px', fontSize: '0.9rem', lineHeight: '1.4' }}>
-                📢 {constructionNotice}
+                🔔 {constructionNotice}
               </div>
             )}
-            <Accordion title={`【 건설 가능 시설 · 병렬 슬롯 ${constructionQueue.length}/${maxSlots} 】`}>
-              {gameState.buildOptions && gameState.buildOptions.length > 0 ? (
+            <Accordion title={`〖 건설 가능 시설 · 병렬 슬롯 ${constructionQueue.length}/${maxSlots} 〗`}>
+              {(gameState.buildOptions && gameState.buildOptions.length > 0) || promotionOption || derivedUpgradeOptions.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {gameState.buildOptions.map((opt, idx) => {
+                  {promotionOption && (
+                    <div style={{ background: 'rgba(212,175,55,0.1)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ color: 'var(--gold-accent)', fontSize: '0.95rem' }}>⭐ {promotionOption.name}</strong>
+                        <button className={styles.actionBtn} style={{ padding: '4px 10px', fontSize: '0.8rem', opacity: loading || constructionQueue.length >= maxSlots ? 0.5 : 1 }} disabled={loading || constructionQueue.length >= maxSlots} onClick={() => handleOrderBuild(promotionOption)}>착수</button>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>소요: {promotionOption.turns}턴 | 비용: {promotionOption.cost}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{promotionOption.desc}</div>
+                    </div>
+                  )}
+                  {derivedUpgradeOptions.map((opt, idx) => {
+                    const already = constructionQueue.some(q => sameBuildingName(q.building, opt.name));
+                    const full = constructionQueue.length >= maxSlots;
+                    const disabled = loading || already || full;
+                    return (
+                      <div key={'upg-'+idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong style={{ color: '#38bdf8', fontSize: '0.95rem' }}>⬆ {opt.name}</strong>
+                          <button className={styles.actionBtn} style={{ padding: '4px 10px', fontSize: '0.8rem', opacity: disabled ? 0.5 : 1 }} disabled={disabled} onClick={() => handleOrderBuild(opt)}>{already ? '대기 중' : '착수'}</button>
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>소요: {opt.turns}턴 | 비용: {opt.cost}</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{opt.desc}</div>
+                      </div>
+                    );
+                  })}
+                  {gameState.buildOptions && gameState.buildOptions.map((opt, idx) => {
                     const already = constructionQueue.some(q => sameBuildingName(q.building, opt.name));
                     const full = constructionQueue.length >= maxSlots;
                     const disabled = loading || already || full;
@@ -1108,7 +1168,7 @@ export default function Home() {
                 if (!items || (items as string[]).length === 0) return null;
                 const catName = category === 'equipment' ? '장비 및 영지' : category === 'wealth' ? '재산 및 병력' : category;
                 const catIcon = category === 'equipment' ? '📦' : '💰';
-                
+
                 return (
                   <div key={category}>
                     <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>{catIcon} {catName}</div>
@@ -1135,7 +1195,7 @@ export default function Home() {
           </Accordion>
           </div>
         )}
-      
+
               </div>
             )}
           </div>
@@ -1145,3 +1205,4 @@ export default function Home() {
     </main>
   );
 }
+

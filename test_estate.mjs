@@ -32,13 +32,18 @@ ${extra}
 let fail = 0;
 const check = (name, cond) => { console.log((cond ? 'PASS' : 'FAIL') + ' - ' + name); if (!cond) fail++; };
 
-// 1. 영지 있음 + 신규 국면 라벨
+// 1. 영지 있음 + 신규 국면 라벨 + 태그 파싱
 const r1 = parseLLMResponse(base(`
 【 영지 및 야영지 상태 】
 [거점 형태]: 로마냐 백작령 주성
 [거점 규모]: Lv.3 성채
-▶ 대장간(Lv.1): 무기 정비 가능
-▶ 곡물창고(Lv.2): 식량 비축
+▶ 대장간(Lv.1) [군사·생산]: 무기 정비 가능
+▶ 곡물창고(Lv.2) [민생]: 식량 비축
+
+【 건설 가능 시설 】
+▶ [연병장] [군사] | 비용: 500은화 | 3턴 | 효과: 훈련
+▶ [대장간] Lv.1→2 [생산] | 비용: 800은화 | 4턴 | 효과: 고품질 무기 제작
+▶ 성채 승격 공사 | 비용: 2000은화 | 5턴 | 효과: 요충지로 발전
 
 【 현재 국면 및 야망 】
 [현재 주요 국면]: 겨울나기 식량 확보
@@ -49,7 +54,11 @@ const r1 = parseLLMResponse(base(`
 check('estate 파싱', r1.estate && r1.estate.type === '로마냐 백작령 주성');
 check('estate 규모', r1.estate?.level === 'Lv.3 성채');
 check('estate 건물 2개', r1.estate?.buildings.length === 2);
-check('건물 이름/설명 분리', r1.estate?.buildings[0].name === '대장간(Lv.1)' && r1.estate?.buildings[0].desc.includes('무기'));
+check('건물 이름/설명 분리', r1.estate?.buildings[0].name.includes('대장간') && r1.estate?.buildings[0].desc.includes('무기'));
+check('건물 레벨 파싱', r1.estate?.buildings[0].level === 1 && r1.estate?.buildings[1].level === 2);
+check('건물 태그 파싱', r1.estate?.buildings[0].tags.includes('군사') && r1.estate?.buildings[0].tags.includes('생산'));
+check('건설 옵션 kind upgrade 파싱', r1.buildOptions?.some(o => o.kind === 'upgrade' && o.targetLevel === 2));
+check('건설 옵션 kind promote 파싱', r1.buildOptions?.some(o => o.kind === 'promote'));
 check('주요 국면', r1.objective?.ultimateGoal === '겨울나기 식량 확보');
 check('단기 야망', r1.objective?.currentGoal === '대장간 확장');
 check('진행도 필드 비어있음', !r1.objective?.totalProgress && !r1.objective?.currentProgress);
