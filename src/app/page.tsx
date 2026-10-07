@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
+import { calculateCKAttributes } from '@/lib/ckVisuals';
 import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
 import CKTopHud from '@/components/CKTopHud';
@@ -479,7 +480,7 @@ export default function Home() {
             const mergedPersonalRels = mergeArrayByKey(
                prevState.relationships?.personal || [],
                data.parsed.relationships?.personal || [],
-               (r: string) => r.split('|')[0].trim()
+               (r: string) => r.split('|')[0].replace(/\(.*?\)/g, '').trim()
             );
 
             const mergedFactionRels = mergeArrayByKey(
@@ -601,8 +602,25 @@ export default function Home() {
     reader.readAsText(file);
   };
 
-  // 투트랙 건설: 슬롯 한도 및 건설 지시
-  const maxSlots = getMaxSlots(gameState?.estate);
+  // 투트랙 건설: 슬롯 한도 및 건설 지시 (관리력 시너지 및 가신 연동)
+  const ckAttr = calculateCKAttributes(gameState || {});
+  const domainLimit = ckAttr.synergies.domainLimit;
+  const maxSlots = getMaxSlots(gameState?.estate, ckAttr.synergies.constructionSlotsBonus);
+
+  // 거점 상주 자문관 및 가신 추출
+  const councilVassals = (gameState?.relationships?.personal || []).filter(rel => {
+    const rawName = rel.split('|')[0] || '';
+    const descStr = rel.split('|').slice(3).join(' ') || '';
+    const keywords = ['가신', '기사', '집사장', '원수', '첩보', '사제', '부대장', '부원장', '관리인', '서기관', '참모', '조언', '시종'];
+    return keywords.some(k => rawName.includes(k) || descStr.includes(k));
+  }).map(rel => {
+    const parts = rel.split('|').map(p => p.trim());
+    const rawName = parts[0] || '';
+    const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+    const name = roleMatch ? roleMatch[1].trim() : rawName;
+    const role = roleMatch ? roleMatch[2].trim() : (parts.slice(3).join(' ').includes('가신') ? '가신' : '자문관');
+    return { name, role, raw: rel };
+  });
 
   let promotionOption: any = null;
   let derivedUpgradeOptions: any[] = [];
@@ -1080,12 +1098,16 @@ export default function Home() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {gameState.relationships.personal && gameState.relationships.personal.length > 0 && (
                 <div>
-                   <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>👥 인간 관계</div>
+                   <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>👥 인간 관계 ({gameState.relationships.personal.length}명)</div>
                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                      {gameState.relationships.personal.map((rel, idx) => {
                        const parts = rel.split('|').map(p => p.trim());
                        if (parts.length >= 4) {
-                         const name = parts[0];
+                         const rawName = parts[0];
+                         const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+                         const name = roleMatch ? roleMatch[1].trim() : rawName;
+                         const role = roleMatch ? roleMatch[2].trim() : '';
+
                          const trustStr = parts[1];
                          const affStr = parts[2];
                          const descStr = parts.slice(3).join(' | ').replace('관계:', '').trim();
@@ -1093,11 +1115,11 @@ export default function Home() {
                          const trustMatch = trustStr.match(/(\d+)/);
                          const affMatch = affStr.match(/(\d+)/);
                          
-                         const trustVal = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1]))) : 0;
-                         const affVal = affMatch ? Math.min(100, Math.max(0, parseInt(affMatch[1]))) : 0;
+                         const trustVal = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1], 10))) : 0;
+                         const affVal = affMatch ? Math.min(100, Math.max(0, parseInt(affMatch[1], 10))) : 0;
                          
                          const isRomance = affStr.includes('애정도');
-                         
+                         const isRival = affStr.includes('숙적') || affStr.includes('라이벌') || descStr.includes('숙적') || descStr.includes('라이벌') || (trustStr.includes('경계') && trustVal <= 15);
                          const isObsessive = affStr.includes('집착') || affStr.includes('광애');
                          const isExtremeLove = affStr.includes('극애');
                          const isSwornFriend = affStr.includes('맹우');
@@ -1110,7 +1132,11 @@ export default function Home() {
                          let textColorAff = isRomance ? '#f43f5e' : '#fbbf24';
                          let textColorTrust = '#38bdf8';
 
-                         if (isObsessive) {
+                         if (isRival) {
+                           currentAffColor = 'linear-gradient(90deg, #7f1d1d, #dc2626)';
+                           currentAffGlow = '0 0 10px rgba(220, 38, 38, 0.4)';
+                           textColorAff = '#ef4444';
+                         } else if (isObsessive) {
                            currentAffColor = 'linear-gradient(90deg, #4a044e, #86198f, #9f1239)';
                            currentAffGlow = '0 0 12px #86198f';
                            textColorAff = '#d946ef';
@@ -1130,30 +1156,74 @@ export default function Home() {
                            textColorTrust = '#bae6fd';
                          }
                          
+                         const borderColor = isRival ? '#ef4444' : isObsessive ? '#86198f' : isSwornFriend ? '#f59e0b' : 'rgba(255,255,255,0.08)';
+
                          return (
-                           <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px', border: isObsessive ? '1px solid #86198f' : '1px solid transparent', animation: isObsessive ? 'pulse 2s infinite' : 'none' }}>
-                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '4px' }}>
-                               <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold', fontSize: '0.95rem', textShadow: isCompanion || isSwornFriend || isExtremeLove || isObsessive ? '0 0 8px rgba(212,175,55,0.6)' : 'none' }}>{name}</span>
-                               <span style={{ fontSize: '0.85rem', color: isObsessive ? '#fbcfe8' : 'var(--text-muted)', lineHeight: '1.4' }}>{descStr}</span>
-                             </div>
-                             
-                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: textColorTrust, fontWeight: isCompanion ? 'bold' : 'normal', textShadow: currentTrustGlow }}>
-                                 <span>{trustStr.replace(/\d+/, '').replace('-', '').trim()}</span>
-                                 <span>{trustVal}%</span>
+                           <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', border: `1px solid ${borderColor}`, boxShadow: isRival ? '0 0 10px rgba(239,68,68,0.2)' : isObsessive ? '0 0 12px rgba(134,25,143,0.3)' : 'none' }}>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                 <span style={{ color: isRival ? '#fca5a5' : 'var(--gold-accent)', fontWeight: 'bold', fontSize: '0.98rem' }}>
+                                   {isRival ? '⚔️' : isRomance ? '❤️' : '👤'} {name}
+                                 </span>
+                                 {role && (
+                                   <span style={{ fontSize: '0.72rem', background: 'rgba(56,189,248,0.15)', color: '#7dd3fc', border: '1px solid rgba(56,189,248,0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                                     {role}
+                                   </span>
+                                 )}
                                </div>
-                               <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden', boxShadow: currentTrustGlow }}>
-                                 <div style={{ width: `${trustVal}%`, height: '100%', background: currentTrustColor }} />
+                               
+                               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                 {isRival && (
+                                   <span style={{ fontSize: '0.72rem', background: 'rgba(239,68,68,0.25)', color: '#fca5a5', border: '1px solid #ef4444', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                     ⚔️ 숙적 / 라이벌
+                                   </span>
+                                 )}
+                                 {isObsessive && (
+                                   <span style={{ fontSize: '0.72rem', background: 'rgba(192,132,252,0.2)', color: '#d8b4fe', border: '1px solid #c084fc', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                     🔥 집착 / 광애
+                                   </span>
+                                 )}
+                                 {isExtremeLove && (
+                                   <span style={{ fontSize: '0.72rem', background: 'rgba(244,114,182,0.2)', color: '#f472b6', border: '1px solid #f472b6', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                     💖 극애
+                                   </span>
+                                 )}
+                                 {isSwornFriend && (
+                                   <span style={{ fontSize: '0.72rem', background: 'rgba(251,191,36,0.2)', color: '#fcd34d', border: '1px solid #fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                     🛡️ 맹우
+                                   </span>
+                                 )}
+                                 {isCompanion && (
+                                   <span style={{ fontSize: '0.72rem', background: 'rgba(56,189,248,0.2)', color: '#bae6fd', border: '1px solid #38bdf8', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                     👑 동반자
+                                   </span>
+                                 )}
                                </div>
                              </div>
 
-                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: textColorAff, fontWeight: isExtremeLove || isObsessive || isSwornFriend ? 'bold' : 'normal', textShadow: currentAffGlow }}>
-                                 <span>{affStr.replace(/\d+/, '').replace('-', '').trim()}</span>
-                                 <span>{affVal}%</span>
+                             <span style={{ fontSize: '0.82rem', color: isObsessive ? '#fbcfe8' : 'var(--text-muted)', lineHeight: '1.4' }}>
+                               {descStr}
+                             </span>
+                             
+                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '2px' }}>
+                               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', background: 'rgba(0,0,0,0.2)', padding: '6px 8px', borderRadius: '4px' }}>
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: textColorTrust }}>
+                                   <span>🤝 {trustStr.replace(/\d+/, '').replace('-', '').trim() || '신뢰도'}</span>
+                                   <strong>{trustVal}%</strong>
+                                 </div>
+                                 <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden', boxShadow: currentTrustGlow }}>
+                                   <div style={{ width: `${trustVal}%`, height: '100%', background: currentTrustColor }} />
+                                 </div>
                                </div>
-                               <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden', boxShadow: currentAffGlow }}>
-                                 <div style={{ width: `${affVal}%`, height: '100%', background: currentAffColor }} />
+
+                               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', background: 'rgba(0,0,0,0.2)', padding: '6px 8px', borderRadius: '4px' }}>
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: textColorAff, textShadow: currentAffGlow }}>
+                                   <span>{isRival ? '⚔️' : isRomance ? '❤️' : '🌿'} {affStr.replace(/\d+/, '').replace('-', '').trim() || (isRomance ? '애정도' : '우정도')}</span>
+                                   <strong>{affVal}%</strong>
+                                 </div>
+                                 <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden', boxShadow: currentAffGlow }}>
+                                   <div style={{ width: `${affVal}%`, height: '100%', background: currentAffColor }} />
+                                 </div>
                                </div>
                              </div>
                            </div>
@@ -1166,25 +1236,52 @@ export default function Home() {
               )}
               {gameState.relationships.faction && gameState.relationships.faction.length > 0 && (
                 <div>
-                   <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>🛡️ 세력 관계</div>
+                   <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>🛡️ 세력 및 외교 관계 ({gameState.relationships.faction.length}개)</div>
                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                      {gameState.relationships.faction.map((rel, idx) => {
                        const match = rel.match(/^(.*?)\s+-\s+(.*)$/);
                        if (match) {
                          const name = match[1].replace(/^[○•\s]+/, '').trim();
-                         const status = match[2].trim();
+                         const rest = match[2].trim();
+                         const pipeParts = rest.split('|').map(p => p.trim());
+                         const status = pipeParts[0];
+                         let threat = '';
+                         let attitude = '';
+                         pipeParts.slice(1).forEach(p => {
+                           if (p.startsWith('위협도:')) threat = p.replace('위협도:', '').trim();
+                           if (p.startsWith('태도:')) attitude = p.replace('태도:', '').trim();
+                         });
+
                          let badgeColor = 'rgba(255,255,255,0.1)';
                          let textColor = 'var(--text-muted)';
                          if (status.includes('동맹') || status.includes('우호')) { badgeColor = 'rgba(56,189,248,0.2)'; textColor = '#38bdf8'; }
-                         else if (status.includes('적대') || status.includes('교전')) { badgeColor = 'rgba(239,68,68,0.2)'; textColor = '#ef4444'; }
-                         else if (status.includes('정전') || status.includes('중립') || status.includes('의심')) { badgeColor = 'rgba(251,191,36,0.2)'; textColor = '#fbbf24'; }
-                         
+                         else if (status.includes('적대') || status.includes('교전') || status.includes('파문')) { badgeColor = 'rgba(239,68,68,0.2)'; textColor = '#ef4444'; }
+                         else if (status.includes('정전') || status.includes('중립') || status.includes('의심') || status.includes('휴전') || status.includes('계약')) { badgeColor = 'rgba(251,191,36,0.2)'; textColor = '#fbbf24'; }
+                         else if (status.includes('주종') || status.includes('봉신') || status.includes('주군')) { badgeColor = 'rgba(168,85,247,0.2)'; textColor = '#c084fc'; }
+
                          return (
-                           <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                             <span style={{ fontWeight: 'bold', color: 'var(--gold-accent)', fontSize: '0.95rem', lineHeight: '1.4' }}>🛡️ {name}</span>
-                             <div>
-                               <span style={{ fontSize: '0.85rem', color: textColor, background: badgeColor, padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>{status}</span>
+                           <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                               <span style={{ fontWeight: 'bold', color: 'var(--gold-accent)', fontSize: '0.95rem' }}>🛡️ {name}</span>
+                               <span style={{ fontSize: '0.8rem', color: textColor, background: badgeColor, border: `1px solid ${textColor}44`, padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                 {status}
+                               </span>
                              </div>
+
+                             {(threat || attitude) && (
+                               <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', marginTop: '2px' }}>
+                                 {threat && (
+                                   <span style={{ color: threat.includes('위험') || threat.includes('치명') ? '#f87171' : threat.includes('안전') ? '#4ade80' : '#fbbf24', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
+                                     ⚠️ 위협도: {threat}
+                                   </span>
+                                 )}
+                                 {attitude && (
+                                   <span style={{ color: attitude.includes('우호') ? '#38bdf8' : attitude.includes('적대') ? '#f87171' : '#e2e8f0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
+                                     👁️ 태도: {attitude}
+                                   </span>
+                                 )}
+                               </div>
+                             )}
                            </div>
                          );
                        }
@@ -1302,33 +1399,135 @@ export default function Home() {
 
         {activeTab === 'estate' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <Accordion title="【 거점 및 영지 현황 】">
+            {/* 🏰 영지 / 거점 통합 현황 대시보드 */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.95))',
+              border: '1px solid rgba(212, 175, 55, 0.35)',
+              borderRadius: '10px',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '1.6rem' }}>{gameState.estate ? '🏰' : '🏕️'}</span>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: 'var(--gold-accent)', fontSize: '1.1rem' }}>
+                      {gameState.estate?.type || '임시 야영지'}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      거점 규모: <strong style={{ color: '#60a5fa' }}>{gameState.estate?.level || 'Lv.1 초기 거점'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: '0.82rem',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    background: constructionQueue.length >= maxSlots ? 'rgba(239,68,68,0.2)' : 'rgba(56,189,248,0.15)',
+                    color: constructionQueue.length >= maxSlots ? '#f87171' : '#38bdf8',
+                    border: `1px solid ${constructionQueue.length >= maxSlots ? '#ef4444' : '#0284c7'}`,
+                    fontWeight: 'bold',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    🔨 건설 슬롯: {constructionQueue.length} / {maxSlots}
+                  </span>
+                  <span style={{
+                    fontSize: '0.82rem',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(212,175,55,0.15)',
+                    color: 'var(--gold-hover)',
+                    border: '1px solid rgba(212,175,55,0.4)',
+                    fontWeight: 'bold',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    📜 직할령 한계: {gameState.estate?.buildings?.length || 0} / {domainLimit || 3}동
+                  </span>
+                </div>
+              </div>
+
+              {/* 거점 상주 가신 및 자문관 현황 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold' }}>👥 거점 상주 가신 & 자문관 ({councilVassals.length}명)</span>
+                  {councilVassals.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>인간관계의 주요 인물이 거점 직책을 맡습니다</span>}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {councilVassals.length > 0 ? (
+                    councilVassals.map((v, i) => (
+                      <span key={i} style={{
+                        fontSize: '0.78rem',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        background: 'rgba(0,0,0,0.45)',
+                        border: '1px solid rgba(212,175,55,0.3)',
+                        color: 'var(--text-main)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}>
+                        <span style={{ color: 'var(--gold-accent)' }}>👑</span>
+                        <strong>{v.name}</strong>
+                        <span style={{ color: '#7dd3fc', fontSize: '0.72rem' }}>({v.role})</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      아직 임명된 직속 가신이 없습니다. (인간관계에서 기사/집사장/사제 등 등용 시 연동)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Accordion title="【 거점 및 영지 시설 현황 】">
               {gameState.estate ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold' }}>거점 형태</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{gameState.estate.type}</span>
-                  </div>
-                  {gameState.estate.level && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold' }}>거점 규모</span>
-                      <span style={{ color: 'var(--text-main)' }}>{gameState.estate.level}</span>
-                    </div>
-                  )}
                   {gameState.estate.buildings.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>주요 시설 및 건물</div>
-                      {gameState.estate.buildings.map((b, idx) => (
-                        <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{b.name} <span style={{fontSize: '0.8rem', color: '#60a5fa'}}>Lv.{b.level}</span></span>
-                            {b.tags && b.tags.length > 0 && (
-                              <span style={{ fontSize: '0.75rem', background: 'rgba(96,165,250,0.2)', color: '#93c5fd', padding: '2px 6px', borderRadius: '4px' }}>{b.tags.join('·')}</span>
-                            )}
+                      {gameState.estate.buildings.map((b, idx) => {
+                        const getTagStyle = (t: string) => {
+                          if (t.includes('군사')) return { bg: 'rgba(239,68,68,0.2)', color: '#fca5a5', icon: '⚔️' };
+                          if (t.includes('생산')) return { bg: 'rgba(16,185,129,0.2)', color: '#6ee7b7', icon: '🌾' };
+                          if (t.includes('치안')) return { bg: 'rgba(2,132,199,0.2)', color: '#7dd3fc', icon: '🛡️' };
+                          if (t.includes('행정')) return { bg: 'rgba(245,158,11,0.2)', color: '#fde047', icon: '📜' };
+                          if (t.includes('신앙') || t.includes('문화')) return { bg: 'rgba(168,85,247,0.2)', color: '#d8b4fe', icon: '⛪' };
+                          if (t.includes('민생')) return { bg: 'rgba(20,184,166,0.2)', color: '#5eead4', icon: '🏡' };
+                          return { bg: 'rgba(255,255,255,0.1)', color: 'var(--text-muted)', icon: '🏛️' };
+                        };
+
+                        return (
+                          <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                              <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                                🏛️ {b.name} <span style={{fontSize: '0.8rem', color: '#60a5fa', fontWeight: 'bold'}}>Lv.{b.level}</span>
+                              </span>
+                              {b.tags && b.tags.length > 0 && (
+                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                  {b.tags.map((t, ti) => {
+                                    const st = getTagStyle(t);
+                                    return (
+                                      <span key={ti} style={{ fontSize: '0.72rem', background: st.bg, color: st.color, border: `1px solid ${st.color}33`, padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                        <span>{st.icon}</span> {t}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            {b.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{b.desc}</span>}
                           </div>
-                          {b.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{b.desc}</span>}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>아직 지어진 시설이 없습니다.</div>
