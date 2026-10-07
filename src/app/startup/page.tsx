@@ -298,6 +298,20 @@ export default function Startup() {
         {currentStep === 1 && (
           <div className={styles.fieldsGrid} style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '10px' }}>
             <div className={styles.fieldRow}>
+               <label className={styles.fieldLabel}>API KEY:</label>
+               <input 
+                 type="password"
+                 name="apiKey"
+                 className={styles.inputField}
+                 placeholder="입력..."
+                 value={formData.apiKey}
+                 onChange={(e) => {
+                   handleChange(e);
+                   localStorage.setItem("ck_api_key", e.target.value);
+                 }}
+               />
+             </div>
+            <div className={styles.fieldRow}>
               <label className={styles.fieldLabel}>시대:</label>
               <input type="text" name="era" className={styles.inputField} placeholder="입력" value={formData.era} onChange={handleChange} />
             </div>
