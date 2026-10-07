@@ -1,21 +1,22 @@
 .container {
   display: flex;
   flex-direction: column;
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   height: 100vh;
-  padding: 20px;
+  padding: 12px 16px;
   overflow: hidden;
+  gap: 12px;
 }
 .modalOverlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(5px);
+  background: rgba(5, 7, 15, 0.85); backdrop-filter: blur(8px);
   z-index: 1000; display: flex; justify-content: center; align-items: center;
 }
 .modalContent {
-  background: var(--panel-bg); width: 90%; max-width: 600px; max-height: 85vh;
-  overflow-y: auto; border-radius: 12px; border: 1px solid var(--panel-border);
-  padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  background: var(--panel-bg); width: 92%; max-width: 720px; max-height: 86vh;
+  overflow-y: auto; border-radius: 14px; border: 1px solid var(--panel-border);
+  padding: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.85);
 }
 .navBar {
   display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;

@@ -5,6 +5,11 @@ import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
 import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
+import CKTopHud from '@/components/CKTopHud';
+import CKCharacterModal from '@/components/CKCharacterModal';
+import FamilyTreeModal from '@/components/FamilyTreeModal';
+import CKRealmModal from '@/components/CKRealmModal';
+import CKRelationsModal from '@/components/CKRelationsModal';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
   const [currentText, setCurrentText] = useState('');
@@ -193,7 +198,7 @@ export default function Home() {
   const [freeAction, setFreeAction] = useState("");
   const [hasAutoSave, setHasAutoSave] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective' | 'estate'>('inventory');
-  const [activeModal, setActiveModal] = useState<'character' | 'rightPanel' | null>(null);
+  const [activeModal, setActiveModal] = useState<'character' | 'familyTree' | 'realm' | 'relations' | 'rightPanel' | null>(null);
   const [constructionQueue, setConstructionQueue] = useState<QueueItem[]>([]);
   const [turn, setTurn] = useState(0);
   const [constructionNotice, setConstructionNotice] = useState('');
@@ -574,42 +579,22 @@ export default function Home() {
 
   return (
     <main className={styles.container}>
-      <header className={`glass-panel ${styles.header}`}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/logo.jpg" alt="CHRONICLES" style={{ height: '40px', borderRadius: '4px', border: '1px solid var(--gold-accent)' }} />
-        </div>
-        <div className={styles.statusInfo} style={{display: 'flex', gap: '12px', alignItems: 'center'}}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '5px 12px', borderRadius: '20px', border: '1px solid var(--panel-border)' }}>
-            <span style={{ color: 'var(--gold-accent)' }}>📅</span>
-            <span style={{ color: 'var(--text-main)', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }} title={(gameState.dateLocation || "").replace(/\[턴 수:.*\]/, "").trim()}>
-              {(gameState.dateLocation || "").replace(/\[턴 수:.*\]/, "").trim() || "날짜/위치 알 수 없음"}
-            </span>
-          </div>
-          {((gameState.dateLocation || "").match(/\[턴 수:\s*(\d+)\]/) || [])[1] && (
-             <div style={{ background: 'var(--gold-accent)', color: '#121212', fontWeight: 'bold', padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem' }}>
-               TURN {((gameState.dateLocation || "").match(/\[턴 수:\s*(\d+)\]/) || [])[1]}
-             </div>
-          )}
-          <button className={styles.actionBtn} style={{padding: '6px 12px', fontSize: '0.9rem', background: 'var(--panel-bg)', color: 'var(--text-main)'}} onClick={handleReturnToTitle}>🏠 메인 타이틀로</button>
-          <button className={styles.actionBtn} style={{padding: '6px 12px', fontSize: '0.9rem'}} onClick={handleSave}>저장하기</button>
-          <label className={styles.actionBtn} style={{padding: '6px 12px', fontSize: '0.9rem', cursor: 'pointer'}}>
-            불러오기
-            <input type="file" accept=".json" onChange={handleLoad} style={{display: 'none'}} />
-          </label>
-        </div>
-      </header>
-      {/* Left Panel */}
-      
+      <CKTopHud
+        gameState={gameState}
+        turn={turn}
+        onOpenFamilyTree={() => setActiveModal('familyTree')}
+        onOpenRealm={() => setActiveModal('realm')}
+        onOpenCharacter={() => setActiveModal('character')}
+        onOpenRelations={() => setActiveModal('relations')}
+        onOpenEstate={() => { setActiveTab('estate'); setActiveModal('rightPanel'); }}
+        onOpenChronicle={() => { setActiveTab('objective'); setActiveModal('rightPanel'); }}
+        onSave={handleSave}
+        onLoad={handleLoad}
+        onReturnTitle={handleReturnToTitle}
+      />
 
       {/* Center Panel */}
       <section className={`glass-panel ${styles.centerPanel}`}>
-      <div className={styles.navBar}>
-        <button className={styles.navBtn} onClick={() => setActiveModal('character')}>👤 캐릭터 정보</button>
-        <button className={styles.navBtn} onClick={() => { setActiveTab('inventory'); setActiveModal('rightPanel'); }}>🎒 자원/세력</button>
-        <button className={styles.navBtn} onClick={() => { setActiveTab('relations'); setActiveModal('rightPanel'); }}>🤝 인간관계</button>
-        <button className={styles.navBtn} onClick={() => { setActiveTab('estate'); setActiveModal('rightPanel'); }}>🏕️ 거점/영지</button>
-        <button className={styles.navBtn} onClick={() => { setActiveTab('objective'); setActiveModal('rightPanel'); }}>📜 로그/상황</button>
-      </div>
 
         {gameState.ending ? (
           <div className={styles.narrativeArea} style={{textAlign: 'center', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
@@ -688,28 +673,30 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-                  <div className={styles.narrativeText} style={{ position: 'relative' }}>
-                    <strong style={{color: 'var(--gold-accent)'}}>【 현재 상황 】</strong>
-                    {gameState.historicalTag && (
-                      <span style={{
-                        position: 'absolute', top: 0, right: 0,
-                        padding: '4px 12px', border: '2px solid', borderRadius: '4px',
-                        fontWeight: 'bold', fontSize: '0.85rem', transform: 'rotate(2deg)',
-                        color: gameState.historicalTag.includes('확인됨') ? '#60a5fa' : 
-                               gameState.historicalTag.includes('분기') ? '#ef4444' : 
-                               gameState.historicalTag.includes('개연성') ? '#34d399' : '#f59e0b',
-                        borderColor: gameState.historicalTag.includes('확인됨') ? '#60a5fa' : 
-                                     gameState.historicalTag.includes('분기') ? '#ef4444' : 
-                                     gameState.historicalTag.includes('개연성') ? '#34d399' : '#f59e0b',
-                        boxShadow: '0 0 10px rgba(0,0,0,0.5)',
-                        background: 'rgba(0,0,0,0.3)',
-                        fontFamily: 'serif',
-                        letterSpacing: '1px'
-                      }}>
-                        {gameState.historicalTag}
+                  <div className={`ck-event-frame ${styles.narrativeText}`} style={{ position: 'relative' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid rgba(212,175,55,0.25)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '1px' }}>
+                        📜 【 역사적 국면 및 사건 전개 】
                       </span>
-                    )}
-                    <br/><br/>
+                      {gameState.historicalTag && (
+                        <span style={{
+                          padding: '3px 10px', border: '1px solid', borderRadius: '4px',
+                          fontWeight: 'bold', fontSize: '0.8rem',
+                          color: gameState.historicalTag.includes('확인됨') ? '#60a5fa' : 
+                                 gameState.historicalTag.includes('분기') ? '#ef4444' : 
+                                 gameState.historicalTag.includes('개연성') ? '#34d399' : '#f59e0b',
+                          borderColor: gameState.historicalTag.includes('확인됨') ? '#60a5fa' : 
+                                       gameState.historicalTag.includes('분기') ? '#ef4444' : 
+                                       gameState.historicalTag.includes('개연성') ? '#34d399' : '#f59e0b',
+                          boxShadow: '0 0 10px rgba(0,0,0,0.5)',
+                          background: 'rgba(0,0,0,0.3)',
+                          fontFamily: 'serif',
+                          letterSpacing: '1px'
+                        }}>
+                          {gameState.historicalTag}
+                        </span>
+                      )}
+                    </div>
                     <TypewriterText text={gameState.narrative || ""} delay={15} />
                   </div>
                 </>
@@ -744,14 +731,41 @@ export default function Home() {
                     <button 
                       key={idx} 
                       className={styles.choiceBtn} 
-                      style={{ background: theme.bg, border: `1px solid ${theme.border}` }}
+                      style={{
+                        background: theme.bg,
+                        border: `1px solid ${theme.border}`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '14px 16px'
+                      }}
                       onClick={() => handleAction(choice.text)}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.2rem' }}>{theme.icon}</span>
-                        <span>{choice.id}. [{choice.type}] {choice.text}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', flex: 1 }}>
+                        <span style={{ fontSize: '1.3rem' }}>{theme.icon}</span>
+                        <div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                            결단 {choice.id} &bull; [{choice.type}]
+                          </div>
+                          <div style={{ fontSize: '0.98rem', color: '#fff', fontWeight: 'bold', marginTop: '2px', lineHeight: '1.4' }}>
+                            {choice.text}
+                          </div>
+                        </div>
                       </div>
-                      {choice.probability && <span className={styles.choiceProbability}>{choice.probability}</span>}
+                      {choice.probability && (
+                        <span style={{
+                          fontSize: '0.8rem',
+                          color: choice.probability.includes('높음') || choice.probability.includes('확실') ? 'var(--success)' : choice.probability.includes('낮음') || choice.probability.includes('위험') ? 'var(--danger)' : 'var(--gold-hover)',
+                          background: 'rgba(0,0,0,0.4)',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {choice.probability}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -780,131 +794,46 @@ export default function Home() {
       {/* Right Panel */}
       
     
-      {activeModal && (
+      {activeModal === 'familyTree' && (
+        <FamilyTreeModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          gameState={gameState}
+          onSuccession={handleSuccession}
+        />
+      )}
+
+      {activeModal === 'character' && (
+        <CKCharacterModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          gameState={gameState}
+        />
+      )}
+
+      {activeModal === 'realm' && (
+        <CKRealmModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          factionState={gameState.factionState}
+        />
+      )}
+
+      {activeModal === 'relations' && (
+        <CKRelationsModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          gameState={gameState}
+        />
+      )}
+
+      {activeModal === 'rightPanel' && (
         <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
           <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
               <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
             </div>
-            {activeModal === 'character' && (
-              <div>
-                <h2 style={{color: 'var(--gold-accent)', marginBottom: '20px', textAlign: 'center'}}>👤 캐릭터 정보</h2>
-                
-        {gameState.personalInfo && (
-          <Accordion title="【 개인 정보 】">
-            {Object.entries(gameState.personalInfo).map(([key, value]) => (
-              <div className={styles.statRow} key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...(key === '칭호' ? { background: 'rgba(212,175,55,0.1)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(212,175,55,0.4)', margin: '4px 0' } : {}) }}>
-                <span style={{ flexShrink: 0, marginRight: '10px', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold' } : {}) }}>{key === '칭호' ? '👑 칭호' : key}</span>
-                <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', ...(key === '칭호' ? { color: 'var(--gold-accent)', fontWeight: 'bold', textShadow: '0 0 8px rgba(212,175,55,0.6)' } : {}) }} title={value as string}>{value as string}</span>
-              </div>
-            ))}
-          </Accordion>
-        )}
-
-        {gameState.playerStatus && (
-          <Accordion title="【 플레이어 상태 】">
-            {gameState.playerStatus.map((status, idx) => {
-              const isDanger = status.risk.includes('위험') && !status.risk.includes('안전') && !status.risk.includes('주의');
-              const isWarning = status.risk.includes('주의');
-              return (
-              <div className={styles.statRow} key={idx} title={`${status.description}\n(위험도: ${status.risk})`} style={{marginBottom: '8px', cursor: 'help', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                <span style={{ fontSize: '1.1rem' }}>{getStatusIcon(status.name)}</span>
-                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{status.name}</span>
-                <span className={styles.statValue} style={{
-                  color: isDanger ? 'var(--danger)' : isWarning ? '#ffa64d' : 'var(--gold-accent)',
-                  fontWeight: isDanger ? 'bold' : 'normal',
-                  animation: isDanger ? 'pulse 1.5s infinite' : 'none',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {status.value}
-                </span>
-              </div>
-              );
-            })}
-          </Accordion>
-        )}
-
-        
-        {gameState.stats && (Object.keys(gameState.stats.innate || {}).length > 0 || Object.keys(gameState.stats.acquired || {}).length > 0) && (
-          <Accordion title="【 개인 능력치 】">
-            {gameState.stats.innate && Object.keys(gameState.stats.innate).length > 0 && (
-              <div style={{ marginBottom: '15px' }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px', paddingBottom: '3px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>[선천 능력치]</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Object.entries(gameState.stats.innate).map(([key, value]) => (
-                    <div className={styles.statRow} key={key} style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ flexShrink: 0 }}>{key}</span>
-                      <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StatValue value={value as string} /></span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {gameState.stats.acquired && Object.keys(gameState.stats.acquired).length > 0 && (
-              <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px', paddingBottom: '3px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>[후천 능력치]</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Object.entries(gameState.stats.acquired).map(([key, value]) => (
-                    <div className={styles.statRow} key={key} style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ flexShrink: 0 }}>{key}</span>
-                      <span className={styles.statValue} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StatValue value={value as string} /></span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Accordion>
-        )}
-        
-        {gameState.traits && gameState.traits.length > 0 && (
-          <Accordion title="【 특성 및 기술 】">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {gameState.traits.map((trait, idx) => {
-                const style = getTraitColor(trait.category);
-                return (
-                  <div key={idx} title={trait.description} style={{
-                    padding: '6px 12px',
-                    background: style.bg,
-                    border: `1px solid ${style.border}`,
-                    borderRadius: '6px',
-                    color: style.color,
-                    cursor: 'help',
-                    animation: style.animation || 'none',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    minWidth: '80px'
-                  }}>
-                    <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>{getTraitIcon(trait.category)} {trait.category}</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', textAlign: 'center' }}>{trait.name}</span>
-                    {trait.tier && (
-                      <span style={{ 
-                        fontSize: '0.75rem', 
-                        marginTop: '2px', 
-                        color: trait.tier.includes('강한') ? '#c084fc' : 
-                               trait.tier.includes('확립된') ? '#fbbf24' : 
-                               trait.tier.includes('잠재') ? '#94a3b8' : 
-                               trait.tier.includes('반복') ? '#d97706' : '#64748b',
-                        fontWeight: 'bold',
-                        textShadow: trait.tier.includes('강한') || trait.tier.includes('확립된') ? '0 0 5px currentColor' : 'none'
-                      }}>
-                        {trait.tier.includes('강한') ? '★★★✨' : trait.tier.includes('확립된') ? '★★★' : trait.tier.includes('잠재') ? '★★' : trait.tier.includes('반복') ? '★' : '☆'} {trait.tier}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </Accordion>
-        )}
-      
-              </div>
-            )}
-            {activeModal === 'rightPanel' && (
-              <div>
+            <div>
                 
         <div style={{ display: 'flex', gap: '5px', marginBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', flexShrink: 0 }}>
           <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'inventory' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'inventory' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('inventory')}>자원/세력</button>
@@ -1342,8 +1271,7 @@ export default function Home() {
           </div>
         )}
 
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}
