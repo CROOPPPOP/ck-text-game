@@ -3,7 +3,7 @@
 import React from 'react';
 import { ParsedState } from '@/lib/parser';
 import { parseCKResources, parseCKStress, getHeraldryEmblem } from '@/lib/ckVisuals';
-import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles } from 'lucide-react';
+import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap } from 'lucide-react';
 
 interface Props {
   gameState: ParsedState;
@@ -14,8 +14,11 @@ interface Props {
   onOpenRelations: () => void;
   onOpenEstate: () => void;
   onOpenChronicle: () => void;
-  onSave: () => void;
-  onLoad: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onOpenSave: () => void;
+  onOpenSettings: () => void;
+  onQuickSave?: () => void;
+  onUndoTurn?: () => void;
+  canUndo?: boolean;
   onReturnTitle: () => void;
 }
 
@@ -28,8 +31,11 @@ export default function CKTopHud({
   onOpenRelations,
   onOpenEstate,
   onOpenChronicle,
-  onSave,
-  onLoad,
+  onOpenSave,
+  onOpenSettings,
+  onQuickSave,
+  onUndoTurn,
+  canUndo = false,
   onReturnTitle
 }: Props) {
   const rulerName = gameState.personalInfo?.['이름'] || '군주';
@@ -64,7 +70,7 @@ export default function CKTopHud({
         {/* Left: Ruler Heraldry & Identity */}
         <div 
           onClick={onOpenCharacter}
-          title="클릭하여 군주 상세 인물 정보(Character Sheet) 열기"
+          title="클릭하여 상세 인물 정보(Character Sheet) 열기"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -293,38 +299,101 @@ export default function CKTopHud({
 
           {/* Quick Action Menus */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* Quick Save */}
+            {onQuickSave && (
+              <button
+                onClick={onQuickSave}
+                title="단축키 [Q] - 즉시 퀵세이브"
+                style={{
+                  background: 'rgba(251, 191, 36, 0.15)',
+                  border: '1px solid rgba(251, 191, 36, 0.4)',
+                  color: '#fbbf24',
+                  padding: '5px 8px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 'bold'
+                }}
+              >
+                <Zap size={13} />
+                <span>퀵세이브</span>
+              </button>
+            )}
+
+            {/* Undo Turn */}
+            {canUndo && onUndoTurn && (
+              <button
+                onClick={() => {
+                  if (confirm('직전 턴 상태로 게임을 되돌리시겠습니까?')) {
+                    onUndoTurn();
+                  }
+                }}
+                title="단축키 [Z] - 직전 턴 되돌리기"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#fca5a5',
+                  padding: '5px 8px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <RotateCcw size={13} />
+                <span>되돌리기</span>
+              </button>
+            )}
+
+            {/* Save Manager Button */}
             <button
-              onClick={onSave}
-              title="현재 역사 세이브 (.json)"
+              onClick={onOpenSave}
+              title="다중 슬롯 세이브 & 로드 매니저 열기"
               style={{
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: 'var(--text-main)',
+                background: 'linear-gradient(45deg, rgba(212, 175, 55, 0.2), rgba(15, 23, 42, 0.8))',
+                border: '1px solid var(--gold-accent)',
+                color: 'var(--gold-hover)',
                 padding: '5px 10px',
                 borderRadius: '6px',
                 fontSize: '0.8rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
             >
-              저장
+              <Save size={13} />
+              <span>저장/로드</span>
             </button>
-            <label
-              title="세이브 파일 불러오기"
+
+            {/* Settings Button */}
+            <button
+              onClick={onOpenSettings}
+              title="글자 크기, 텍스트 속도, 단축키 설정"
               style={{
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 color: 'var(--text-main)',
-                padding: '5px 10px',
+                padding: '5px 8px',
                 borderRadius: '6px',
                 fontSize: '0.8rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
             >
-              로드
-              <input type="file" accept=".json" onChange={onLoad} style={{ display: 'none' }} />
-            </label>
+              <Settings size={13} />
+              <span>설정</span>
+            </button>
+
+            {/* Return to Title */}
             <button
               onClick={onReturnTitle}
               title="메인 타이틀로 이동"
@@ -332,7 +401,7 @@ export default function CKTopHud({
                 background: 'rgba(239, 68, 68, 0.1)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 color: '#fca5a5',
-                padding: '5px 10px',
+                padding: '5px 8px',
                 borderRadius: '6px',
                 fontSize: '0.8rem',
                 cursor: 'pointer'
@@ -487,6 +556,27 @@ export default function CKTopHud({
         >
           <Scroll size={15} />
           <span>📜 연대기 (Chronicle)</span>
+        </button>
+
+        <button
+          onClick={onOpenSettings}
+          className="ck-nav-btn"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            color: 'var(--text-main)',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Settings size={14} />
+          <span>⚙️ 편의 설정</span>
         </button>
       </div>
     </header>

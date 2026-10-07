@@ -10,17 +10,35 @@ import CKCharacterModal from '@/components/CKCharacterModal';
 import FamilyTreeModal from '@/components/FamilyTreeModal';
 import CKRealmModal from '@/components/CKRealmModal';
 import CKRelationsModal from '@/components/CKRelationsModal';
+import CKSaveModal from '@/components/CKSaveModal';
+import CKSettingsModal from '@/components/CKSettingsModal';
+import {
+  pushUndoState,
+  popUndoState,
+  hasUndoState,
+  quickSave,
+  quickLoad,
+  loadUXSettings,
+  UserUXSettings,
+  SaveSlotData
+} from '@/lib/saveManager';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
+    if (delay <= 0) {
+      setCurrentText(text);
+      setCurrentIndex(text.length);
+      return;
+    }
     setCurrentText('');
     setCurrentIndex(0);
-  }, [text]);
+  }, [text, delay]);
 
   useEffect(() => {
+    if (delay <= 0) return;
     if (currentIndex < text.length) {
       const timeout = setTimeout(() => {
         setCurrentText(prevText => prevText + text[currentIndex]);
@@ -198,10 +216,27 @@ export default function Home() {
   const [freeAction, setFreeAction] = useState("");
   const [hasAutoSave, setHasAutoSave] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective' | 'estate'>('inventory');
-  const [activeModal, setActiveModal] = useState<'character' | 'familyTree' | 'realm' | 'relations' | 'rightPanel' | null>(null);
+  const [activeModal, setActiveModal] = useState<'character' | 'familyTree' | 'realm' | 'relations' | 'rightPanel' | 'save' | 'settings' | null>(null);
   const [constructionQueue, setConstructionQueue] = useState<QueueItem[]>([]);
   const [turn, setTurn] = useState(0);
   const [constructionNotice, setConstructionNotice] = useState('');
+  const [uxSettings, setUxSettings] = useState<UserUXSettings>(loadUXSettings());
+  const [canUndo, setCanUndo] = useState(false);
+  const [quickNotice, setQuickNotice] = useState<string | null>(null);
+
+  const showQuickNotice = (msg: string) => {
+    setQuickNotice(msg);
+    setTimeout(() => setQuickNotice(null), 3000);
+  };
+
+  const getFontSizeStyle = (size: string) => {
+    switch (size) {
+      case 'sm': return '0.92rem';
+      case 'lg': return '1.2rem';
+      case 'xl': return '1.35rem';
+      default: return '1.05rem';
+    }
+  };
 
   const handleInitialStart = async (config: any) => {
     setLoading(true);
@@ -257,6 +292,8 @@ export default function Home() {
     } else if (localStorage.getItem("ck_auto_save")) {
       setHasAutoSave(true);
     }
+    setCanUndo(hasUndoState());
+    setUxSettings(loadUXSettings());
   }, []);
 
   // Auto Save
@@ -274,6 +311,7 @@ export default function Home() {
     setTurn(t);
     setConstructionQueue(normalizeQueue(_constructionQueue, t));
     setConstructionNotice('');
+    setCanUndo(hasUndoState());
   };
 
   const handleAutoLoad = () => {
@@ -288,7 +326,92 @@ export default function Home() {
     }
   };
 
+  const handleUndoTurn = () => {
+    const prev = popUndoState();
+    if (prev) {
+      restoreSave(prev.gameState);
+      setCanUndo(hasUndoState());
+      showQuickNotice(`↩️ 턴 ${prev.turn} 직전 상태로 게임을 되돌렸습니다.`);
+    } else {
+      alert("되돌릴 이전 턴 기록이 없습니다.");
+    }
+  };
+
+  const handleQuickSave = () => {
+    if (!gameState) return;
+    const ok = quickSave(gameState, turn, constructionQueue);
+    if (ok) {
+      showQuickNotice("⚡ 퀵 세이브가 완료되었습니다! (Quick Save)");
+    } else {
+      alert("퀵 세이브에 실패했습니다.");
+    }
+  };
+
+  const handleQuickLoad = () => {
+    const loaded = quickLoad();
+    if (loaded) {
+      restoreSave(loaded.gameState);
+      showQuickNotice(`⚡ 퀵로드 완료 (${loaded.characterName}, 턴 ${loaded.turn})`);
+    } else {
+      alert("저장된 퀵 세이브 데이터가 없습니다.");
+    }
+  };
+
+  // Keyboard Shortcuts (1~4 선택지, Q 퀵세이브, Z 되돌리기, Esc 모달닫기)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!uxSettings.shortcutsEnabled) return;
+
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (activeModal) {
+          setActiveModal(null);
+        }
+        return;
+      }
+
+      if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey) {
+        if (gameState && !loading) {
+          e.preventDefault();
+          handleQuickSave();
+        }
+        return;
+      }
+
+      if ((e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey) {
+        if (canUndo && !loading) {
+          e.preventDefault();
+          if (confirm('직전 턴 상태로 되돌리시겠습니까?')) {
+            handleUndoTurn();
+          }
+        }
+        return;
+      }
+
+      if (e.key >= '1' && e.key <= '4' && gameState?.choices && !loading) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (gameState.choices[idx]) {
+          e.preventDefault();
+          handleAction(gameState.choices[idx].text);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [uxSettings.shortcutsEnabled, activeModal, gameState, loading, canUndo, turn, constructionQueue]);
+
   const handleAction = async (actionText: string) => {
+    // 턴 진행 직전 스냅샷을 Undo 스택에 저장
+    if (gameState) {
+      pushUndoState(gameState, turn, constructionQueue);
+      setCanUndo(true);
+    }
+
     // 투트랙 건설: 착수/완공 시스템 명령을 플레이어 행동 뒤에 덧붙입니다.
     const sys = buildSystemCommands(constructionQueue, turn);
     const finalAction = sys.text ? `${actionText}\n\n${sys.text}` : actionText;
@@ -546,15 +669,37 @@ export default function Home() {
                 )}
               </>
             )}
-            <div style={{width: '100%', borderTop: '1px solid var(--panel-border)', paddingTop: '30px', marginTop: '10px'}}>
-              <p style={{color: 'var(--text-muted)', marginBottom: '15px'}}>진행 중이던 세계가 있다면</p>
-              <label className={styles.actionBtn} style={{display: 'block', width: '100%', padding: '20px', fontSize: '1.3rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)'}}>
-                세이브 파일 (.json) 불러오기
+            <div style={{width: '100%', borderTop: '1px solid var(--panel-border)', paddingTop: '20px', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px'}}>
+              <p style={{color: 'var(--text-muted)', marginBottom: '5px'}}>진행 중이던 세계가 있다면</p>
+              
+              <button
+                className={styles.actionBtn}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  fontSize: '1.15rem',
+                  cursor: 'pointer',
+                  background: 'linear-gradient(45deg, rgba(212, 175, 55, 0.2), rgba(15, 23, 42, 0.8))',
+                  border: '1px solid var(--gold-accent)',
+                  color: 'var(--gold-hover)',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+                onClick={() => setActiveModal('save')}
+              >
+                💾 다중 슬롯 세이브 매니저 열기 (Save / Load)
+              </button>
+
+              <label className={styles.actionBtn} style={{display: 'block', width: '100%', padding: '14px', fontSize: '1.05rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)'}}>
+                JSON 세이브 파일 불러오기 (.json)
                 <input type="file" accept=".json" onChange={handleLoad} style={{display: 'none'}} />
               </label>
             </div>
             
-            <div style={{width: '100%', marginTop: '20px'}}>
+            <div style={{width: '100%', marginTop: '10px'}}>
               <button 
                 style={{ width: '100%', padding: '10px', fontSize: '1rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s' }}
                 onClick={() => {
@@ -573,6 +718,22 @@ export default function Home() {
               </button>
             </div>
          </div>
+
+         {/* Title screen Save modal */}
+         {activeModal === 'save' && (
+           <CKSaveModal
+             isOpen={true}
+             onClose={() => setActiveModal(null)}
+             gameState={gameState}
+             turn={turn}
+             constructionQueue={constructionQueue}
+             onLoadSuccess={(loadedData) => {
+               restoreSave(loadedData.gameState);
+               setActiveModal(null);
+               showQuickNotice(`💾 [${loadedData.title}] 세이브 데이터를 불러왔습니다.`);
+             }}
+           />
+         )}
       </main>
     );
   }
@@ -588,8 +749,11 @@ export default function Home() {
         onOpenRelations={() => setActiveModal('relations')}
         onOpenEstate={() => { setActiveTab('estate'); setActiveModal('rightPanel'); }}
         onOpenChronicle={() => { setActiveTab('objective'); setActiveModal('rightPanel'); }}
-        onSave={handleSave}
-        onLoad={handleLoad}
+        onOpenSave={() => setActiveModal('save')}
+        onOpenSettings={() => setActiveModal('settings')}
+        onQuickSave={handleQuickSave}
+        onUndoTurn={handleUndoTurn}
+        canUndo={canUndo}
         onReturnTitle={handleReturnToTitle}
       />
 
@@ -673,7 +837,7 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-                  <div className={`ck-event-frame ${styles.narrativeText}`} style={{ position: 'relative' }}>
+                  <div className={`ck-event-frame ${styles.narrativeText}`} style={{ position: 'relative', fontSize: getFontSizeStyle(uxSettings.fontSize) }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid rgba(212,175,55,0.25)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                       <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '1px' }}>
                         📜 【 역사적 국면 및 사건 전개 】
@@ -697,7 +861,7 @@ export default function Home() {
                         </span>
                       )}
                     </div>
-                    <TypewriterText text={gameState.narrative || ""} delay={15} />
+                    <TypewriterText text={gameState.narrative || ""} delay={uxSettings.typewriterSpeed} />
                   </div>
                 </>
               )}
@@ -707,7 +871,7 @@ export default function Home() {
               <div style={{ marginTop: '30px', padding: '30px', background: 'rgba(239,68,68,0.2)', border: '2px solid var(--danger)', borderRadius: '8px', textAlign: 'center' }}>
                 <h2 style={{ color: 'var(--danger)', fontSize: '2rem', marginBottom: '20px' }}>【 시뮬레이션 종료 】</h2>
                 <div style={{ color: 'var(--text-main)', fontSize: '1.1rem', marginBottom: '30px', lineHeight: '1.6' }}>
-                  <TypewriterText text={gameState.ending} delay={15} />
+                  <TypewriterText text={gameState.ending} delay={uxSettings.typewriterSpeed} />
                 </div>
                 
                 {gameState.familyState && gameState.familyState.heir && !gameState.familyState.heir.includes('없음') && !gameState.familyState.heir.includes('미정') ? (
@@ -746,7 +910,7 @@ export default function Home() {
                         <span style={{ fontSize: '1.3rem' }}>{theme.icon}</span>
                         <div>
                           <div style={{ fontSize: '0.8rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
-                            결단 {choice.id} &bull; [{choice.type}]
+                            {uxSettings.shortcutsEnabled ? `[${idx + 1}] ` : ''}결단 {choice.id} &bull; [{choice.type}]
                           </div>
                           <div style={{ fontSize: '0.98rem', color: '#fff', fontWeight: 'bold', marginTop: '2px', lineHeight: '1.4' }}>
                             {choice.text}
@@ -825,6 +989,31 @@ export default function Home() {
           isOpen={true}
           onClose={() => setActiveModal(null)}
           gameState={gameState}
+        />
+      )}
+
+      {activeModal === 'save' && (
+        <CKSaveModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          gameState={gameState}
+          turn={turn}
+          constructionQueue={constructionQueue}
+          onLoadSuccess={(loadedData) => {
+            restoreSave(loadedData.gameState);
+            setCanUndo(hasUndoState());
+            showQuickNotice(`💾 [${loadedData.title}] 세이브 데이터를 불러왔습니다.`);
+          }}
+        />
+      )}
+
+      {activeModal === 'settings' && (
+        <CKSettingsModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          narrativeText={gameState?.narrative}
+          onUndoTurn={handleUndoTurn}
+          onSettingsChange={(newSettings) => setUxSettings(newSettings)}
         />
       )}
 
@@ -1274,6 +1463,31 @@ export default function Home() {
 
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ⚡ Quick Save / Undo Notification Toast */}
+      {quickNotice && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, rgba(26, 32, 48, 0.98), rgba(15, 20, 32, 0.98))',
+          border: '2px solid var(--gold-accent)',
+          borderRadius: '10px',
+          padding: '12px 24px',
+          color: 'var(--gold-hover)',
+          fontWeight: 'bold',
+          fontSize: '0.95rem',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.9), 0 0 20px rgba(212,175,55,0.4)',
+          zIndex: 9999,
+          pointerEvents: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span>{quickNotice}</span>
         </div>
       )}
 

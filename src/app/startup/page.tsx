@@ -37,6 +37,16 @@ export default function Startup() {
   const [worldviewType, setWorldviewType] = useState('역사적');
   const [selectedArchetype, setSelectedArchetype] = useState('noble');
 
+  interface StatusPreset {
+    id: string;
+    icon: string;
+    name: string;
+    shortDesc: string;
+    playerStatus: string;
+    goal?: string;
+    additional?: string;
+  }
+
   interface ArchetypeConfig {
     id: string;
     num: string;
@@ -50,6 +60,7 @@ export default function Startup() {
     goal: string;
     additional: string;
     trait: string;
+    statusPresets: StatusPreset[];
     innateStats?: Record<string, number>;
     acquiredStats?: Record<string, number>;
     startingTraitsMap?: Record<string, string[]>;
@@ -69,6 +80,53 @@ export default function Startup() {
       goal: '개인의 무예 입신양명 및 영주 후원자 획득 (가신 기사 발탁 또는 독자 거점 하사)',
       additional: '영지 없이 단신으로 여관이나 산길을 떠돌며 의뢰와 현상금을 쫓는 방랑 모험가 신분. [시작 소지품]: 여행용 가죽 외투, 손때 묻은 강철 단검, 부싯돌과 밧줄, 가죽 수통, 비상 육포, 동화 35개, 휴대용 낚시 바늘.',
       trait: '[전문특성] 방랑의 달인 (확립된 특성) : 거친 야외와 여관 생활에 익숙하여 위험을 빠르게 감지합니다., [신체특성] 강철 체력 (강한 특성) : 노숙과 풍찬노숙에도 잔병치레 없이 버텨냅니다., [감각특성] 매의 눈 (잠재 특성) : 주변의 살기와 수상한 낌새를 예리하게 포착합니다.',
+      statusPresets: [
+        {
+          id: 'swordsman',
+          icon: '🗡️',
+          name: '방랑 검객 / 낭인',
+          shortDesc: '칼 한 자루에 의지해 여관과 전장을 떠도는 무인',
+          playerStatus: '방랑 검객 (낭인 / 용병 검사)',
+          goal: '천하제일검의 명성을 얻고 명문 가문의 검술 사범 또는 가신 기사로 발탁',
+          additional: '영지 없이 단신으로 여관이나 산길을 떠돌며 무예 의뢰를 해결하는 낭인. [소지품]: 손때 묻은 강철 장검, 여행용 삿갓과 망토, 비상 식량, 동화 40닢, 휴대용 숫돌.'
+        },
+        {
+          id: 'adventurer',
+          icon: '🏹',
+          name: '유랑 모험가 / 사냥꾼',
+          shortDesc: '고대 유적 탐사와 현상 수배범 토벌을 업으로 삼는 해결사',
+          playerStatus: '유랑 모험가 (청부 해결사)',
+          goal: '전설적인 고대 유적 보물 발굴 및 대륙 공인 모험가 길드 창설',
+          additional: '미지의 유적과 위험 지역을 탐사하는 모험가. [소지품]: 사냥 활과 화살 20발, 탐사용 밧줄과 갈고리, 약초 주머니, 동화 30닢, 모험가 신분패.'
+        },
+        {
+          id: 'scholar',
+          icon: '📜',
+          name: '유랑 학자 / 음유시인',
+          shortDesc: '각지의 전설과 역사, 금서를 수집하며 여관을 누비는 지식인',
+          playerStatus: '유랑 학자 (방랑 음유시인)',
+          goal: '대륙 전도 및 역사 연대기 완성, 대영주 궁정 조언가 또는 서기관 등용',
+          additional: '역사와 문화를 기록하며 방랑하는 지식인. [소지품]: 양피지 수첩과 깃펜, 휴대용 류트 악기, 고대어 사전, 은화 5닢.'
+        },
+        {
+          id: 'shadow',
+          icon: '🥷',
+          name: '그림자 첩보원 / 밀사',
+          shortDesc: '신분을 숨긴 채 뒷골목과 정보망을 장악한 은밀한 암행자',
+          playerStatus: '그림자 첩보원 (암행 첩자)',
+          goal: '독자적인 대륙 정보 결사 구축 및 제후들의 배후를 조종하는 암계가',
+          additional: '비밀리에 의뢰를 수행하는 첩보원. [소지품]: 은닉용 비수 2자루, 변장용 의복 2벌, 암호 해독첩, 독약 플라스크 1병.'
+        },
+        {
+          id: 'hunter',
+          icon: '🌲',
+          name: '국경 사냥꾼 / 추적자',
+          shortDesc: '거친 야생과 험산준령에 정통한 국경 지대 명포수',
+          playerStatus: '국경 사냥꾼 (야생 추적자)',
+          goal: '산림 개척 거점 마련 및 국경 수비대 정찰대장 임명',
+          additional: '야생에서 단련된 생존 전문가. [소지품]: 짐승 가죽 외투, 사냥 덫 3개, 손도끼, 육포 7일분, 사냥개 1마리.'
+        }
+      ],
       innateStats: {
         '민첩성': 65, '반사 신경': 65, '속도': 60, '신체 조정력': 55, '지각력': 65,
         '의지력': 60, '지구력': 60, '체력': 55, '근력': 55, '지능': 45,
@@ -98,6 +156,53 @@ export default function Startup() {
       goal: '명성을 떨치는 대용병단 구축 및 독립 거점(폐성 점령 또는 남작령 분봉) 획득',
       additional: '단원 20여 명을 이끄는 소규모 용병단. 매 턴 단원 주급 및 식량 보급 유지비 지출. [시작 소지품]: 단장의 장검 및 사슬 갑옷, 용병단 군기, 단원 20명(보병 15, 궁수 5), 마차 2대, 텐트 숙영지, 군자금 금화 120닢.',
       trait: '[전문특성] 용병 계약 협상가 (확립된 특성) : 고용주와의 보수 협상 및 부대 사기 관리에 능합니다., [정신특성] 강인한 의지 (강한 특성) : 전장의 공포 앞에서도 부하들을 질타하며 전열을 유지시킵니다., [전문특성] 전술적 안목 (잠재 특성) : 지형과 진형의 유불리를 빠르게 파악합니다.',
+      statusPresets: [
+        {
+          id: 'mercenary',
+          icon: '🛡️',
+          name: '자유 용병단장',
+          shortDesc: '정예 보병과 궁수를 통솔하며 전장을 누비는 지휘관',
+          playerStatus: '자유 용병단장 (용병대 지휘관)',
+          goal: '대륙 최강의 정예 용병단 육성 및 독립 남작령(영지) 수여 획득',
+          additional: '단원 20여 명을 이끄는 자유 용병단. [소지품]: 사슬 갑옷과 단장 장검, 용병단 군기, 단원 20명(보병 15, 궁수 5), 보급 마차 2대, 텐트 숙영지, 군자금 금화 120닢.'
+        },
+        {
+          id: 'caravan',
+          icon: '🐫',
+          name: '국경 대상단 행수',
+          shortDesc: '호위대와 짐마차를 이끌고 대륙의 무역로를 개척하는 거상',
+          playerStatus: '대상단 행수 (국경 무역상)',
+          goal: '대륙 횡단 무역로 독점 및 대도시 상인 길드 참사회 장악',
+          additional: '무역 대상을 이끄는 대상인. [소지품]: 장부와 정밀 저울, 짐마차 4대, 호위 용병 12명, 비단과 향신료 화물, 운용 자금 금화 250닢.'
+        },
+        {
+          id: 'robinhood',
+          icon: '🏹',
+          name: '녹림 / 의적 두목',
+          shortDesc: '비밀 산채를 본거지로 삼아 탐관오리를 털고 빈민을 구제하는 두목',
+          playerStatus: '의적단 두목 (녹림 수령)',
+          goal: '민중의 지지를 얻어 독립 자치 산채 요새 구축 및 영주 사면권 획득',
+          additional: '의로운 도적 집단. [소지품]: 명궁과 화살, 비밀 산채 아지트, 의적 단원 18명, 민중 협조망, 은화 80닢.'
+        },
+        {
+          id: 'corsair',
+          icon: '⚓',
+          name: '무장 사략 선단장',
+          shortDesc: '연안을 누비며 무역선 호위와 약탈을 병행하는 해상 무장 집단',
+          playerStatus: '사략 선장 (무장 선단장)',
+          goal: '사략 특허장 획득 및 해양 거점 요새 섬 장악, 해군 제독 등극',
+          additional: '무장 범선을 거느린 선단. [소지품]: 커틀러스와 나침반, 소형 무장 코그선 1척, 수병 16명, 건판 대포, 항해도.'
+        },
+        {
+          id: 'artisan',
+          icon: '⚒️',
+          name: '석공 길드 도편수',
+          shortDesc: '숙련 석공과 목수를 거느리고 성채와 공성 병기를 짓는 장인단',
+          playerStatus: '도편수 (석공 길드 마스터)',
+          goal: '대성당/요새 축조 독점 및 길드 자치권 공인 획득',
+          additional: '건축 장인 길드. [소지품]: 정밀 설계 도면, 석공 도구 세트, 도제 및 장인 15명, 자재 운반 마차.'
+        }
+      ],
       innateStats: {
         '근력': 65, '체력': 65, '의지력': 65, '지구력': 60, '지각력': 55,
         '신체 조정력': 50, '지능': 50, '집중력': 50, '민첩성': 50, '반사 신경': 50,
@@ -126,6 +231,53 @@ export default function Startup() {
       goal: '교단 내 발언권 신장 및 대주교/교단 지도자 승격, 성유물 발굴 및 교구 부흥',
       additional: '독신 서약을 지키며 교구 신도들을 지도하고 성유물을 탐구하는 경건한 성직자. [시작 소지품]: 양모 사제복, 은 십자가 묵주, 라틴어 성경 사본, 필사용 깃펜과 잉크, 성유물 함(비어있음), 작은 예배당, 수도사 8명, 십일조 은화 50닢.',
       trait: '[정신특성] 경건한 신앙 (강한 특성) : 세속의 유혹에 굴하지 않고 교단의 규율을 엄격히 수호합니다., [전문특성] 고문서 필사 및 신학 (확립된 특성) : 라틴어와 고대 경전을 해독하고 필사하는 데 능통합니다., [전문특성] 영적 치유와 약초학 (잠재 특성) : 아픈 신도들을 돌보고 약초를 조제하는 지혜가 있습니다.',
+      statusPresets: [
+        {
+          id: 'vicar',
+          icon: '⛪',
+          name: '교구 주임 사제',
+          shortDesc: '시골 마을 예배당에서 성찬을 집전하고 신도들을 돌보는 목자',
+          playerStatus: '교구 주임 사제 (교구 신부)',
+          goal: '교구 대성당 증축 및 주교 서품, 지역 영주와 민심의 영적 지도자 등극',
+          additional: '독신 서약을 지키며 교구 신도들을 지도하는 사제. [소지품]: 양모 사제복, 은 십자가 묵주, 라틴어 성경 사본, 수도사 5명, 십일조 은화 50닢.'
+        },
+        {
+          id: 'scriptor',
+          icon: '📜',
+          name: '수도원 필사 수사',
+          shortDesc: '적막한 수도원에서 고대 금서와 경전을 필사하고 신학을 연구',
+          playerStatus: '수도원 필사 수사 (신학 학승)',
+          goal: '희귀 성유물 발견 및 교단 대도서관 건립, 이단 반박 성서 저술',
+          additional: '학문과 필사에 헌신하는 수도승. [소지품]: 양피지 두루마리 20권, 잉크와 깃펜, 필사실 열쇠, 약초차, 헌금 은화 20닢.'
+        },
+        {
+          id: 'healer',
+          icon: '🌿',
+          name: '약초원 구휼 의무수사',
+          shortDesc: '수도원 정원에서 약초를 달여 가난하고 병든 영민들을 치료',
+          playerStatus: '구휼 수도사 (수도원 의사)',
+          goal: '대규모 전염병 퇴치 및 자선 구휼원 건립, 민중의 성자로 시성',
+          additional: '병든 백성을 돌보는 자비로운 수도사. [소지품]: 약초 추출기, 약병 주머니, 치료 일지, 수도원 약초 정원, 붕대와 연고.'
+        },
+        {
+          id: 'templar',
+          icon: '⚔️',
+          name: '성전 기사단 서약수사',
+          shortDesc: '검과 십자가를 함께 들고 순례자를 수호하는 전투 수도사',
+          playerStatus: '성전 수사 기사 (기사단 서약자)',
+          goal: '성지 탈환 및 기사단 관구장(Grand Commander) 승격',
+          additional: '신앙의 수호 전사. [소지품]: 십자가 사슬 갑옷, 성전 장검, 기사단 군마 1필, 순례자 보호 휘장.'
+        },
+        {
+          id: 'inquisitor',
+          icon: '🔍',
+          name: '교황청 이단 심문관',
+          shortDesc: '교단의 규율과 정통 교리를 지키기 위해 이단과 마술을 심문',
+          playerStatus: '이단 심문관 (종교재판관)',
+          goal: '대규모 이단 결사 발본색원 및 추기경단 진출, 교황청 직속 특사 임명',
+          additional: '엄격한 종교재판관. [소지품]: 심문 조서 양식, 교황청 인장 서한, 심문관 호위병 3명, 은화 70닢.'
+        }
+      ],
       innateStats: {
         '지능': 70, '학습 능력': 70, '기억력': 65, '의지력': 65, '집중력': 65,
         '지각력': 60, '지구력': 50, '체력': 45, '신체 조정력': 40, '근력': 40,
@@ -154,11 +306,53 @@ export default function Startup() {
       goal: '영지 확장 및 공작/국왕 등극, 명문 왕조 창건',
       additional: '영지와 가문의 번영을 위해 외교와 군사를 지휘하는 전통적 봉건 영주. [시작 소지품]: 본성 성채(Lv.1), 징집병 50명, 가문 인장 반지, 장원 백성 250가구, 국고 금화 350닢.',
       trait: '[전문특성] 명문 혈통 (확립된 특성) : 주변 제후들에게 정당한 통치 명분과 혈통의 인정을 받습니다.',
-      innateStats: {
-        '근력': 50, '체력': 50, '지구력': 50, '민첩성': 50, '반사 신경': 50,
-        '속도': 50, '신체 조정력': 50, '지각력': 50, '지능': 50, '기억력': 50,
-        '학습 능력': 50, '의지력': 50, '집중력': 50
-      },
+      statusPresets: [
+        {
+          id: 'baron',
+          icon: '🏰',
+          name: '국경 남작 / 요새 성주',
+          shortDesc: '국경 요충지를 수비하며 가문의 첫 발을 뗀 무장 영주',
+          playerStatus: '봉건 영주 (국경 남작 / 성주)',
+          goal: '인근 적대 세력 격퇴 및 백작령 승격, 난공불락 석조 요새 완공',
+          additional: '영지와 가문의 기틀을 다진 영주. [소지품]: 본성 성채(Lv.1), 징집병 50명, 가문 인장 반지, 장원 200호, 국고 금화 300닢.'
+        },
+        {
+          id: 'count',
+          icon: '👑',
+          name: '유서 깊은 백작',
+          shortDesc: '풍요로운 평야와 유서 깊은 성곽, 농민들을 다스리는 정통 통치자',
+          playerStatus: '봉건 영주 (정통 백작)',
+          goal: '주변 영지 통합 및 공작위 수임, 왕국 의회 주도권 장악',
+          additional: '정통성과 혈통을 갖춘 명문 백작. [소지품]: 백작령 대성채, 상비군 80명, 장원 농민 500호, 국고 금화 600닢, 가문 족보.'
+        },
+        {
+          id: 'scion',
+          icon: '🦅',
+          name: '왕가 방계 공족',
+          shortDesc: '선왕의 핏줄을 이어받아 왕위 계승권을 지닌 젊은 영주',
+          playerStatus: '왕가 방계 영주 (공자 / 계승권자)',
+          goal: '왕위 계승권 명분 주장 및 정변/전쟁을 통한 국왕 즉위',
+          additional: '왕실 피를 이어받은 계승권자. [소지품]: 왕실 혈통 문장, 충성 기사 10명, 비밀 동맹 서한, 국고 금화 450닢.'
+        },
+        {
+          id: 'burgomaster',
+          icon: '⚖️',
+          name: '자유도시 시장 / 참사회장',
+          shortDesc: '군주의 간섭을 배제하고 상업 자치권을 행사하는 부유한 도시 통치자',
+          playerStatus: '자유도시 시장 (참사회 의장)',
+          goal: '상업 제국 건설 및 황제로부터 항구적 자치 특권 칙령 획득',
+          additional: '상업 자치도시 수장. [소지품]: 도시 참사회 황금 열쇠, 도시 방위대 60명, 시청사, 금화 800닢.'
+        },
+        {
+          id: 'knight',
+          icon: '🛡️',
+          name: '식읍 기사 / 향사',
+          shortDesc: '작은 장원 하나를 하사받아 주군을 위해 무장 봉사하는 무인',
+          playerStatus: '식읍 기사 (장원 영주)',
+          goal: '전공을 세워 독립 남작령 하사 및 가문 성씨 수여',
+          additional: '충성스러운 기사 영주. [소지품]: 판금 사슬 갑옷, 군마 2필, 시종 2명, 장원 40호, 금화 150닢.'
+        }
+      ],
       acquiredStats: {
         '통솔력': 30, '외교력': 30, '행정력': 30, '매력': 25, '전술': 25,
         '무기 숙련도': 20, '기마술': 20, '학문': 20, '설득력': 0, '기만술': 0,
@@ -170,10 +364,27 @@ export default function Startup() {
     }
   ];
 
+  const [selectedStatusPresetId, setSelectedStatusPresetId] = useState<string>('baron');
+
+  const handleSelectStatusPreset = (preset: StatusPreset) => {
+    setSelectedStatusPresetId(preset.id);
+    setFormData(prev => ({
+      ...prev,
+      playerStatus: preset.playerStatus,
+      finalGoal: preset.goal || prev.finalGoal,
+      additionalSettings: preset.additional || prev.additionalSettings
+    }));
+  };
+
   const handleSelectArchetype = (archId: string) => {
     const arch = ARCHETYPES.find(a => a.id === archId);
     if (!arch) return;
     setSelectedArchetype(archId);
+
+    const defaultPreset = arch.statusPresets?.[0];
+    if (defaultPreset) {
+      setSelectedStatusPresetId(defaultPreset.id);
+    }
 
     // 스탯 동기화
     if (arch.innateStats && arch.acquiredStats) {
@@ -182,10 +393,10 @@ export default function Startup() {
       setFormData(prev => ({
         ...prev,
         archetype: archId,
-        playerStatus: arch.status,
+        playerStatus: defaultPreset?.playerStatus || arch.status,
         startLocation: arch.location,
-        finalGoal: arch.goal,
-        additionalSettings: arch.additional,
+        finalGoal: defaultPreset?.goal || arch.goal,
+        additionalSettings: defaultPreset?.additional || arch.additional,
         traits: arch.trait,
         stats: Object.entries(mergedStats).map(([k, v]) => `${k}: ${v}`).join(', ')
       }));
@@ -193,10 +404,10 @@ export default function Startup() {
       setFormData(prev => ({
         ...prev,
         archetype: archId,
-        playerStatus: arch.status,
+        playerStatus: defaultPreset?.playerStatus || arch.status,
         startLocation: arch.location,
-        finalGoal: arch.goal,
-        additionalSettings: arch.additional,
+        finalGoal: defaultPreset?.goal || arch.goal,
+        additionalSettings: defaultPreset?.additional || arch.additional,
         traits: arch.trait
       }));
     }
@@ -608,9 +819,81 @@ export default function Startup() {
               </div>
             </div>
 
-            <div className={styles.fieldRow}>
-              <label className={styles.fieldLabel}>플레이어 신분:</label>
-              <input type="text" name="playerStatus" className={styles.inputField} placeholder="예: 입력하신 시대에 맞는 신분 (양반, 영주 등)" value={formData.playerStatus} onChange={handleChange} />
+            {/* 🎖️ 플레이어 신분 및 아키타입 연계 프리셋 선택 */}
+            <div className={styles.fieldRow} style={{ gridColumn: '1 / -1', flexDirection: 'column', alignItems: 'stretch', gap: '10px', marginTop: '6px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                <label className={styles.fieldLabel} style={{ fontSize: '1.05rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                  🎖️ 플레이어 신분 프리셋 (Origin Status Presets):
+                </label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  현재 아키타입 [{ARCHETYPES.find(a => a.id === selectedArchetype)?.title || '아키타입'}] 연계 추천 신분 (클릭 시 자동 설정)
+                </span>
+              </div>
+
+              {/* Archetype Linked Presets Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '8px' }}>
+                {(ARCHETYPES.find(a => a.id === selectedArchetype)?.statusPresets || []).map((preset) => {
+                  const isPresetSelected = formData.playerStatus === preset.playerStatus || selectedStatusPresetId === preset.id;
+                  return (
+                    <div
+                      key={preset.id}
+                      onClick={() => handleSelectStatusPreset(preset)}
+                      style={{
+                        padding: '10px 12px',
+                        background: isPresetSelected
+                          ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(15, 23, 42, 0.9))'
+                          : 'rgba(0, 0, 0, 0.35)',
+                        border: isPresetSelected ? '2px solid var(--gold-accent)' : '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: isPresetSelected ? '0 0 12px rgba(212, 175, 55, 0.25)' : 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isPresetSelected) {
+                          e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.5)';
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isPresetSelected) {
+                          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                          e.currentTarget.style.background = 'rgba(0, 0, 0, 0.35)';
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>{preset.icon}</span>
+                        <strong style={{ fontSize: '0.9rem', color: isPresetSelected ? 'var(--gold-hover)' : 'var(--text-main)' }}>
+                          {preset.name}
+                        </strong>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+                        {preset.shortDesc}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Direct Status Input & Fine-Tuning */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  신분 직접 입력/수정:
+                </span>
+                <input
+                  type="text"
+                  name="playerStatus"
+                  className={styles.inputField}
+                  placeholder="위 프리셋을 클릭하거나 원하는 신분을 직접 입력하세요"
+                  value={formData.playerStatus}
+                  onChange={(e) => {
+                    handleChange(e);
+                    setSelectedStatusPresetId('');
+                  }}
+                  style={{ flex: 1 }}
+                />
+              </div>
             </div>
             <div className={styles.fieldRow}>
               <label className={styles.fieldLabel}>시작 위치:</label>
