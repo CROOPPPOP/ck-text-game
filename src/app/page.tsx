@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
-import { ParsedState } from '@/lib/parser';
+import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
@@ -128,9 +128,68 @@ const mergeObject = (prev: any, next: any) => {
   return { ...prev, ...next };
 };
 
+const extractLivePreview = (raw: string): string => {
+  const narrativeMatch = raw.match(/【\s*현재 상황\s*】\s*\n([\s\S]*?)(?=\n\s*【|$)/);
+  if (narrativeMatch && narrativeMatch[1].trim()) {
+    return narrativeMatch[1].replace(/\[역사적 고증:.*?\]/g, '').trim();
+  }
+  const judgmentMatch = raw.match(/【\s*판정 결과\s*】\s*\n([\s\S]*?)(?=\n\s*【|$)/);
+  if (judgmentMatch && judgmentMatch[1].trim()) {
+    return judgmentMatch[1].trim();
+  }
+  return raw.trim();
+};
+
+const readGameStream = async (response: Response, onText: (text: string) => void) => {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("text/event-stream")) {
+    return await response.json();
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("ReadableStream not supported");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullRaw = "";
+  let finalResult: { raw: string; parsed: any } | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() || "";
+
+    for (const block of lines) {
+      const match = block.match(/^data:\s*(.*)$/m);
+      if (match) {
+        try {
+          const payload = JSON.parse(match[1]);
+          if (payload.type === "chunk") {
+            fullRaw += payload.text;
+            onText(fullRaw);
+          } else if (payload.type === "done") {
+            finalResult = { raw: payload.raw, parsed: payload.parsed };
+          } else if (payload.type === "error") {
+            throw new Error(payload.error);
+          }
+        } catch (e: any) {
+          if (e.message && !e.message.includes("JSON")) throw e;
+        }
+      }
+    }
+  }
+
+  if (!finalResult && fullRaw) {
+    finalResult = { raw: fullRaw, parsed: parseLLMResponse(fullRaw) };
+  }
+  return finalResult;
+};
+
 export default function Home() {
   const [gameState, setGameState] = useState<ParsedState | null>(null);
   const [loading, setLoading] = useState(false);
+  const [streamPreview, setStreamPreview] = useState("");
   const [freeAction, setFreeAction] = useState("");
   const [hasAutoSave, setHasAutoSave] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective' | 'estate'>('inventory');
@@ -138,6 +197,51 @@ export default function Home() {
   const [constructionQueue, setConstructionQueue] = useState<QueueItem[]>([]);
   const [turn, setTurn] = useState(0);
   const [constructionNotice, setConstructionNotice] = useState('');
+
+  const handleInitialStart = async (config: any) => {
+    setLoading(true);
+    setStreamPreview("");
+    try {
+      const response = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: config, 
+          isInitialSetup: true,
+          currentState: null,
+          apiKey: localStorage.getItem('ck_api_key') || '',
+          stream: true
+        })
+      });
+      const data = await readGameStream(response, (raw) => {
+        setStreamPreview(extractLivePreview(raw));
+      });
+      if (data?.parsed) {
+        const initialChronicle: ChronicleItem = {
+          turn: 1,
+          dateLocation: data.parsed.dateLocation,
+          action: "역사의 서막이 열리다",
+          result: "시작",
+          summary: (data.parsed.narrative || "").slice(0, 100).replace(/\n/g, ' ')
+        };
+        data.parsed.chronicle = [initialChronicle];
+        setGameState(data.parsed);
+        setTurn(parseTurnNumber(data.parsed.dateLocation) ?? 1);
+        setConstructionQueue([]);
+        setConstructionNotice('');
+      } else if (data?.error) {
+        alert("API 에러: " + data.error);
+        if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
+      } else {
+        alert("시작 설정 파싱에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("서버 통신 오류가 발생했습니다.");
+    }
+    setStreamPreview("");
+    setLoading(false);
+  };
 
   useEffect(() => {
     const configStr = localStorage.getItem("ck_startup_config");
@@ -179,43 +283,12 @@ export default function Home() {
     }
   };
 
-  const handleInitialStart = async (config: any) => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: config, 
-          isInitialSetup: true,
-          currentState: null,
-          apiKey: localStorage.getItem('ck_api_key') || ''
-        })
-      });
-      const data = await response.json();
-      if (data.parsed) {
-        setGameState(data.parsed);
-        setTurn(parseTurnNumber(data.parsed.dateLocation) ?? 1);
-        setConstructionQueue([]);
-        setConstructionNotice('');
-      } else if (data.error) {
-        alert("API 에러: " + data.error);
-        if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
-      } else {
-        alert("시작 설정 파싱에 실패했습니다.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("서버 통신 오류가 발생했습니다.");
-    }
-    setLoading(false);
-  };
-
   const handleAction = async (actionText: string) => {
     // 투트랙 건설: 착수/완공 시스템 명령을 플레이어 행동 뒤에 덧붙입니다.
     const sys = buildSystemCommands(constructionQueue, turn);
     const finalAction = sys.text ? `${actionText}\n\n${sys.text}` : actionText;
     setLoading(true);
+    setStreamPreview("");
     try {
       const response = await fetch('/api/game', {
         method: 'POST',
@@ -223,11 +296,14 @@ export default function Home() {
         body: JSON.stringify({ 
           action: finalAction, 
           currentState: { ...gameState, constructionQueue: summarizeQueue(constructionQueue, turn) }, // JSON Save System
-          apiKey: localStorage.getItem('ck_api_key') || ''
+          apiKey: localStorage.getItem('ck_api_key') || '',
+          stream: true
         })
       });
-      const data = await response.json();
-      if (data.parsed) {
+      const data = await readGameStream(response, (raw) => {
+        setStreamPreview(extractLivePreview(raw));
+      });
+      if (data?.parsed) {
         setGameState(prevState => {
           if (!prevState) return data.parsed;
           
@@ -288,6 +364,16 @@ export default function Home() {
                personal: mergedPersonalRels,
                faction: mergedFactionRels
             };
+
+            const currentTurnNumber = parseTurnNumber(data.parsed.dateLocation) ?? turn + 1;
+            const newHistoryItem: ChronicleItem = {
+              turn: currentTurnNumber,
+              dateLocation: data.parsed.dateLocation || prevState.dateLocation,
+              action: actionText,
+              result: data.parsed.judgment?.result || "성공",
+              summary: (data.parsed.narrative || "").slice(0, 100).replace(/\n/g, ' ')
+            };
+            const updatedChronicle = [...(prevState.chronicle || []), newHistoryItem].slice(-25);
             
             return {
             ...prevState,
@@ -308,7 +394,8 @@ export default function Home() {
             relationships: mergedRelationships,
 
             playerStatus: data.parsed.playerStatus || prevState.playerStatus,
-            familyState: data.parsed.familyState || prevState.familyState
+            familyState: data.parsed.familyState || prevState.familyState,
+            chronicle: updatedChronicle
           };
         });
         // 투트랙 건설: 턴 갱신 및 큐 정리 (완공/거부 항목 제거, 착수 명령 전송 표시)
@@ -323,7 +410,7 @@ export default function Home() {
               ? '시설이 완공되었습니다. 거점/영지 탭에서 확인하세요.'
               : ''
         );
-      } else if (data.error) {
+      } else if (data?.error) {
         alert("API 에러: " + data.error);
         if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
       } else {
@@ -333,6 +420,7 @@ export default function Home() {
       console.error(err);
       alert("서버 통신 오류가 발생했습니다.");
     }
+    setStreamPreview("");
     setLoading(false);
   };
 
@@ -539,9 +627,26 @@ export default function Home() {
               <div className={styles.leftPane}>
                 <div className={styles.narrativeArea}>
               {loading ? (
-                 <p className={styles.narrativeText} style={{textAlign: 'center', marginTop: '50px', color: 'var(--gold-accent)'}}>
-                   AI가 행동의 인과율을 판정하고 있습니다.<br/>잠시만 기다려주세요...
-                 </p>
+                <div style={{
+                  padding: '24px',
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  border: '1px solid var(--gold-accent)',
+                  borderRadius: '10px',
+                  boxShadow: '0 0 25px rgba(212,175,55,0.15)',
+                  minHeight: '220px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid rgba(212,175,55,0.25)', paddingBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--gold-accent)', fontWeight: 'bold', fontSize: '1.05rem' }}>
+                      <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: 'var(--gold-accent)', boxShadow: '0 0 10px var(--gold-accent)', animation: 'pulse 1.2s infinite' }}></span>
+                      ⚡ 실시간 역사 시뮬레이션 기록 중...
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px' }}>Gemini 3.8 Flash 엔진 실시간 스트리밍</span>
+                  </div>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.8', color: 'var(--text-main)', fontSize: '1.05rem', fontFamily: 'serif' }}>
+                    {streamPreview || "인과율을 분석하고 세계의 반응을 시뮬레이션하고 있습니다..."}
+                    <span style={{ display: 'inline-block', width: '8px', height: '18px', background: 'var(--gold-accent)', marginLeft: '6px', verticalAlign: 'middle', animation: 'pulse 0.8s infinite' }}></span>
+                  </div>
+                </div>
               ) : (
                 <>
                   {gameState.judgment && (
@@ -1032,6 +1137,47 @@ export default function Home() {
             </div>
           </Accordion>
         )}
+
+        <Accordion title={`📜 【 가문 역사 연대기 】 (${gameState.chronicle?.length || 0}건)`}>
+          {gameState.chronicle && gameState.chronicle.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+              {gameState.chronicle.slice().reverse().map((item, idx) => (
+                <div key={idx} style={{
+                  padding: '10px 12px',
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  borderLeft: `4px solid ${item.result?.includes('대성공') ? 'var(--success)' : item.result?.includes('성공') || item.result?.includes('시작') ? 'var(--gold-accent)' : 'var(--danger)'}`,
+                  borderRadius: '4px',
+                  borderTop: '1px solid rgba(255,255,255,0.05)',
+                  borderRight: '1px solid rgba(255,255,255,0.05)',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
+                    <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold' }}>턴 {item.turn} {item.dateLocation ? `| ${item.dateLocation.split('/')[0].trim()}` : ''}</span>
+                    <span style={{ 
+                      color: item.result?.includes('대성공') ? 'var(--success)' : item.result?.includes('성공') || item.result?.includes('시작') ? 'var(--gold-accent)' : 'var(--danger)',
+                      fontWeight: 'bold',
+                      fontSize: '0.85rem'
+                    }}>
+                      {item.result}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '4px' }}>
+                    &ldquo;{item.action}&rdquo;
+                  </div>
+                  {item.summary && (
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      {item.summary}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '10px' }}>
+              아직 기록된 과거 연대기가 없습니다. 턴이 진행되면 결정적인 사건들이 이곳에 누적됩니다.
+            </div>
+          )}
+        </Accordion>
           </div>
         )}
 

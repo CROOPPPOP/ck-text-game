@@ -1,3 +1,11 @@
+export interface ChronicleItem {
+  turn: number;
+  dateLocation?: string;
+  action: string;
+  result?: string;
+  summary?: string;
+}
+
 export interface ParsedState {
   estate?: { 
     type: string; 
@@ -31,6 +39,7 @@ export interface ParsedState {
   choices?: Array<{ id: string; type: string; text: string; probability: string; groupType?: string }>;
   ending?: string;
   environment?: Record<string, string>;
+  chronicle?: ChronicleItem[];
 }
 
 export function parseLLMResponse(text: string): ParsedState {

@@ -4,7 +4,7 @@ import { parseLLMResponse } from "@/lib/parser";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, currentState, isInitialSetup, apiKey } = body;
+    const { action, currentState, isInitialSetup, apiKey, stream: wantStream } = body;
 
     const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
     if (!finalApiKey) {
@@ -206,7 +206,51 @@ YYYY년 MM월 DD일 / 위치 [턴 수: N]
     } else if (!currentState) {
        userPrompt = `게임의 첫 시작입니다. 유비(32세, 평민)가 낙양의 골목길에서 비밀 서신을 쥐고 있는 상황에서 시작해주세요. 위의 정해진 포맷을 반드시 지켜서 응답하세요.`;
     } else {
-       userPrompt = `이전 턴의 게임 상태(JSON): ${JSON.stringify(currentState)}\n\n플레이어의 행동: ${action}\n\n이 행동을 판정하고, 인과율에 맞춰 다음 턴의 상태를 위의 엄격한 포맷에 맞춰 텍스트로 반환하세요.`;
+       const chronicleSummary = currentState.chronicle && currentState.chronicle.length > 0
+         ? `\n\n[가문 연대기 (과거 주요 역사 기록)]:\n` + currentState.chronicle.slice(-6).map((c: any) => `- [턴 ${c.turn} | ${c.dateLocation || ''}] 행동: "${c.action}" -> 판정: ${c.result || '진행'}`).join('\n') + `\n(AI는 과거의 주요 역사적 사건, 은원 관계 및 플레이어의 과거 행동을 기억하고 현재 상황에 유기적으로 반영하십시오.)\n`
+         : "";
+       userPrompt = `이전 턴의 게임 상태(JSON): ${JSON.stringify(currentState)}${chronicleSummary}\n\n플레이어의 행동: ${action}\n\n이 행동을 판정하고, 인과율에 맞춰 다음 턴의 상태를 위의 엄격한 포맷에 맞춰 텍스트로 반환하세요.`;
+    }
+
+    if (wantStream) {
+      const stream = await ai.models.generateContentStream({
+        model: "gemini-3.8-flash",
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemInstruction,
+        }
+      });
+
+      const encoder = new TextEncoder();
+      const customReadable = new ReadableStream({
+        async start(controller) {
+          let fullText = "";
+          try {
+            for await (const chunk of stream) {
+              const chunkText = chunk.text || "";
+              if (chunkText) {
+                fullText += chunkText;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "chunk", text: chunkText })}\n\n`));
+              }
+            }
+            const parsed = parseLLMResponse(fullText);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", raw: fullText, parsed })}\n\n`));
+            controller.close();
+          } catch (err: any) {
+            console.error("Stream generation error:", err);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err?.message || "Generation error" })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(customReadable, {
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "Connection": "keep-alive",
+        }
+      });
     }
 
     let maxRetries = 2;
