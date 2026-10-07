@@ -432,8 +432,101 @@ export function parseLLMResponse(text: string): ParsedState {
     });
   }
 
-  
-// 장기 계획 삭제됨
+  // 11. 파서 정규화 로직 적용 (CK식 범용 규격 및 이상치 정규화)
+  return normalizeParsedState(result);
+}
 
-  return result;
+/**
+ * AI 환각 방지 및 UI 안정성을 위한 파서 정규화 엔진
+ * 1. 6대 플레이어 생존 수치(건강, 체력, 허기, 갈증, 피로, 스트레스) 보장 및 클램핑
+ * 2. 소지품 / 자원 서식 정규화
+ * 3. 세력 상태 수치 규격화
+ * 4. 선택지 식별자 및 번호 일관성 보정
+ */
+export function normalizeParsedState(state: ParsedState): ParsedState {
+  // 1. 플레이어 6대 필수 생존 수치 정규화
+  const CORE_METRICS = [
+    { name: '건강', defaultVal: '85%', defaultRisk: '안전', defaultDesc: '기력 양호', isNegative: false },
+    { name: '체력', defaultVal: '80%', defaultRisk: '안전', defaultDesc: '활동 가능', isNegative: false },
+    { name: '허기', defaultVal: '25%', defaultRisk: '안전', defaultDesc: '충분히 식사함', isNegative: true },
+    { name: '갈증', defaultVal: '20%', defaultRisk: '안전', defaultDesc: '수분 충분', isNegative: true },
+    { name: '피로', defaultVal: '30%', defaultRisk: '안전', defaultDesc: '경미한 피로', isNegative: true },
+    { name: '스트레스', defaultVal: '15%', defaultRisk: '안전', defaultDesc: '심신 평온', isNegative: true }
+  ];
+
+  const currentStatus = state.playerStatus || [];
+  const normalizedStatus: Array<{ name: string; value: string; risk: string; description: string }> = [];
+
+  CORE_METRICS.forEach(metric => {
+    const existing = currentStatus.find(s => s.name.includes(metric.name));
+    if (existing) {
+      let numVal = 50;
+      const match = existing.value.match(/(\d+)/);
+      if (match) numVal = Math.max(0, Math.min(100, parseInt(match[1], 10)));
+
+      // 위험도 보정
+      let risk = existing.risk || metric.defaultRisk;
+      if (!['안전', '주의', '위험', '치명'].some(r => risk.includes(r))) {
+        if (metric.isNegative) {
+          risk = numVal >= 80 ? '위험' : numVal >= 50 ? '주의' : '안전';
+        } else {
+          risk = numVal <= 30 ? '위험' : numVal <= 60 ? '주의' : '안전';
+        }
+      }
+
+      normalizedStatus.push({
+        name: metric.name,
+        value: existing.value.includes('%') ? `${numVal}%` : `${numVal}`,
+        risk,
+        description: existing.description || metric.defaultDesc
+      });
+    } else {
+      normalizedStatus.push({
+        name: metric.name,
+        value: metric.defaultVal,
+        risk: metric.defaultRisk,
+        description: metric.defaultDesc
+      });
+    }
+  });
+
+  // 특수 상태 이상(부상, 중독, 골절 등) 추가 유지
+  currentStatus.forEach(s => {
+    if (!CORE_METRICS.some(m => s.name.includes(m.name))) {
+      normalizedStatus.push(s);
+    }
+  });
+  state.playerStatus = normalizedStatus;
+
+  // 2. 소지품 / 자원 서식 정규화
+  if (state.inventory) {
+    const cleanedInventory: Record<string, string[]> = {};
+    Object.entries(state.inventory).forEach(([rawCat, items]) => {
+      const cleanCat = rawCat.replace(/[▶▷<>:•\-\[\]]/g, '').trim();
+      const cleanItems = items
+        .map(i => i.replace(/^[○•\-\*▶▷]\s*/, '').trim())
+        .filter(Boolean);
+      if (cleanItems.length > 0) {
+        cleanedInventory[cleanCat] = cleanItems;
+      }
+    });
+    state.inventory = Object.keys(cleanedInventory).length > 0 ? cleanedInventory : undefined;
+  }
+
+  // 3. 선택지 번호 및 서식 일관화
+  if (state.choices && state.choices.length > 0) {
+    state.choices = state.choices.map((c, idx) => ({
+      ...c,
+      id: String(idx + 1),
+      text: c.text.replace(/^\[.*?\]\s*/, '').trim() || c.text,
+      probability: c.probability ? c.probability.replace(/^└\s*/, '').trim() : '예상 성공 가능성: 50% ~ 70%'
+    }));
+  }
+
+  // 4. 날짜/위치 서식 정규화
+  if (state.dateLocation) {
+    state.dateLocation = state.dateLocation.replace(/[*_]/g, '').trim();
+  }
+
+  return state;
 }
