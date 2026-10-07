@@ -29,7 +29,7 @@ export interface ParsedState {
   personalInfo?: Record<string, string>;
   playerStatus?: Array<{ name: string; value: string; risk: string; description: string }>;
   stats?: { innate: Record<string, string>; acquired: Record<string, string> };
-  traits?: Array<{ category: string; name: string; tier?: string; description: string }>;
+  traits?: Array<{ category: string; name: string; tier?: string; description: string; isNew?: boolean; isUpgraded?: boolean }>;
   inventory?: Record<string, string[]>;
   factionState?: Record<string, string>;
   relationships?: { personal: string[], faction: string[] };

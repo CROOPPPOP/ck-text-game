@@ -471,11 +471,35 @@ export default function Home() {
                });
             };
 
+            const prevTraits = prevState.traits || [];
+            const newParsedTraits = data.parsed.traits || [];
+            const prevTraitMap = new Map(prevTraits.map(t => [t.name, t]));
+            const newlyAcquiredTraits: string[] = [];
+            const upgradedTraits: string[] = [];
+
+            const processedNewTraits = newParsedTraits.map((newT: any) => {
+              const prevT = prevTraitMap.get(newT.name);
+              if (!prevT) {
+                newlyAcquiredTraits.push(newT.name);
+                return { ...newT, isNew: true };
+              } else if (newT.tier && prevT.tier && newT.tier !== prevT.tier) {
+                upgradedTraits.push(`${newT.name} (${newT.tier})`);
+                return { ...newT, isUpgraded: true };
+              }
+              return newT;
+            });
+
             const mergedTraits = mergeArrayByKey(
-               prevState.traits || [], 
-               data.parsed.traits || [], 
+               prevTraits, 
+               processedNewTraits, 
                (t: any) => t.name
             );
+
+            if (newlyAcquiredTraits.length > 0) {
+              showQuickNotice(`✨ 새로운 특성 획득: [${newlyAcquiredTraits.join(', ')}]`);
+            } else if (upgradedTraits.length > 0) {
+              showQuickNotice(`🌟 특성 성장: [${upgradedTraits.join(', ')}]`);
+            }
 
             const mergedPersonalRels = mergeArrayByKey(
                prevState.relationships?.personal || [],

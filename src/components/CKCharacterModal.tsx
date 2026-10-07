@@ -1,9 +1,15 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
 import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails } from '@/lib/ckVisuals';
-import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X } from 'lucide-react';
+import { 
+  TRAIT_CATEGORIES, 
+  ORDERED_TRAIT_CATEGORY_KEYS, 
+  groupTraitsBySession, 
+  TraitCategoryKey 
+} from '@/lib/traitUtils';
+import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -12,6 +18,9 @@ interface Props {
 }
 
 export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) {
+  const [selectedCategory, setSelectedCategory] = useState<'all' | TraitCategoryKey>('all');
+  const [showEmptySessions, setShowEmptySessions] = useState(true);
+
   if (!isOpen) return null;
 
   const rulerName = gameState.personalInfo?.['이름'] || '군주';
@@ -24,25 +33,8 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
   const stress = parseCKStress(gameState);
   const archetypeDetails = getArchetypeDetails(gameState);
   const emblem = getHeraldryEmblem(rulerName, culture, archetypeDetails.archetype);
-
-  const getTraitCategoryStyle = (category: string) => {
-    switch (category) {
-      case '신체특성':
-        return { border: '#ef4444', color: '#fca5a5', bg: 'rgba(239, 68, 68, 0.15)', icon: '💪' };
-      case '정신특성':
-        return { border: '#3b82f6', color: '#93c5fd', bg: 'rgba(59, 130, 246, 0.15)', icon: '🧠' };
-      case '감각특성':
-        return { border: '#10b981', color: '#6ee7b7', bg: 'rgba(16, 185, 129, 0.15)', icon: '👁️' };
-      case '전문특성':
-        return { border: '#d4af37', color: '#fcd34d', bg: 'rgba(212, 175, 55, 0.15)', icon: '🎖️' };
-      case '잠재특성':
-        return { border: '#a855f7', color: '#d8b4fe', bg: 'rgba(168, 85, 247, 0.15)', icon: '✨' };
-      case '일시적특성':
-        return { border: '#ec4899', color: '#fbcfe8', bg: 'rgba(236, 72, 153, 0.15)', icon: '⏳' };
-      default:
-        return { border: '#d4af37', color: '#fcd34d', bg: 'rgba(212, 175, 55, 0.15)', icon: '🏷️' };
-    }
-  };
+  const groupedTraits = groupTraitsBySession(gameState.traits || []);
+  const totalTraitsCount = (gameState.traits || []).length;
 
   return (
     <div 
@@ -523,68 +515,394 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
           </div>
         </div>
 
-        {/* 3. Traits Gallery (특성 및 성격 트레잇) */}
-        {gameState.traits && gameState.traits.length > 0 && (
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              color: 'var(--gold-accent)',
-              marginBottom: '12px',
-              borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
-              paddingBottom: '8px'
-            }}>
-              <Sparkles size={18} />
-              <span>군주 특성 및 혈통 트레잇 (Traits)</span>
+        {/* 3. Traits Gallery - Categorized Session Layout (특성 세션 분리 체계) */}
+        <div style={{ marginBottom: '28px' }}>
+          {/* Main Traits Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '14px',
+            borderBottom: '1px solid rgba(212, 175, 55, 0.25)',
+            paddingBottom: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={20} style={{ color: 'var(--gold-accent)' }} />
+              <h2 style={{
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                color: 'var(--gold-accent)',
+                margin: 0,
+                letterSpacing: '0.5px'
+              }}>
+                군주 특성 및 혈통 트레잇 체계 (Traits & Sessions)
+              </h2>
+              <span style={{
+                background: 'rgba(212, 175, 55, 0.2)',
+                color: 'var(--gold-hover)',
+                fontSize: '0.8rem',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                border: '1px solid rgba(212, 175, 55, 0.4)',
+                fontWeight: 'bold'
+              }}>
+                총 {totalTraitsCount}개 보유
+              </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-              {gameState.traits.map((trait, idx) => {
-                const style = getTraitCategoryStyle(trait.category);
-                return (
-                  <div
-                    key={idx}
-                    title={trait.description}
-                    style={{
-                      background: style.bg,
-                      border: `1px solid ${style.border}`,
-                      borderRadius: '8px',
-                      padding: '10px 12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                      transition: 'transform 0.2s',
-                      cursor: 'help'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', opacity: 0.85, color: style.color }}>
-                        {style.icon} {trait.category}
-                      </span>
-                      {trait.tier && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--gold-hover)', fontWeight: 'bold' }}>
-                          {trait.tier}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff' }}>
-                      {trait.name}
-                    </div>
-                    {trait.description && (
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-                        {trait.description}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Toggle Empty Sessions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={showEmptySessions}
+                  onChange={(e) => setShowEmptySessions(e.target.checked)}
+                  style={{ cursor: 'pointer', accentColor: 'var(--gold-accent)' }}
+                />
+                <span>미발현 세션 및 개화 힌트 표시</span>
+              </label>
             </div>
           </div>
-        )}
+
+          {/* Quick Session Filter Tabs */}
+          <div style={{
+            display: 'flex',
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: '8px',
+            marginBottom: '16px',
+            scrollbarWidth: 'thin'
+          }}>
+            <button
+              onClick={() => setSelectedCategory('all')}
+              style={{
+                padding: '6px 12px',
+                fontSize: '0.82rem',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                border: selectedCategory === 'all' ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
+                background: selectedCategory === 'all' ? 'rgba(212, 175, 55, 0.25)' : 'rgba(0,0,0,0.3)',
+                color: selectedCategory === 'all' ? '#fff' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>🌐 전체 세션</span>
+              <span style={{
+                background: selectedCategory === 'all' ? 'var(--gold-accent)' : 'rgba(255,255,255,0.15)',
+                color: selectedCategory === 'all' ? '#0f172a' : '#fff',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                fontSize: '0.72rem'
+              }}>
+                {totalTraitsCount}
+              </span>
+            </button>
+
+            {ORDERED_TRAIT_CATEGORY_KEYS.map((catKey) => {
+              if (catKey === 'general' && groupedTraits.general.length === 0) return null;
+              const meta = TRAIT_CATEGORIES[catKey];
+              const count = groupedTraits[catKey].length;
+              const isSelected = selectedCategory === catKey;
+
+              return (
+                <button
+                  key={catKey}
+                  onClick={() => setSelectedCategory(catKey)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 'bold',
+                    borderRadius: '6px',
+                    border: isSelected ? `1px solid ${meta.borderColor}` : '1px solid rgba(255,255,255,0.08)',
+                    background: isSelected ? meta.bgColor : 'rgba(0,0,0,0.3)',
+                    color: isSelected ? meta.color : count > 0 ? '#e2e8f0' : 'rgba(255,255,255,0.4)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s',
+                    boxShadow: isSelected ? `0 0 10px ${meta.borderColor}33` : 'none'
+                  }}
+                >
+                  <span>{meta.icon}</span>
+                  <span>{meta.shortLabel}</span>
+                  <span style={{
+                    background: count > 0 ? (isSelected ? meta.borderColor : 'rgba(255,255,255,0.15)') : 'rgba(255,255,255,0.06)',
+                    color: count > 0 ? (isSelected ? '#fff' : '#e2e8f0') : 'rgba(255,255,255,0.35)',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    fontSize: '0.72rem'
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Session Cards Container */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {ORDERED_TRAIT_CATEGORY_KEYS.map((catKey) => {
+              // 카테고리 필터링 적용
+              if (selectedCategory !== 'all' && selectedCategory !== catKey) return null;
+              if (catKey === 'general' && groupedTraits.general.length === 0) return null;
+
+              const meta = TRAIT_CATEGORIES[catKey];
+              const traits = groupedTraits[catKey];
+              const hasTraits = traits.length > 0;
+
+              // traits가 없고 showEmptySessions도 false인데 단독 카테고리 선택도 아닌 경우 숨김
+              if (!hasTraits && !showEmptySessions && selectedCategory === 'all') return null;
+
+              return (
+                <div
+                  key={catKey}
+                  style={{
+                    background: hasTraits ? meta.gradientBg : 'rgba(15, 23, 42, 0.4)',
+                    border: `1px solid ${hasTraits ? meta.borderColor + '66' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: '12px',
+                    padding: '16px 18px',
+                    boxShadow: hasTraits ? '0 4px 16px rgba(0,0,0,0.35)' : 'none',
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  {/* Session Header */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    marginBottom: '12px',
+                    borderBottom: `1px solid ${hasTraits ? meta.borderColor + '33' : 'rgba(255,255,255,0.06)'}`,
+                    paddingBottom: '8px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>{meta.icon}</span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            fontSize: '0.98rem',
+                            fontWeight: 'bold',
+                            color: meta.color,
+                            letterSpacing: '0.5px'
+                          }}>
+                            {meta.label}
+                          </span>
+                          <span style={{
+                            fontSize: '0.72rem',
+                            padding: '1px 8px',
+                            borderRadius: '10px',
+                            background: hasTraits ? `${meta.borderColor}33` : 'rgba(255,255,255,0.06)',
+                            color: hasTraits ? meta.color : 'var(--text-muted)',
+                            border: `1px solid ${hasTraits ? meta.borderColor + '55' : 'rgba(255,255,255,0.1)'}`,
+                            fontWeight: 'bold'
+                          }}>
+                            {hasTraits ? `${traits.length}개 발현` : '미발현'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {meta.description}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Session Content */}
+                  {hasTraits ? (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                      gap: '12px'
+                    }}>
+                      {traits.map((trait, idx) => {
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              background: 'rgba(10, 15, 28, 0.75)',
+                              border: `1px solid ${trait.isNew ? '#fbbf24' : meta.borderColor + '66'}`,
+                              borderRadius: '8px',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              boxShadow: trait.isNew 
+                                ? '0 0 15px rgba(251, 191, 36, 0.35)' 
+                                : '0 2px 10px rgba(0,0,0,0.4)',
+                              transition: 'transform 0.2s, box-shadow 0.2s',
+                              position: 'relative',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            {/* Top Badge Row */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+                              <span style={{
+                                fontSize: '0.72rem',
+                                color: meta.color,
+                                background: meta.bgColor,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold'
+                              }}>
+                                {meta.icon} {trait.originalCategory}
+                              </span>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {trait.isNew && (
+                                  <span style={{
+                                    fontSize: '0.7rem',
+                                    background: 'linear-gradient(45deg, #d97706, #fbbf24)',
+                                    color: '#0f172a',
+                                    fontWeight: 'bold',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    boxShadow: '0 0 8px rgba(251, 191, 36, 0.5)'
+                                  }}>
+                                    ✨ NEW
+                                  </span>
+                                )}
+                                {trait.tier && (
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    color: trait.tierInfo.color,
+                                    fontWeight: 'bold',
+                                    background: 'rgba(0,0,0,0.4)',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    border: `1px solid ${trait.tierInfo.color}44`
+                                  }}>
+                                    {trait.tier}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Trait Name */}
+                            <div style={{
+                              fontSize: '1.02rem',
+                              fontWeight: 'bold',
+                              color: '#fff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <span>{trait.name}</span>
+                            </div>
+
+                            {/* 5-Pip Growth Tier Gauge */}
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: 'rgba(0,0,0,0.3)',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(255,255,255,0.05)'
+                            }}>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '2px' }}>
+                                성장단계:
+                              </span>
+                              <div style={{ display: 'flex', gap: '3px' }}>
+                                {trait.tierInfo.pips.map((filled, pIdx) => (
+                                  <span
+                                    key={pIdx}
+                                    style={{
+                                      width: '7px',
+                                      height: '7px',
+                                      borderRadius: '50%',
+                                      background: filled ? trait.tierInfo.color : 'rgba(255,255,255,0.15)',
+                                      boxShadow: filled ? `0 0 5px ${trait.tierInfo.color}` : 'none'
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                              <span style={{
+                                fontSize: '0.7rem',
+                                color: trait.tierInfo.color,
+                                marginLeft: 'auto',
+                                fontWeight: 'bold'
+                              }}>
+                                {trait.tierInfo.label}
+                              </span>
+                            </div>
+
+                            {/* Description */}
+                            {trait.description && (
+                              <div style={{
+                                fontSize: '0.8rem',
+                                color: '#cbd5e1',
+                                lineHeight: '1.4',
+                                marginTop: '2px',
+                                background: 'rgba(0,0,0,0.2)',
+                                padding: '6px 8px',
+                                borderRadius: '4px',
+                                borderLeft: `2px solid ${meta.borderColor}`
+                              }}>
+                                {trait.description}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Empty Session Guide */
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px dashed rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.86rem' }}>
+                        <Lock size={15} style={{ opacity: 0.6 }} />
+                        <span>{meta.emptyHint}</span>
+                      </div>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                        fontSize: '0.75rem',
+                        color: 'rgba(255,255,255,0.4)',
+                        marginTop: '2px'
+                      }}>
+                        <span>💡 주요 발현 가능 특성:</span>
+                        {meta.examples.map((ex, eIdx) => (
+                          <span
+                            key={eIdx}
+                            style={{
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              padding: '1px 6px',
+                              borderRadius: '3px',
+                              color: meta.color,
+                              opacity: 0.8
+                            }}
+                          >
+                            {ex}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* 4. Vital Health & Physical Condition (건강 및 신체 상태) */}
         {gameState.playerStatus && gameState.playerStatus.length > 0 && (
