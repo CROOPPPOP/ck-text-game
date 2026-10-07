@@ -80,13 +80,14 @@ export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
   }
 
   if (
-    status.includes('용병단') || status.includes('상단') || status.includes('행수') ||
-    status.includes('두목') || status.includes('대장') || status.includes('집단') ||
-    status.includes('선단') || status.includes('길드') || status.includes('조합') ||
-    status.includes('도편수') || status.includes('촌장') || status.includes('관리인') ||
-    status.includes('도당') || status.includes('의적') || title.includes('단장') ||
-    title.includes('행수') || title.includes('대장') || title.includes('선장') ||
-    title.includes('조합장') || title.includes('촌장')
+    status.includes('용병대장') || status.includes('용병단') || status.includes('상단') ||
+    status.includes('행수') || status.includes('두목') || status.includes('대장') ||
+    status.includes('집단') || status.includes('선단') || status.includes('길드') ||
+    status.includes('조합') || status.includes('도편수') || status.includes('촌장') ||
+    status.includes('관리인') || status.includes('도당') || status.includes('의적') ||
+    title.includes('단장') || title.includes('행수') || title.includes('대장') ||
+    title.includes('선장') || title.includes('길드마스터') || title.includes('조합장') ||
+    title.includes('촌장')
   ) {
     return 'company';
   }
@@ -97,8 +98,9 @@ export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
     status.includes('유랑') || status.includes('평민') || status.includes('소작') ||
     status.includes('농민') || status.includes('도제') || status.includes('장인') ||
     status.includes('부랑') || status.includes('무숙') || status.includes('학사') ||
-    status.includes('음유시인') || status.includes('사냥꾼') || title.includes('방랑자') ||
-    title.includes('소작농') || title.includes('도제') || estateType.includes('야영지')
+    status.includes('음유시인') || status.includes('사냥꾼') || status.includes('용병') ||
+    title.includes('방랑자') || title.includes('소작농') || title.includes('도제') ||
+    title.includes('용병') || estateType.includes('야영지')
   ) {
     return 'wanderer';
   }
@@ -526,10 +528,10 @@ export function parseCKResources(gameState: ParsedState): CKResources {
   const domain = `${estateType} (시설 ${buildingCount}동 / 직할 한계 ${domainLimit})`;
 
   const archetypeTitleMap: Record<PlayerArchetype, string> = {
-    noble: '👑 봉건 영주',
+    noble: '👑 봉건 영주 및 귀족',
     wanderer: '🗡️ 개인 및 방랑자',
     company: '👥 소규모 집단',
-    clergy: '⛪ 성직자 / 수도자'
+    clergy: '⛪ 성직자 및 수도자'
   };
 
   return {
@@ -549,7 +551,7 @@ export function getHeraldryEmblem(name: string, culture: string = '', archetype?
   const normName = (name || '').toLowerCase();
 
   if (normName.includes('교황') || normName.includes('성하') || normName.includes('바티칸') || normName.includes('로마 성좌')) {
-    return { icon: '🇻🇦', border: '#facc15', bg: 'linear-gradient(135deg, #1e3a8a, #78350f)' };
+    return { icon: '🗝️', border: '#facc15', bg: 'linear-gradient(135deg, #1e3a8a, #78350f)' };
   }
   if (normName.includes('황제') || normName.includes('카이저') || normName.includes('차르') || normName.includes('바실레우스') || normName.includes('폐하')) {
     return { icon: '🦅', border: '#f59e0b', bg: 'linear-gradient(135deg, #581c87, #b45309)' };

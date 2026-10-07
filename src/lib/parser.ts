@@ -108,7 +108,15 @@ export function parseLLMResponse(text: string): ParsedState {
     const info: Record<string, string> = {};
     personalInfoMatch.split('|').forEach(part => {
       const [key, value] = part.split(':').map(s => s.trim());
-      if (key && value) info[key] = value;
+      if (key && value) {
+        // 신분 및 직위 정규화: 혹시 AI가 슬래시나 괄호를 병기하더라도 단독 단일 명칭으로 정규화
+        if (key === '신분' || key === '직위') {
+          const cleanVal = value.split('/')[0].split('(')[0].trim();
+          info[key] = cleanVal || value;
+        } else {
+          info[key] = value;
+        }
+      }
     });
     result.personalInfo = info;
   }

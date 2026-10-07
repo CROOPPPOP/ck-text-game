@@ -71,11 +71,11 @@ export default function Startup() {
       id: 'wanderer',
       num: '1번',
       icon: '🗡️',
-      title: '1. 개인 / 방랑자',
-      subtitle: '낭인 · 검객 · 모험가 · 유랑 학자',
+      title: '1. 개인 및 방랑자',
+      subtitle: '평민 · 소작농 · 용병 · 방랑 검사 · 장인 · 도제 · 학사 · 음유시인 · 부랑자',
       badge: '1번: 1인칭 생존 & 무예',
       desc: '영지 없이 단신으로 여관과 산길을 떠돌며 무예와 지혜로 의뢰를 해결하고 명성을 쌓습니다.',
-      status: '방랑자 (낭인 / 용병 검객)',
+      status: '방랑자',
       location: '국경 지대 선술집 또는 숲속 야영지',
       goal: '개인의 무예 입신양명 및 영주 후원자 획득 (가신 기사 발탁 또는 독자 거점 하사)',
       additional: '영지 없이 단신으로 여관이나 산길을 떠돌며 의뢰와 현상금을 쫓는 방랑 모험가 신분. [시작 소지품]: 여행용 가죽 외투, 손때 묻은 강철 단검, 부싯돌과 밧줄, 가죽 수통, 비상 육포, 동화 35개, 휴대용 낚시 바늘.',
@@ -84,45 +84,81 @@ export default function Startup() {
         {
           id: 'peasant',
           icon: '🌾',
-          name: '평민 / 소작농',
-          shortDesc: '장원 토지를 부치거나 날품을 팔며 생계를 잇는 보편적 평민 계층',
-          playerStatus: '평민 (자유농 / 소작농)',
-          goal: '자유민 토지 매입 및 장원 부농 성장, 자치 촌락 장로/원로 피선',
-          additional: '영주의 장원에서 농사를 짓고 세금을 바치는 평민. [소지품]: 낡은 삼베옷, 괭이와 낫, 거친 보리빵, 가죽 수통, 동화 25닢.'
+          name: '평민',
+          shortDesc: '영주의 직할지나 촌락에서 토지를 경작하거나 날품을 파는 보편적 자유민',
+          playerStatus: '평민',
+          goal: '자유민 토지 매입 및 장원 부농 성장, 자치 촌락 장로 선출',
+          additional: '자유민 신분의 농민. [소지품]: 거친 삼베옷, 괭이와 낫, 보리빵, 가죽 수통, 동화 25닢.'
         },
         {
-          id: 'mercenary_soldier',
+          id: 'serf',
+          icon: '🌱',
+          name: '소작농',
+          shortDesc: '영주의 장원에 예속되어 부역과 지대를 바치며 살아가는 예속 농민',
+          playerStatus: '소작농',
+          goal: '영주에게 지대를 청산하고 자유 신분 획득 및 독자 농지 마련',
+          additional: '영주 장원에 예속된 소작농. [소지품]: 낡은 누더기 옷, 나무 삽과 낫, 호밀 덩이, 가죽 주머니, 동화 12닢.'
+        },
+        {
+          id: 'mercenary',
           icon: '🗡️',
-          name: '방랑 무인 / 용병',
-          shortDesc: '무구와 전투 기술로 생계를 유지하며 여관과 전장을 떠도는 무장 자유민',
-          playerStatus: '방랑 무인 (용병 검사 / 보병)',
-          goal: '무공을 세워 유력 영주의 가신 기사 또는 상비군 부대장으로 발탁',
-          additional: '주군 없이 무예 의뢰와 경호로 살아가는 무인. [소지품]: 손때 묻은 강철 장검, 무명 가죽 조끼, 숫돌, 비상 육포, 동화 40닢.'
+          name: '용병',
+          shortDesc: '무구와 검술로 생계를 유지하며 전선과 호위 일거리를 찾는 무장 전투원',
+          playerStatus: '용병',
+          goal: '전공을 세워 유력 영주의 가신 기사 또는 상비군 부대장으로 발탁',
+          additional: '주군 없이 보수를 위해 칼을 쥐는 용병. [소지품]: 손때 묻은 강철 장검, 무명 가죽 조끼, 숫돌, 비상 육포, 동화 40닢.'
+        },
+        {
+          id: 'swordsman',
+          icon: '⚔️',
+          name: '방랑 검사',
+          shortDesc: '특정 주군에 얽매이지 않고 무예 연마와 명성을 좇아 방랑하는 검객',
+          playerStatus: '방랑 검사',
+          goal: '비전 검술 완성 및 어전 비무대회 우승, 명문 기사단 입단',
+          additional: '홀로 무도를 추구하는 유랑 무인. [소지품]: 잘 벼린 강철검, 여행용 모자와 망토, 짚신, 붕대, 동화 35닢.'
         },
         {
           id: 'craftsman',
           icon: '⚒️',
-          name: '도제 / 장인',
-          shortDesc: '공방에서 대장일이나 목공 기술을 익히며 일거리를 찾아 유람하는 기술인',
-          playerStatus: '장인 (공방 직인 / 도제)',
+          name: '장인',
+          shortDesc: '대장일·석공·목공 기술을 갖추고 명품 제작 일거리를 찾아 유람하는 기술인',
+          playerStatus: '장인',
           goal: '명품 걸작을 제작하여 마스터 시험 통과 및 독자 공방 개업',
           additional: '숙련된 손재주를 지닌 직인. [소지품]: 손망치와 정밀 조각칼 도구함, 가죽 앞치마, 작업 설계도, 은화 5닢.'
         },
         {
-          id: 'scholar_troubadour',
+          id: 'apprentice',
+          icon: '🪵',
+          name: '도제',
+          shortDesc: '공방 스승 밑에서 잡일과 기초 기술을 배우며 수련 중인 공방 견습생',
+          playerStatus: '도제',
+          goal: '기초 기술 연마를 마치고 정식 직인(Journeyman) 자격 취득',
+          additional: '기술을 배우는 수습생. [소지품]: 작업용 앞치마, 기본 수공구, 도면 수첩, 은화 1닢, 동화 15닢.'
+        },
+        {
+          id: 'scholar',
           icon: '📜',
-          name: '학사 / 음유시인',
-          shortDesc: '라틴어 학식이나 시가를 지니고 여관과 영주의 성관을 유람하는 지식인',
-          playerStatus: '학사 (유랑 학식가 / 음유시인)',
+          name: '학사',
+          shortDesc: '라틴어와 고전 학식, 법률 지식을 갖추고 궁정이나 서원을 유람하는 학자',
+          playerStatus: '학사',
           goal: '대륙 견문록 완성 및 궁정 서기관, 영주 참모 조언가 등용',
-          additional: '역사와 문학을 읊으며 여행하는 지식인. [소지품]: 양피지 수첩과 깃펜 잉크, 휴대용 악기(류트), 고문서 단편, 은화 8닢.'
+          additional: '역사와 문헌을 연구하는 지식인. [소지품]: 양피지 수첩과 깃펜 잉크, 고문서 단편, 라틴어 사전, 은화 8닢.'
+        },
+        {
+          id: 'troubadour',
+          icon: '🪕',
+          name: '음유시인',
+          shortDesc: '영웅 서사시와 연가를 읊으며 여관과 연회장을 순회하는 유랑 예술인',
+          playerStatus: '음유시인',
+          goal: '전설적인 영웅시 완성 및 국왕 궁정 계관 시인 발탁',
+          additional: '노래와 시를 읊는 방랑 예인. [소지품]: 휴대용 류트, 시집 양피지, 화려한 깃털 모자, 은화 6닢.'
         },
         {
           id: 'vagrant',
           icon: '🌲',
-          name: '부랑자 / 무숙자',
+          name: '부랑자',
           shortDesc: '어디에도 적을 두지 않고 국경과 숲속을 떠돌며 야외 생존에 정통한 방랑자',
-          playerStatus: '방랑자 (무숙 유랑민)',
+          playerStatus: '부랑자',
           goal: '거친 방랑 생활 청산 및 정착 거점(농장 또는 사냥터) 마련',
           additional: '야생과 길 위에서 단련된 생존 전문가. [소지품]: 짐승 가죽 외투, 사냥 덫 2개, 손도끼, 부싯돌, 동화 15닢.'
         }
@@ -148,10 +184,10 @@ export default function Startup() {
       num: '2번',
       icon: '👥',
       title: '2. 소규모 집단',
-      subtitle: '용병대장 · 상단주 · 길드 마스터 · 장원 관리인',
+      subtitle: '용병대장 · 상단주 · 길드마스터 · 촌장 · 장원 관리인 · 도적단 두목',
       badge: '2번: 집단 통솔 & 군자금',
       desc: '10~30여 명의 정예 단원과 숙영지를 이끌며 영주들의 고용 계약을 수주하고 부를 축적합니다.',
-      status: '용병대장 (사병대 지휘관)',
+      status: '용병대장',
       location: '전선 인근 상설 숙영지 또는 무역 거점',
       goal: '명성을 떨치는 대용병단 구축 및 독립 거점(폐성 점령 또는 남작령 분봉) 획득',
       additional: '단원 20여 명을 이끄는 소규모 용병단. 매 턴 단원 주급 및 식량 보급 유지비 지출. [시작 소지품]: 단장의 장검 및 사슬 갑옷, 용병단 군기, 단원 20명(보병 15, 궁수 5), 마차 2대, 텐트 숙영지, 군자금 금화 120닢.',
@@ -160,46 +196,55 @@ export default function Startup() {
         {
           id: 'mercenary_captain',
           icon: '🛡️',
-          name: '용병대장 / 지휘관',
+          name: '용병대장',
           shortDesc: '정예 전투원들을 통솔하며 제후들의 전선에 고용되는 사병대 수장',
-          playerStatus: '용병대장 (사병대 지휘관)',
+          playerStatus: '용병대장',
           goal: '명성을 떨치는 대용병단 육성 및 영주로부터 남작령(영지) 수여 획득',
           additional: '단원 20여 명을 이끄는 자유 용병대. [소지품]: 사슬 갑옷과 지휘관 장검, 부대 군기, 단원 20명(보병 15, 궁수 5), 보급 마차 2대, 텐트 숙영지, 군자금 금화 120닢.'
         },
         {
           id: 'caravan_master',
           icon: '🐫',
-          name: '상단주 / 대상인',
+          name: '상단주',
           shortDesc: '짐마차와 호위대를 이끌고 대륙의 도시와 국경을 잇는 무역 상단 수장',
-          playerStatus: '상단주 (대상인 / 교역 행수)',
+          playerStatus: '상단주',
           goal: '대륙 횡단 무역로 독점 및 대도시 상인 참사회 의장 선출',
           additional: '무역 대상단을 이끄는 상인. [소지품]: 장부와 정밀 저울, 짐마차 4대, 호위 용병 12명, 교역 물품 마차, 운용 자금 금화 250닢.'
         },
         {
           id: 'guild_master',
           icon: '⚒️',
-          name: '동업조합장 / 길드 마스터',
+          name: '길드마스터',
           shortDesc: '도시의 숙련 장인과 도제들을 거느리고 생산과 공방을 총괄하는 조합 대표',
-          playerStatus: '길드 마스터 (동업조합장)',
+          playerStatus: '길드마스터',
           goal: '도시 공방 독점 생산권 획득 및 영주 특허장을 통한 길드 자치권 공인',
           additional: '도시 장인 조합. [소지품]: 조합 인장, 정밀 도구 세트, 숙련 장인 15명, 자재 운반 마차, 조합 금고 금화 150닢.'
         },
         {
-          id: 'village_reeve',
+          id: 'village_elder',
           icon: '🏡',
-          name: '장원 관리인 / 촌장',
-          shortDesc: '장원 촌락 주민들을 통솔하며 영주의 부역과 자치를 조율하는 공동체 대표',
-          playerStatus: '장원 관리인 (촌락 자치 대표)',
-          goal: '촌락 생산성 극대화 및 영주 면세 특권 획득, 자치 읍(Borough) 승격',
-          additional: '장원 촌락의 대소사를 총괄하는 관리인. [소지품]: 장원 호구 장부, 영지 관할권 지팡이, 촌락 자경단 15명, 곡물 창고 열쇠, 촌락 기금 은화 80닢.'
+          name: '촌장',
+          shortDesc: '장원 촌락 주민들을 대변하며 마을의 자치와 방범을 이끄는 자치 수장',
+          playerStatus: '촌장',
+          goal: '촌락 번영 및 영주 면세 특권 획득, 자치 읍(Borough) 승격',
+          additional: '마을 원로와 자경단을 이끄는 촌장. [소지품]: 마을 회의 인장, 자경단 15명, 비축 곡물 창고, 촌락 자금 은화 80닢.'
+        },
+        {
+          id: 'estate_steward',
+          icon: '📜',
+          name: '장원 관리인',
+          shortDesc: '부재 지주나 영주를 대리하여 장원의 경작과 징세, 일꾼을 총괄하는 관리인',
+          playerStatus: '장원 관리인',
+          goal: '장원 생산성 극대화로 영주의 총애 획득 및 독자 토지 하사',
+          additional: '장원 농장을 총괄하는 관리인. [소지품]: 장원 호구 장부, 영지 집행봉, 장원 일꾼 20명, 마차 1대, 관리 자금 은화 60닢.'
         },
         {
           id: 'bandit_chieftain',
           icon: '🏹',
-          name: '도적단 두목 / 녹림 수령',
-          shortDesc: '험준한 산채나 요충지를 본거지로 삼아 무리를 거느린 무장 도당의 우두머리',
-          playerStatus: '도적단 두목 (무장 도당 수령)',
-          goal: '일대 요충지 장악, 영주의 토벌군 격퇴 후 정식 사면 및 변경 수비대장 임명',
+          name: '도적단 두목',
+          shortDesc: '험준한 산채나 요충지를 본거지로 삼아 무리를 거느린 무장 도당 우두머리',
+          playerStatus: '도적단 두목',
+          goal: '일대 요충지 장악, 영주 토벌군 격퇴 후 정식 사면 및 변경 수비대장 임명',
           additional: '산채에 웅거한 무장 도당. [소지품]: 합성궁과 화살, 비밀 산채 아지트, 단원 18명, 경계망, 노략품 은화 90닢.'
         }
       ],
@@ -222,11 +267,11 @@ export default function Startup() {
       id: 'clergy',
       num: '3번',
       icon: '⛪',
-      title: '3. 성직자 / 수도자',
-      subtitle: '평신도 · 사제 · 수도원장 · 주교 · 교황',
+      title: '3. 성직자 및 수도자',
+      subtitle: '평신도 · 수사 · 사제 · 수도원장 · 주교 · 대주교 · 교황',
       badge: '3번: 신앙 & 교단 발언권',
       desc: '독신 서약과 신앙심, 고문서 학식을 바탕으로 교구 민심을 이끌고 종교적 권위를 세웁니다.',
-      status: '사제 (교구 본당 신부)',
+      status: '사제',
       location: '한적한 시골 수도원 또는 작은 교구 예배당',
       goal: '교구 성당 부흥 및 주교좌 성당 참사회원/총대리 사제 임명',
       additional: '교구민들을 이끌고 예배와 성사를 집전하는 본당 사제. [시작 소지품]: 사제복과 제의, 은 십자가 성물, 라틴어 성경 사본, 성유함, 본당 성당, 십일조 은화 50닢.',
@@ -235,27 +280,27 @@ export default function Startup() {
         {
           id: 'layman',
           icon: '📿',
-          name: '평신도 / 수도원 봉사자',
-          shortDesc: '세속에 머물거나 수도원에 헌신하며 교회를 돕는 신앙인',
-          playerStatus: '평신도 (수도회 봉헌자)',
-          goal: '모범적인 신앙으로 교구민의 신망을 얻고 교회 참사회/성직 서품 추천 획득',
+          name: '평신도',
+          shortDesc: '세속에 머물며 교회를 돕고 신앙을 실천하는 독실한 평신도 봉헌자',
+          playerStatus: '평신도',
+          goal: '모범적인 신앙으로 교구민의 신망을 얻고 성직 서품 추천 획득',
           additional: '세속에서 교회를 후원하고 수도원 노동을 돕는 평신도 봉헌자. [소지품]: 수수한 평민복, 목각 십자가, 묵주, 성경 구절 필사본, 은화 25닢.'
         },
         {
           id: 'monk',
           icon: '📜',
-          name: '수사 / 수도승',
-          shortDesc: '수도원 엄률 서약에 따라 기도와 노동, 학문 필사에 헌신하는 수도사',
-          playerStatus: '수사 (수도회 수도승)',
+          name: '수사',
+          shortDesc: '수도원 엄률 서약에 따라 기도와 노동, 학문 필사에 헌신하는 수도승',
+          playerStatus: '수사',
           goal: '고결한 영성과 학식으로 수도원 필사실 책임자 및 부원장(Prior) 승격',
           additional: '수도회 규칙을 엄수하며 기도와 필사에 매진하는 수사. [소지품]: 수도복(갈색 양모 로브), 가죽 허리띠, 라틴어 기도서, 양피지 필사 도구, 수도원 독방.'
         },
         {
           id: 'priest',
           icon: '⛪',
-          name: '사제 / 본당 신부',
-          shortDesc: '교구 성당에서 성찬을 집전하고 교구민의 영혼을 사목하는 서품 성직자',
-          playerStatus: '사제 (교구 본당 신부)',
+          name: '사제',
+          shortDesc: '교구 성당에서 성찬을 집전하고 교구민의 영혼을 사목하는 본당 신부',
+          playerStatus: '사제',
           goal: '교구 성당 부흥 및 주교좌 성당 참사회원/총대리 사제 임명',
           additional: '교구민들을 이끌고 예배와 고해성사를 집전하는 본당 사제. [소지품]: 사제복과 제의, 은 십자가 성물, 성경 전권 사본, 성유함, 본당 성당, 십일조 은화 50닢.'
         },
@@ -264,27 +309,36 @@ export default function Startup() {
           icon: '🏰',
           name: '수도원장',
           shortDesc: '독립 수도원과 소속 장원 영지, 수도사 공동체를 총괄하는 대수도원장',
-          playerStatus: '수도원장 (대수도원 통치자)',
+          playerStatus: '수도원장',
           goal: '수도원 대성당 완공 및 교황청 직속 면벌/자치 특허 획득, 교단 총회 주도',
           additional: '수도원 영지와 수십 명의 수사를 통솔하는 영적 영주. [소지품]: 원장 지팡이, 원장 인장 반지, 대수도원 장원, 수도사 25명, 도서관 장서 200권, 금화 120닢.'
         },
         {
           id: 'bishop',
           icon: '👑',
-          name: '주교 / 대주교',
+          name: '주교',
           shortDesc: '광대한 관구 교구와 교회령 영지를 다스리며 세속 제후와 견주는 고위 성직자',
-          playerStatus: '주교 (관구 교구장)',
+          playerStatus: '주교',
           goal: '대주교 승품 및 추기경 서임, 세속 군주를 견제하는 신성 정치의 정점 등극',
           additional: '광대한 교회령 영지와 관구 교구를 통솔하는 제후급 성직자. [소지품]: 주교관(Mitre)과 황금 지팡이, 주교좌 대성당, 교회령 기사 15명, 교구 서기관단, 금화 300닢.'
         },
         {
+          id: 'archbishop',
+          icon: '⚜️',
+          name: '대주교',
+          shortDesc: '광대한 대교구와 관구 전체의 주교들을 총괄하는 최고위 교회 군주',
+          playerStatus: '대주교',
+          goal: '추기경단 수석 선출 및 신성로마제국 선제후 지위 확립, 교황 선출권 행사',
+          additional: '광대한 대교구를 통할하는 대제후급 성직자. [소지품]: 대주교 성물 팔리움, 대주교좌 궁전, 대교구 기사단 50명, 금화 700닢.'
+        },
+        {
           id: 'pope',
-          icon: '🇻🇦',
-          name: '교황 (Pope / 성좌의 주인)',
+          icon: '🗝️',
+          name: '교황',
           shortDesc: '베드로의 후계자이자 전 기독교 세계의 최고 영적 목자이며 교황령 군주',
-          playerStatus: '교황 (로마 성좌 성하 / 교황령 군주)',
-          goal: '전 기독교 세계의 신앙 수호, 십자군 제창 및 세속 군주들을 굴복시키는 교황권(Papacy)의 절대화',
-          additional: '바티칸 성좌와 교황령을 직접 통치하는 최고 목자. [소지품]: 3중관(Tiara)과 어부의 반지, 사도 궁전 대성채, 스위스/교황 근위대 500명, 추기경 참사회단, 바티칸 비밀 문서고, 성좌 국고 금화 3000닢.'
+          playerStatus: '교황',
+          goal: '전 기독교 세계의 신앙 수호, 십자군 제창 및 세속 군주들을 굴복시키는 교황권의 절대화',
+          additional: '바티칸 성좌와 교황령을 직접 통치하는 최고 목자. [소지품]: 3중관(Tiara)과 어부의 반지, 사도 궁전 대성채, 교황 근위대 500명, 추기경 참사회단, 바티칸 비밀 문서고, 성좌 국고 금화 3000닢.'
         }
       ],
       innateStats: {
@@ -306,11 +360,11 @@ export default function Startup() {
       id: 'noble',
       num: '4번',
       icon: '👑',
-      title: '4. 봉건 영주 / 귀족',
-      subtitle: '기사 · 남작 · 백작 · 공작 · 황제',
+      title: '4. 봉건 영주 및 귀족',
+      subtitle: '기사 · 남작 · 자작 · 백작 · 후작 · 공작 · 황제',
       badge: '4번: 영지 통치 & 가문 혈통',
       desc: '장원과 백성을 거느리고 가문의 대를 이어가며 외교와 전쟁을 총지휘하는 통치자입니다.',
-      status: '봉건 영주 (남작)',
+      status: '남작',
       location: '가문의 본성 (영지 성채)',
       goal: '인근 분쟁 승리 및 남작령 요새 확장, 자작위/백작위 수임',
       additional: '영지와 가문의 번영을 위해 외교와 군사를 지휘하는 전통적 봉건 영주. [시작 소지품]: 본성 성채(Lv.1), 징집병 40명, 가문 인장 반지, 장원 백성 150가구, 국고 금화 250닢.',
@@ -319,63 +373,63 @@ export default function Startup() {
         {
           id: 'knight',
           icon: '🛡️',
-          name: '기사 (Knight)',
+          name: '기사',
           shortDesc: '군마와 갑주를 갖추고 군역을 수행하며 작은 장원을 소유한 무인 귀족',
-          playerStatus: '봉건 귀족 (기사)',
+          playerStatus: '기사',
           goal: '전공을 세워 주군으로부터 정식 남작령 분봉 및 가문 문장/성씨 수여 획득',
           additional: '군마와 무구를 갖춘 기사 영주. [소지품]: 판금 사슬 갑옷, 군마 2필, 시종 2명, 장원 30가구, 금화 100닢.'
         },
         {
           id: 'baron',
           icon: '🏰',
-          name: '남작 (Baron)',
+          name: '남작',
           shortDesc: '단일 성채와 장원 영지를 관할하며 가문의 첫 발을 뗀 기본 봉건 영주',
-          playerStatus: '봉건 영주 (남작)',
+          playerStatus: '남작',
           goal: '인근 분쟁 승리 및 남작령 요새 확장, 자작위/백작위 수임',
           additional: '본성 성채와 장원을 다스리는 봉건 남작. [소지품]: 본성 성채(Lv.1), 징집병 40명, 가문 인장 반지, 장원 150가구, 국고 금화 250닢.'
         },
         {
           id: 'viscount',
           icon: '⚔️',
-          name: '자작 (Viscount)',
+          name: '자작',
           shortDesc: '백작령의 부관이자 군사 요충지 성채군을 영유하는 자치 봉건 영주',
-          playerStatus: '봉건 영주 (자작)',
+          playerStatus: '자작',
           goal: '독자적인 백작령 승격 및 군사 요충지 관문 성채 난공불락화',
           additional: '전략 요충지를 관할하는 봉건 자작. [소지품]: 요충지 성채 2개소, 상비군 60명, 장원 300가구, 국고 금화 400닢.'
         },
         {
           id: 'count',
           icon: '👑',
-          name: '백작 (Count)',
+          name: '백작',
           shortDesc: '주(County) 전체와 다수의 성채, 장원 백성들을 거느린 유력 봉건 제후',
-          playerStatus: '봉건 영주 (백작)',
+          playerStatus: '백작',
           goal: '주변 백작령 병합 및 공작위 수임, 왕국 평의회 주도권 장악',
           additional: '유서 깊은 백작령을 통치하는 유력 제후. [소지품]: 백작령 대성채, 상비군 100명, 장원 600가구, 국고 금화 600닢, 가문 족보.'
         },
         {
           id: 'marquis',
           icon: '🦅',
-          name: '후작 / 변경백 (Margrave)',
-          shortDesc: '국경 지대 방위를 총괄하며 막강한 군사 지휘권과 변경 요새를 보유한 국경 제후',
-          playerStatus: '봉건 영주 (후작 / 변경백)',
+          name: '후작',
+          shortDesc: '국경 지대 방위를 총괄하며 막강한 군사 지휘권과 변경 요새를 보유한 변경백',
+          playerStatus: '후작',
           goal: '국경 외세 격퇴 및 영토 대확장, 왕국 최고 총사령관 등극',
           additional: '국경 방어권을 쥔 막강한 변경 제후. [소지품]: 변경 요새군, 정예 국경 수비대 150명, 군마 50필, 군자금 금화 800닢.'
         },
         {
           id: 'duke',
           icon: '⚜️',
-          name: '공작 (Duke)',
+          name: '공작',
           shortDesc: '광대한 공국과 여러 백작 가문을 신하로 거느린 최고위 봉건 대제후',
-          playerStatus: '봉건 대제후 (공작)',
+          playerStatus: '공작',
           goal: '왕관 획득(국왕 즉위) 또는 황제 선제후로서 제국 패권 장악, 왕조 창건',
           additional: '광대한 공국을 통솔하는 최고위 제후. [소지품]: 수도 대성채, 정예 친위대 250명, 가신 백작 3명, 국고 금화 1200닢.'
         },
         {
           id: 'emperor',
-          icon: '🦅',
-          name: '황제 (Emperor / 제국 군주)',
+          icon: '👑',
+          name: '황제',
           shortDesc: '제국(Empire) 전체와 다수의 왕국, 공작령들을 봉신으로 거느린 천하의 최고 주권자',
-          playerStatus: '제국 황제 (카이저 / 바실레우스 / 황제)',
+          playerStatus: '황제',
           goal: '제국 판도 대확장, 주변 이민족 정벌, 제위 세습화 및 영원한 제국 팍스 로마나/천하통일 달성',
           additional: '광대한 제국과 수많은 제후들을 거느린 최고 군주. [소지품]: 제국 황금 관과 옥좌, 제국 황궁 대성채, 황실 정예 친위대 1000명, 제국 대법관 및 선제후단, 제국 국고 금화 5000닢, 계승 칙서.'
         }
@@ -454,7 +508,7 @@ export default function Startup() {
     difficulty: '보통',
     languageMode: '한국어',
     finalGoal: '인근 분쟁 승리 및 남작령 요새 확장, 자작위/백작위 수임',
-    playerStatus: '봉건 영주 (남작)',
+    playerStatus: '남작',
     startLocation: '가문의 본성 (영지 성채)',
     additionalSettings: '',
     archetype: 'noble',
@@ -503,7 +557,7 @@ export default function Startup() {
         difficulty: '보통',
         languageMode: '한국어',
         finalGoal: '인근 분쟁 승리 및 남작령 요새 확장, 자작위/백작위 수임',
-        playerStatus: '봉건 영주 (남작)',
+        playerStatus: '남작',
         startLocation: '가문의 본성 (영지 성채)',
         additionalSettings: '',
         archetype: 'noble',
@@ -890,7 +944,7 @@ export default function Startup() {
 
               {/* Archetype Linked Presets Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '8px' }}>
-                {(ARCHETYPES.find(a => a.id === selectedArchetype)?.statusPresets || []).map((preset) => {
+                {(ARCHETYPES.find(a => a.id === selectedArchetype)?.statusPresets || []).map((preset: StatusPreset) => {
                   const isPresetSelected = formData.playerStatus === preset.playerStatus || selectedStatusPresetId === preset.id;
                   return (
                     <div
