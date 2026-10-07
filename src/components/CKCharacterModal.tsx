@@ -317,8 +317,9 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '12px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '12px',
+            marginBottom: '16px'
           }}>
             {/* Diplomacy */}
             <div style={{
@@ -341,6 +342,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                 기반: {attributes.diplomacy.keyStats.join(', ')}
+              </div>
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(56, 189, 248, 0.2)', fontSize: '0.74rem', color: '#bae6fd', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {attributes.diplomacy.effects?.map((eff, i) => (
+                  <div key={i}>• {eff}</div>
+                ))}
               </div>
             </div>
 
@@ -366,6 +372,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                 기반: {attributes.martial.keyStats.join(', ')}
               </div>
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(239, 68, 68, 0.2)', fontSize: '0.74rem', color: '#fecaca', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {attributes.martial.effects?.map((eff, i) => (
+                  <div key={i}>• {eff}</div>
+                ))}
+              </div>
             </div>
 
             {/* Stewardship */}
@@ -389,6 +400,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                 기반: {attributes.stewardship.keyStats.join(', ')}
+              </div>
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(234, 179, 8, 0.2)', fontSize: '0.74rem', color: '#fef08a', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {attributes.stewardship.effects?.map((eff, i) => (
+                  <div key={i}>• {eff}</div>
+                ))}
               </div>
             </div>
 
@@ -414,6 +430,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                 기반: {attributes.intrigue.keyStats.join(', ')}
               </div>
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(168, 85, 247, 0.2)', fontSize: '0.74rem', color: '#e9d5ff', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {attributes.intrigue.effects?.map((eff, i) => (
+                  <div key={i}>• {eff}</div>
+                ))}
+              </div>
             </div>
 
             {/* Learning */}
@@ -437,6 +458,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                 기반: {attributes.learning.keyStats.join(', ')}
+              </div>
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(52, 211, 153, 0.2)', fontSize: '0.74rem', color: '#a7f3d0', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {attributes.learning.effects?.map((eff, i) => (
+                  <div key={i}>• {eff}</div>
+                ))}
               </div>
             </div>
 
@@ -462,6 +488,37 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                 기반: {attributes.prowess.keyStats.join(', ')}
               </div>
+              <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(244, 63, 94, 0.2)', fontSize: '0.74rem', color: '#fecdd3', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {attributes.prowess.effects?.map((eff, i) => (
+                  <div key={i}>• {eff}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 거점/영지 & 범용 자원 연동 일관성 요약 바 */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(15, 23, 42, 0.6))',
+            border: '1px solid rgba(212, 175, 55, 0.3)',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+            fontSize: '0.82rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+              <Sparkles size={15} />
+              <span>능력치 ⮂ 거점/영지/자원 일관성 연동 현황</span>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: '#e2e8f0' }}>
+              <span>🏰 직할령 한계: <strong style={{ color: '#38bdf8' }}>{attributes.synergies.domainLimit}개</strong></span>
+              <span>🪙 재정 수입: <strong style={{ color: '#fbbf24' }}>+{attributes.synergies.goldIncomeModifier}%</strong></span>
+              <span>⚔️ 징집 병력: <strong style={{ color: '#ef4444' }}>+{attributes.synergies.levyModifier}%</strong></span>
+              <span>👑 위신 획득: <strong style={{ color: '#c084fc' }}>+{attributes.synergies.prestigeModifier}%</strong></span>
+              <span>🕊️ 신앙 획득: <strong style={{ color: '#34d399' }}>+{attributes.synergies.pietyModifier}%</strong></span>
             </div>
           </div>
         </div>

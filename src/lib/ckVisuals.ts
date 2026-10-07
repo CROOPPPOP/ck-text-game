@@ -1,13 +1,31 @@
 // Crusader Kings 3 Style Visual & Attribute Calculation Helpers
 import { ParsedState } from './parser';
 
+export interface CKAttributeDetail {
+  value: number;
+  label: string;
+  grade: string;
+  keyStats: string[];
+  effects: string[];
+  bonusValue: number;
+}
+
 export interface CKAttributes {
-  diplomacy: { value: number; label: string; grade: string; keyStats: string[] };
-  martial: { value: number; label: string; grade: string; keyStats: string[] };
-  stewardship: { value: number; label: string; grade: string; keyStats: string[] };
-  intrigue: { value: number; label: string; grade: string; keyStats: string[] };
-  learning: { value: number; label: string; grade: string; keyStats: string[] };
-  prowess: { value: number; label: string; grade: string; keyStats: string[] };
+  diplomacy: CKAttributeDetail;
+  martial: CKAttributeDetail;
+  stewardship: CKAttributeDetail;
+  intrigue: CKAttributeDetail;
+  learning: CKAttributeDetail;
+  prowess: CKAttributeDetail;
+  synergies: {
+    domainLimit: number;
+    constructionSlotsBonus: number;
+    goldIncomeModifier: number;
+    levyModifier: number;
+    prestigeModifier: number;
+    pietyModifier: number;
+    stressResistance: number;
+  };
 }
 
 export interface CKStressState {
@@ -52,8 +70,11 @@ export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
   if (
     status.includes('성직') || status.includes('사제') || status.includes('수도') ||
     status.includes('주교') || status.includes('신부') || status.includes('승려') ||
-    status.includes('도사') || status.includes('수사') || title.includes('사제') ||
-    title.includes('주교') || estateType.includes('예배당') || estateType.includes('수도원')
+    status.includes('도사') || status.includes('수사') || status.includes('교황') ||
+    status.includes('평신도') || status.includes('추기경') || title.includes('사제') ||
+    title.includes('주교') || title.includes('교황') || title.includes('추기경') ||
+    estateType.includes('예배당') || estateType.includes('수도원') ||
+    estateType.includes('성좌') || estateType.includes('바티칸')
   ) {
     return 'clergy';
   }
@@ -61,15 +82,23 @@ export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
   if (
     status.includes('용병단') || status.includes('상단') || status.includes('행수') ||
     status.includes('두목') || status.includes('대장') || status.includes('집단') ||
-    title.includes('단장') || title.includes('행수') || title.includes('대장')
+    status.includes('선단') || status.includes('길드') || status.includes('조합') ||
+    status.includes('도편수') || status.includes('촌장') || status.includes('관리인') ||
+    status.includes('도당') || status.includes('의적') || title.includes('단장') ||
+    title.includes('행수') || title.includes('대장') || title.includes('선장') ||
+    title.includes('조합장') || title.includes('촌장')
   ) {
     return 'company';
   }
 
   if (
     status.includes('방랑') || status.includes('낭인') || status.includes('검객') ||
-    status.includes('모험가') || status.includes('유랑') || status.includes('평민') ||
-    status.includes('용병') || title.includes('방랑자') || estateType.includes('야영지')
+    status.includes('검사') || status.includes('무인') || status.includes('모험가') ||
+    status.includes('유랑') || status.includes('평민') || status.includes('소작') ||
+    status.includes('농민') || status.includes('도제') || status.includes('장인') ||
+    status.includes('부랑') || status.includes('무숙') || status.includes('학사') ||
+    status.includes('음유시인') || status.includes('사냥꾼') || title.includes('방랑자') ||
+    title.includes('소작농') || title.includes('도제') || estateType.includes('야영지')
   ) {
     return 'wanderer';
   }
@@ -260,7 +289,7 @@ export function calculateCKAttributes(gameState: ParsedState): CKAttributes {
     ...(gameState.stats?.acquired || {})
   };
 
-  const getStat = (names: string[]): number => {
+  const getStatAvg = (names: string[]): number => {
     let sum = 0;
     let count = 0;
     for (const [key, val] of Object.entries(allStats)) {
@@ -269,63 +298,129 @@ export function calculateCKAttributes(gameState: ParsedState): CKAttributes {
         count++;
       }
     }
-    return count > 0 ? Math.round(sum / count) : 10;
+    return count > 0 ? (sum / count) : 40;
   };
 
-  // 1. 외교력 (Diplomacy): 매력, 화술, 교섭, 명성, 외교, 신뢰
-  const dipScore = getStat(['매력', '화술', '교섭', '외교', '명성', '말솜씨']);
+  // 0~100 스탯을 크킹식 1~30 정수 수치로 정규화
+  const toCKScore = (rawAvg: number): number => {
+    return Math.min(30, Math.max(1, Math.round((rawAvg / 100) * 26)));
+  };
+
+  // 1. 외교력 (Diplomacy): 외교력, 매력, 설득력 (선천: 지능)
+  const dipRaw = getStatAvg(['외교력', '외교', '매력', '설득력', '설득', '지능']);
+  const dipScore = toCKScore(dipRaw);
   
-  // 2. 무력 (Martial): 근력, 전술, 무술, 통솔, 군사, 통솔력
-  const marScore = getStat(['통솔', '전술', '군사', '지휘', '전략', '무술']);
+  // 2. 무력 (Martial): 통솔력, 전략, 전술 (선천: 의지력, 집중력)
+  const marRaw = getStatAvg(['통솔력', '통솔', '전략', '전술', '의지력', '집중력']);
+  const marScore = toCKScore(marRaw);
 
-  // 3. 관리력 (Stewardship): 계산, 재정, 지능, 행정, 통치, 내정
-  const stewScore = getStat(['행정', '재정', '내정', '지능', '계산', '관리']);
+  // 3. 관리력 (Stewardship): 행정력, 기술 숙련도, 장인 기술 (선천: 학습 능력, 기억력)
+  const stewRaw = getStatAvg(['행정력', '행정', '기술 숙련도', '장인 기술', '학습 능력', '기억력']);
+  const stewScore = toCKScore(stewRaw);
 
-  // 4. 계책력 (Intrigue): 민첩, 눈치, 잠행, 은밀, 독술, 음모, 정보
-  const intScore = getStat(['민첩', '눈치', '잠행', '은밀', '음모', '정보', '순발력']);
+  // 4. 계책력 (Intrigue): 기만술, 위협, 은밀 행동, 수사력 (선천: 지각력, 반사 신경)
+  const intRaw = getStatAvg(['기만술', '위협', '은밀 행동', '은밀', '수사력', '지각력', '반사 신경']);
+  const intScore = toCKScore(intRaw);
 
-  // 5. 학습력 (Learning): 학식, 지식, 신앙, 의술, 언어, 교양
-  const lrnScore = getStat(['학식', '지식', '신앙', '의술', '언어', '교양', '지혜']);
+  // 5. 학습력 (Learning): 학문, 의술 (선천: 지능, 기억력, 학습 능력)
+  const lrnRaw = getStatAvg(['학문', '의술', '지능', '기억력', '학습 능력']);
+  const lrnScore = toCKScore(lrnRaw);
 
-  // 6. 기량 (Prowess): 근력, 무예, 결투, 체력, 검술
-  const prowScore = getStat(['근력', '무예', '체력', '검술', '활', '결투', '무술']);
+  // 6. 기량 (Prowess): 전투력, 무기 숙련도, 기마술, 생존술 (선천: 근력, 체력, 지구력, 민첩성, 속도, 신체 조정력)
+  const prowRaw = getStatAvg(['전투력', '무기 숙련도', '기마술', '생존술', '근력', '체력', '지구력', '민첩성', '속도', '신체 조정력']);
+  const prowScore = toCKScore(prowRaw);
+
+  // 일관성 있는 영지/거점 및 범용 자원 연동 시너지 수치 계산
+  const domainBonus = Math.floor(stewScore / 6);
+  const constructionSlotsBonus = stewScore >= 18 ? 1 : 0;
+  const goldIncomeModifier = Math.round(stewScore * 2);
+  const levyModifier = Math.round(marScore * 2.5);
+  const prestigeModifier = Math.round(dipScore * 2);
+  const pietyModifier = Math.round(lrnScore * 2.5);
+  const stressResistance = Math.round((lrnScore + stewScore) / 2);
 
   return {
     diplomacy: {
       value: dipScore,
       label: '외교력 (Diplomacy)',
       grade: getGradeFromScore(dipScore),
-      keyStats: ['매력', '교섭', '화술']
+      keyStats: ['외교력', '설득력', '매력'],
+      bonusValue: prestigeModifier,
+      effects: [
+        `가문/개인 위신 획득량 +${prestigeModifier}%`,
+        `영지 민심 및 제후 호감도 보너스 +${Math.round(dipScore * 1.5)}`,
+        '결혼 및 외교 조약 협상 성공률 증가'
+      ]
     },
     martial: {
       value: marScore,
       label: '무력 (Martial)',
       grade: getGradeFromScore(marScore),
-      keyStats: ['통솔', '전술', '군사']
+      keyStats: ['통솔력', '전술', '전략'],
+      bonusValue: levyModifier,
+      effects: [
+        `병력 징집 및 군사 동원 한계 +${levyModifier}%`,
+        `거점/성채 방어도 보너스 +${Math.round(marScore * 2)}`,
+        '전투 지휘 시 아군 피해 감소 및 사기 유지'
+      ]
     },
     stewardship: {
       value: stewScore,
       label: '관리력 (Stewardship)',
       grade: getGradeFromScore(stewScore),
-      keyStats: ['행정', '재정', '내정']
+      keyStats: ['행정력', '기술 숙련도', '장인 기술'],
+      bonusValue: domainBonus,
+      effects: [
+        `직할 영지/거점 보유 한계 +${domainBonus}개`,
+        `영지 세금 및 국고 수입 +${goldIncomeModifier}%`,
+        `거점 시설 건설 비용 절감 -${Math.min(25, Math.floor(stewScore * 1.2))}%`,
+        constructionSlotsBonus > 0 ? '동시 건설 슬롯 +1 추가 개방' : '안정적 시설 공정 관리'
+      ]
     },
     intrigue: {
       value: intScore,
       label: '계책력 (Intrigue)',
       grade: getGradeFromScore(intScore),
-      keyStats: ['민첩', '잠행', '눈치']
+      keyStats: ['기만술', '은밀 행동', '위협'],
+      bonusValue: Math.round(intScore * 2),
+      effects: [
+        `암살 및 적대적 음모 방어 확률 +${Math.round(intScore * 2)}%`,
+        `영지 치안 안정화 및 범죄 조직 단속 +${Math.round(intScore * 1.5)}`,
+        '비밀 정보 수집 및 첩보망 효율 극대화'
+      ]
     },
     learning: {
       value: lrnScore,
       label: '학습력 (Learning)',
       grade: getGradeFromScore(lrnScore),
-      keyStats: ['학식', '신앙', '의술']
+      keyStats: ['학문', '의술', '학습 능력'],
+      bonusValue: pietyModifier,
+      effects: [
+        `신앙 및 경건 획득량 +${pietyModifier}%`,
+        `문화 및 기술 혁신 속도 +${Math.round(lrnScore * 2)}%`,
+        '질병 치료 성공률 및 스트레스 자연 완화'
+      ]
     },
     prowess: {
       value: prowScore,
       label: '기량 (Prowess)',
       grade: getGradeFromScore(prowScore),
-      keyStats: ['근력', '체력', '결투']
+      keyStats: ['전투력', '무기 숙련도', '근력'],
+      bonusValue: Math.round(prowScore * 3),
+      effects: [
+        `1:1 결투 및 개인 무예 피해량 +${Math.round(prowScore * 3)}%`,
+        `전장에서의 부상/전사 위험 저하 -${Math.round(prowScore * 2)}%`,
+        '야외 혹한/노숙 환경 체력 생존력 증대'
+      ]
+    },
+    synergies: {
+      domainLimit: 2 + domainBonus,
+      constructionSlotsBonus,
+      goldIncomeModifier,
+      levyModifier,
+      prestigeModifier,
+      pietyModifier,
+      stressResistance
     }
   };
 }
@@ -396,6 +491,7 @@ export function parseCKResources(gameState: ParsedState): CKResources {
   const wealthItems = gameState.inventory?.wealth || [];
   const archetype = detectPlayerArchetype(gameState);
   const labels = getArchetypeLabels(archetype);
+  const attributes = calculateCKAttributes(gameState);
 
   // 금화
   let gold = faction['세력 재정'] || faction['재정'] || faction['금화'] || '';
@@ -423,14 +519,15 @@ export function parseCKResources(gameState: ParsedState): CKResources {
     levies = archetype === 'clergy' ? '수도사 12명' : archetype === 'company' ? '정예 단원 24명' : archetype === 'wanderer' ? '단신 (동행 1명)' : '상비군 50명';
   }
 
-  // 직할령 / 거점
+  // 직할령 / 거점: 관리력(Stewardship) 기반 직할 한계치와 일관성 연동
   const estateType = gameState.estate?.type || (archetype === 'clergy' ? '작은 예배당' : archetype === 'wanderer' ? '임시 야영지' : archetype === 'company' ? '상설 숙영지' : '봉건 장원');
   const buildingCount = gameState.estate?.buildings?.length || 0;
-  const domain = `${estateType} (시설 ${buildingCount}동)`;
+  const domainLimit = attributes.synergies.domainLimit;
+  const domain = `${estateType} (시설 ${buildingCount}동 / 직할 한계 ${domainLimit})`;
 
   const archetypeTitleMap: Record<PlayerArchetype, string> = {
     noble: '👑 봉건 영주',
-    wanderer: '🗡️ 방랑 모험가',
+    wanderer: '🗡️ 개인 및 방랑자',
     company: '👥 소규모 집단',
     clergy: '⛪ 성직자 / 수도자'
   };
@@ -449,6 +546,14 @@ export function parseCKResources(gameState: ParsedState): CKResources {
 
 // 가문 문장 엠블럼 심볼
 export function getHeraldryEmblem(name: string, culture: string = '', archetype?: PlayerArchetype): { icon: string; border: string; bg: string } {
+  const normName = (name || '').toLowerCase();
+
+  if (normName.includes('교황') || normName.includes('성하') || normName.includes('바티칸') || normName.includes('로마 성좌')) {
+    return { icon: '🇻🇦', border: '#facc15', bg: 'linear-gradient(135deg, #1e3a8a, #78350f)' };
+  }
+  if (normName.includes('황제') || normName.includes('카이저') || normName.includes('차르') || normName.includes('바실레우스') || normName.includes('폐하')) {
+    return { icon: '🦅', border: '#f59e0b', bg: 'linear-gradient(135deg, #581c87, #b45309)' };
+  }
   if (archetype === 'wanderer') {
     return { icon: '🗡️', border: '#94a3b8', bg: 'linear-gradient(135deg, #1e293b, #334155)' };
   }

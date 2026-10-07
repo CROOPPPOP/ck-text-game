@@ -40,11 +40,11 @@ export function parseTurnNumber(dateLocation?: string | null): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
-/** 거점 규모(Lv.N)에 따른 동시 건설 슬롯 수: 레벨표 기준 (1~2: 2개, 3~4: 3개, 5: 4개) */
-export function getMaxSlots(estate?: { level?: string } | null): number {
+/** 거점 규모(Lv.N)에 따른 동시 건설 슬롯 수: 레벨표 기준 (1~2: 2개, 3~4: 3개, 5: 4개) + 관리력 시너지 보너스 */
+export function getMaxSlots(estate?: { level?: string } | null, slotBonus: number = 0): number {
   const lv = getEstateLevel(estate?.level);
   const conf = ESTATE_LEVELS[lv as keyof typeof ESTATE_LEVELS];
-  return conf ? conf.slots : 2;
+  return (conf ? conf.slots : 2) + Math.max(0, slotBonus);
 }
 
 /** 시설명 비교용 정규화: 괄호(레벨 표기)와 공백, 대괄호 제거 */
