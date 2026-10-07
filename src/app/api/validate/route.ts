@@ -1,18 +1,24 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { formData } = body;
-    const apiKey = formData.apiKey;
+    const apiKey = formData?.apiKey;
 
     const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
     if (!finalApiKey) {
       return new Response(JSON.stringify({ valid: false, reason: "Gemini API 키가 제공되지 않았습니다." }));
     }
 
-    const genAI = new GoogleGenerativeAI(finalApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const ai = new GoogleGenAI({
+      apiKey: finalApiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
 
     const systemInstruction = `
 You are a strict historical and narrative validator for a text-based simulation game.
@@ -29,14 +35,21 @@ DO NOT wrap the output in markdown code blocks. Output ONLY valid JSON.
 
 Data to validate:
 ${JSON.stringify({ 
-  era: formData.era, 
-  character: formData.character, 
-  playerStatus: formData.playerStatus 
+  era: formData?.era, 
+  character: formData?.character, 
+  playerStatus: formData?.playerStatus 
 }, null, 2)}
 `;
 
-    const result = await model.generateContent(systemInstruction);
-    const responseText = result.response.text();
+    const result = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: "위의 규칙에 따라 설정을 검증하고 JSON으로 반환하세요.",
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      }
+    });
+    const responseText = result.text || "";
     const cleanedText = responseText.replace(/```json\n?|```/g, '').trim();
     
     let parsedData;

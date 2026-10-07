@@ -63,8 +63,8 @@ export function parseLLMResponse(text: string): ParsedState {
       // AI가 **[국경 동향]:** 이나 - [국경 동향]: 등으로 출력할 수 있으므로 느슨하게 매칭
       const match = line.match(/\[(.*?)\]\s*[:：]?\s*(.*)/);
       if (match) {
-        let key = match[1].replace(/[*_]/g, '').trim();
-        let val = match[2].replace(/[*_]/g, '').trim();
+        const key = match[1].replace(/[*_]/g, '').trim();
+        const val = match[2].replace(/[*_]/g, '').trim();
         if (key && val) env[key] = val;
       }
     });

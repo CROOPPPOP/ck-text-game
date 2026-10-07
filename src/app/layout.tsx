@@ -11,6 +11,10 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Chronicles",
   },
+  openGraph: {
+    title: "Chronicles: Text Simulator",
+    description: "AI-driven persistent text simulation game",
+  },
 };
 
 export const viewport: Viewport = {

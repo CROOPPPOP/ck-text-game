@@ -1,18 +1,24 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { formData } = body;
-    const apiKey = formData.apiKey;
+    const apiKey = formData?.apiKey;
 
     const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
     if (!finalApiKey) {
       return new Response(JSON.stringify({ error: "Gemini API 키가 제공되지 않았습니다." }), { status: 400 });
     }
 
-    const genAI = new GoogleGenerativeAI(finalApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const ai = new GoogleGenAI({
+      apiKey: finalApiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
 
     const systemInstruction = `
 You are the AI configuration engine for a text-based historical simulation game.
@@ -35,8 +41,15 @@ Current partial inputs:
 ${JSON.stringify(formData, null, 2)}
     `;
 
-    const result = await model.generateContent(systemInstruction);
-    const responseText = result.response.text();
+    const result = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: "추천 캐릭터와 게임 설정을 JSON으로 생성해주세요.",
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      }
+    });
+    const responseText = result.text || "";
     
     // Clean up potential markdown JSON wrapping
     const cleanedText = responseText.replace(/```json\n?|```/g, '').trim();

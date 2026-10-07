@@ -1,0 +1,6 @@
+{
+  "name": "Chronicles: Text Simulator",
+  "description": "AI-driven persistent text simulation game inspired by Crusader Kings.",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

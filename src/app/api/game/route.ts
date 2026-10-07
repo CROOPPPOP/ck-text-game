@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { parseLLMResponse } from "@/lib/parser";
 
 export async function POST(req: Request) {
@@ -8,11 +8,17 @@ export async function POST(req: Request) {
 
     const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
     if (!finalApiKey) {
-      return new Response(JSON.stringify({ error: "Gemini API 키가 제공되지 않았습니다. 시작 화면에서 API 키를 입력해주세요." }), { status: 400 });
+      return new Response(JSON.stringify({ error: "Gemini API 키가 제공되지 않았습니다. 시작 화면에서 API 키를 입력하거나 서버 환경 변수를 확인해주세요." }), { status: 400 });
     }
 
-    const genAI = new GoogleGenerativeAI(finalApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const ai = new GoogleGenAI({
+      apiKey: finalApiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
 
     // AI에게 시뮬레이터 엔진으로서의 역할과 엄격한 출력 포맷을 강제하는 프롬프트
     const systemInstruction = `
@@ -208,15 +214,19 @@ YYYY년 MM월 DD일 / 위치 [턴 수: N]
     let finalResponseText = "";
     
     while(maxRetries > 0) {
-      const result = await model.generateContent({
-         contents: [{ role: "user", parts: [{ text: systemInstruction + "\n\n" + userPrompt }] }]
+      const result = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemInstruction,
+        }
       });
 
-      finalResponseText = result.response.text();
+      finalResponseText = result.text || "";
       finalParsedData = parseLLMResponse(finalResponseText);
 
       // Validation Rules
-      let errorMsgs = [];
+      const errorMsgs = [];
       
       // 1. Check Faction State
       if (currentState?.factionState && Object.keys(currentState.factionState).length > 0 && !currentState.factionState.none) {
