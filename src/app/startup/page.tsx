@@ -35,6 +35,178 @@ export default function Startup() {
   const [customTraitInputs, setCustomTraitInputs] = useState<Record<string, string>>({});
 
   const [worldviewType, setWorldviewType] = useState('역사적');
+  const [selectedArchetype, setSelectedArchetype] = useState('noble');
+
+  interface ArchetypeConfig {
+    id: string;
+    num: string;
+    icon: string;
+    title: string;
+    subtitle: string;
+    badge: string;
+    desc: string;
+    status: string;
+    location: string;
+    goal: string;
+    additional: string;
+    trait: string;
+    innateStats?: Record<string, number>;
+    acquiredStats?: Record<string, number>;
+    startingTraitsMap?: Record<string, string[]>;
+  }
+
+  const ARCHETYPES: ArchetypeConfig[] = [
+    {
+      id: 'wanderer',
+      num: '1번',
+      icon: '🗡️',
+      title: '1. 개인 / 방랑자',
+      subtitle: '낭인 · 검객 · 모험가 · 유랑 학자',
+      badge: '1번: 1인칭 생존 & 무예',
+      desc: '영지 없이 단신으로 여관과 산길을 떠돌며 무예와 지혜로 의뢰를 해결하고 명성을 쌓습니다.',
+      status: '방랑자 (낭인 / 용병 검객)',
+      location: '국경 지대 선술집 또는 숲속 야영지',
+      goal: '개인의 무예 입신양명 및 영주 후원자 획득 (가신 기사 발탁 또는 독자 거점 하사)',
+      additional: '영지 없이 단신으로 여관이나 산길을 떠돌며 의뢰와 현상금을 쫓는 방랑 모험가 신분. [시작 소지품]: 여행용 가죽 외투, 손때 묻은 강철 단검, 부싯돌과 밧줄, 가죽 수통, 비상 육포, 동화 35개, 휴대용 낚시 바늘.',
+      trait: '[전문특성] 방랑의 달인 (확립된 특성) : 거친 야외와 여관 생활에 익숙하여 위험을 빠르게 감지합니다., [신체특성] 강철 체력 (강한 특성) : 노숙과 풍찬노숙에도 잔병치레 없이 버텨냅니다., [감각특성] 매의 눈 (잠재 특성) : 주변의 살기와 수상한 낌새를 예리하게 포착합니다.',
+      innateStats: {
+        '민첩성': 65, '반사 신경': 65, '속도': 60, '신체 조정력': 55, '지각력': 65,
+        '의지력': 60, '지구력': 60, '체력': 55, '근력': 55, '지능': 45,
+        '기억력': 45, '학습 능력': 40, '집중력': 40
+      },
+      acquiredStats: {
+        '생존술': 40, '무기 숙련도': 35, '전투력': 30, '은밀 행동': 30, '수사력': 20,
+        '의술': 15, '기마술': 15, '설득력': 15, '통솔력': 0, '매력': 0, '외교력': 0,
+        '기만술': 0, '위협': 0, '행정력': 0, '전략': 0, '전술': 0, '학문': 0, '기술 숙련도': 0, '장인 기술': 0
+      },
+      startingTraitsMap: {
+        '신체특성': ['강철 체력'],
+        '감각특성': ['매의 눈'],
+        '전문특성': ['검술의 달인']
+      }
+    },
+    {
+      id: 'company',
+      num: '2번',
+      icon: '👥',
+      title: '2. 소규모 집단',
+      subtitle: '용병단장 · 상단 행수 · 의적 두목',
+      badge: '2번: 집단 통솔 & 군자금',
+      desc: '10~30여 명의 정예 단원과 숙영지를 이끌며 영주들의 고용 계약을 수주하고 부를 축적합니다.',
+      status: '용병단장 (또는 대상단 행수)',
+      location: '전선 인근 상설 숙영지 또는 무역 거점',
+      goal: '명성을 떨치는 대용병단 구축 및 독립 거점(폐성 점령 또는 남작령 분봉) 획득',
+      additional: '단원 20여 명을 이끄는 소규모 용병단. 매 턴 단원 주급 및 식량 보급 유지비 지출. [시작 소지품]: 단장의 장검 및 사슬 갑옷, 용병단 군기, 단원 20명(보병 15, 궁수 5), 마차 2대, 텐트 숙영지, 군자금 금화 120닢.',
+      trait: '[전문특성] 용병 계약 협상가 (확립된 특성) : 고용주와의 보수 협상 및 부대 사기 관리에 능합니다., [정신특성] 강인한 의지 (강한 특성) : 전장의 공포 앞에서도 부하들을 질타하며 전열을 유지시킵니다., [전문특성] 전술적 안목 (잠재 특성) : 지형과 진형의 유불리를 빠르게 파악합니다.',
+      innateStats: {
+        '근력': 65, '체력': 65, '의지력': 65, '지구력': 60, '지각력': 55,
+        '신체 조정력': 50, '지능': 50, '집중력': 50, '민첩성': 50, '반사 신경': 50,
+        '속도': 45, '기억력': 45, '학습 능력': 50
+      },
+      acquiredStats: {
+        '통솔력': 45, '전술': 35, '전투력': 30, '위협': 25, '무기 숙련도': 25,
+        '기마술': 20, '행정력': 10, '생존술': 10, '매력': 0, '외교력': 0, '설득력': 0,
+        '기만술': 0, '전략': 0, '의술': 0, '학문': 0, '기술 숙련도': 0, '장인 기술': 0, '은밀 행동': 0, '수사력': 0
+      },
+      startingTraitsMap: {
+        '정신특성': ['강인한 의지'],
+        '전문특성': ['검술의 달인']
+      }
+    },
+    {
+      id: 'clergy',
+      num: '3번',
+      icon: '⛪',
+      title: '3. 성직자 / 수도자',
+      subtitle: '사제 · 수도승 · 순례자 · 이단 심문관',
+      badge: '3번: 신앙 & 교단 발언권',
+      desc: '독신 서약과 신앙심, 고문서 학식을 바탕으로 교구 민심을 이끌고 종교적 권위를 세웁니다.',
+      status: '사제 (수도사 / 수도원 주임)',
+      location: '한적한 시골 수도원 또는 작은 교구 예배당',
+      goal: '교단 내 발언권 신장 및 대주교/교단 지도자 승격, 성유물 발굴 및 교구 부흥',
+      additional: '독신 서약을 지키며 교구 신도들을 지도하고 성유물을 탐구하는 경건한 성직자. [시작 소지품]: 양모 사제복, 은 십자가 묵주, 라틴어 성경 사본, 필사용 깃펜과 잉크, 성유물 함(비어있음), 작은 예배당, 수도사 8명, 십일조 은화 50닢.',
+      trait: '[정신특성] 경건한 신앙 (강한 특성) : 세속의 유혹에 굴하지 않고 교단의 규율을 엄격히 수호합니다., [전문특성] 고문서 필사 및 신학 (확립된 특성) : 라틴어와 고대 경전을 해독하고 필사하는 데 능통합니다., [전문특성] 영적 치유와 약초학 (잠재 특성) : 아픈 신도들을 돌보고 약초를 조제하는 지혜가 있습니다.',
+      innateStats: {
+        '지능': 70, '학습 능력': 70, '기억력': 65, '의지력': 65, '집중력': 65,
+        '지각력': 60, '지구력': 50, '체력': 45, '신체 조정력': 40, '근력': 40,
+        '민첩성': 40, '반사 신경': 40, '속도': 45
+      },
+      acquiredStats: {
+        '학문': 50, '설득력': 35, '의술': 30, '외교력': 25, '매력': 25,
+        '행정력': 20, '수사력': 15, '통솔력': 0, '기만술': 0, '위협': 0, '전략': 0,
+        '전술': 0, '전투력': 0, '무기 숙련도': 0, '기마술': 0, '생존술': 0, '기술 숙련도': 0, '장인 기술': 0, '은밀 행동': 0
+      },
+      startingTraitsMap: {
+        '정신특성': ['강인한 의지'],
+        '전문특성': ['웅변가']
+      }
+    },
+    {
+      id: 'noble',
+      num: '4번',
+      icon: '👑',
+      title: '4. 봉건 영주 / 귀족',
+      subtitle: '성주 · 남작 · 백작 · 지방관',
+      badge: '4번: 영지 통치 & 가문 혈통',
+      desc: '장원과 백성을 거느리고 가문의 대를 이어가며 외교와 전쟁을 총지휘하는 통치자입니다.',
+      status: '봉건 영주 (남작 / 백작)',
+      location: '가문의 본성 (영지 성채)',
+      goal: '영지 확장 및 공작/국왕 등극, 명문 왕조 창건',
+      additional: '영지와 가문의 번영을 위해 외교와 군사를 지휘하는 전통적 봉건 영주. [시작 소지품]: 본성 성채(Lv.1), 징집병 50명, 가문 인장 반지, 장원 백성 250가구, 국고 금화 350닢.',
+      trait: '[전문특성] 명문 혈통 (확립된 특성) : 주변 제후들에게 정당한 통치 명분과 혈통의 인정을 받습니다.',
+      innateStats: {
+        '근력': 50, '체력': 50, '지구력': 50, '민첩성': 50, '반사 신경': 50,
+        '속도': 50, '신체 조정력': 50, '지각력': 50, '지능': 50, '기억력': 50,
+        '학습 능력': 50, '의지력': 50, '집중력': 50
+      },
+      acquiredStats: {
+        '통솔력': 30, '외교력': 30, '행정력': 30, '매력': 25, '전술': 25,
+        '무기 숙련도': 20, '기마술': 20, '학문': 20, '설득력': 0, '기만술': 0,
+        '위협': 0, '전략': 0, '전투력': 0, '생존술': 0, '의술': 0, '기술 숙련도': 0, '장인 기술': 0, '은밀 행동': 0, '수사력': 0
+      },
+      startingTraitsMap: {
+        '전문특성': ['웅변가']
+      }
+    }
+  ];
+
+  const handleSelectArchetype = (archId: string) => {
+    const arch = ARCHETYPES.find(a => a.id === archId);
+    if (!arch) return;
+    setSelectedArchetype(archId);
+
+    // 스탯 동기화
+    if (arch.innateStats && arch.acquiredStats) {
+      const mergedStats = { ...arch.innateStats, ...arch.acquiredStats };
+      setStatsData(mergedStats);
+      setFormData(prev => ({
+        ...prev,
+        archetype: archId,
+        playerStatus: arch.status,
+        startLocation: arch.location,
+        finalGoal: arch.goal,
+        additionalSettings: arch.additional,
+        traits: arch.trait,
+        stats: Object.entries(mergedStats).map(([k, v]) => `${k}: ${v}`).join(', ')
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        archetype: archId,
+        playerStatus: arch.status,
+        startLocation: arch.location,
+        finalGoal: arch.goal,
+        additionalSettings: arch.additional,
+        traits: arch.trait
+      }));
+    }
+
+    // 특성 동기화
+    if (arch.startingTraitsMap) {
+      setSelectedTraits(arch.startingTraitsMap);
+      syncTraitsToFormData(arch.startingTraitsMap);
+    }
+  };
 
   const [formData, setFormData] = useState({
     apiKey: '',
@@ -47,6 +219,7 @@ export default function Startup() {
     playerStatus: '',
     startLocation: '',
     additionalSettings: '',
+    archetype: 'noble',
     stats: '무력: 50, 지력: 50, 매력: 50, 재력: 50, 운: 50',
     traits: '[초보자] 이제 막 모험을 시작했습니다.',
     inheritedState: null as any
@@ -91,6 +264,7 @@ export default function Startup() {
         playerStatus: '',
         startLocation: '',
         additionalSettings: '',
+        archetype: 'noble',
         stats: '무력: 50, 지력: 50, 매력: 50, 재력: 50, 운: 50',
         traits: '[초보자] 이제 막 모험을 시작했습니다.',
         inheritedState: null as any
@@ -361,6 +535,77 @@ export default function Startup() {
                 <option value="고증 언어">고증 언어</option>
                 <option value="혼합">혼합</option>
               </select>
+            </div>
+
+            {/* 👑 시작 신분 아키타입 선택 (Origin Archetype) */}
+            <div className={styles.fieldRow} style={{ gridColumn: '1 / -1', flexDirection: 'column', alignItems: 'stretch', gap: '10px', marginTop: '10px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <label className={styles.fieldLabel} style={{ fontSize: '1.05rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                  👑 시작 신분 아키타입 (Origin Archetype):
+                </label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  원하는 신분을 클릭하면 추천 설정이 자동 입력됩니다.
+                </span>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '12px' }}>
+                {ARCHETYPES.map((arch) => {
+                  const isSelected = selectedArchetype === arch.id;
+                  return (
+                    <div
+                      key={arch.id}
+                      onClick={() => handleSelectArchetype(arch.id)}
+                      style={{
+                        padding: '14px',
+                        background: isSelected 
+                          ? 'linear-gradient(145deg, rgba(212, 175, 55, 0.2), rgba(15, 23, 42, 0.8))'
+                          : 'rgba(0, 0, 0, 0.35)',
+                        border: isSelected ? '2px solid var(--gold-accent)' : '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: isSelected ? '0 0 15px rgba(212, 175, 55, 0.25)' : 'none',
+                        position: 'relative'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.5)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                          e.currentTarget.style.transform = 'none';
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '1.8rem' }}>{arch.icon}</span>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          background: isSelected ? 'var(--gold-accent)' : 'rgba(255, 255, 255, 0.1)',
+                          color: isSelected ? '#111' : 'var(--text-muted)',
+                          fontWeight: 'bold'
+                        }}>
+                          {arch.badge}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: isSelected ? 'var(--gold-hover)' : 'var(--text-main)', marginBottom: '4px' }}>
+                        {arch.title}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: isSelected ? '#bae6fd' : 'var(--text-muted)', marginBottom: '8px' }}>
+                        {arch.subtitle}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                        {arch.desc}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className={styles.fieldRow}>

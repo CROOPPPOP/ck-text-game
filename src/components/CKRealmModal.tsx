@@ -2,16 +2,26 @@
 
 import React from 'react';
 import RealmDashboard from './RealmDashboard';
+import { ParsedState } from '@/lib/parser';
+import { getArchetypeDetails } from '@/lib/ckVisuals';
 import { X } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  gameState?: ParsedState;
   factionState?: Record<string, string>;
 }
 
-export default function CKRealmModal({ isOpen, onClose, factionState }: Props) {
+export default function CKRealmModal({ isOpen, onClose, gameState, factionState }: Props) {
   if (!isOpen) return null;
+
+  const currentFaction = factionState || gameState?.factionState;
+  const archetypeDetails = gameState ? getArchetypeDetails(gameState) : null;
+  const modalIcon = archetypeDetails ? archetypeDetails.icon : '🏰';
+  const modalTitle = archetypeDetails
+    ? `${archetypeDetails.num} ${archetypeDetails.title} 대시보드`
+    : '크루세이더 킹즈 영지 통치 대시보드';
 
   return (
     <div 
@@ -76,18 +86,18 @@ export default function CKRealmModal({ isOpen, onClose, factionState }: Props) {
             fontSize: '1.8rem',
             marginBottom: '10px'
           }}>
-            🏰
+            {modalIcon}
           </div>
           <h2 style={{ color: 'var(--gold-accent)', fontSize: '1.7rem', fontWeight: 'bold', margin: '0 0 4px 0', letterSpacing: '1px' }}>
-            크루세이더 킹즈 영지 통치 대시보드
+            {modalTitle}
           </h2>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            국가 안정도, 치안, 민심, 군사 준비도 및 주요 통치 지표
+            {archetypeDetails?.subtitle || '국가 안정도, 치안, 민심, 군사 준비도 및 주요 통치 지표'}
           </div>
         </div>
 
         {/* Realm Dashboard Content */}
-        <RealmDashboard factionState={factionState} />
+        <RealmDashboard factionState={currentFaction} gameState={gameState} />
 
       </div>
     </div>

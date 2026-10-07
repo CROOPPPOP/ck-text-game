@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ParsedState } from '@/lib/parser';
-import { calculateCKAttributes, parseCKStress, getHeraldryEmblem } from '@/lib/ckVisuals';
+import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails } from '@/lib/ckVisuals';
 import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X } from 'lucide-react';
 
 interface Props {
@@ -20,10 +20,10 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
   const rulerStatus = gameState.personalInfo?.['신분'] || '귀족';
   const culture = gameState.personalInfo?.['문화'] || '미상';
   const religion = gameState.personalInfo?.['종교'] || '미상';
-  const emblem = getHeraldryEmblem(rulerName, culture);
-
   const attributes = calculateCKAttributes(gameState);
   const stress = parseCKStress(gameState);
+  const archetypeDetails = getArchetypeDetails(gameState);
+  const emblem = getHeraldryEmblem(rulerName, culture, archetypeDetails.archetype);
 
   const getTraitCategoryStyle = (category: string) => {
     switch (category) {
@@ -213,6 +213,78 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
               {stress.breakdownRisk}
             </div>
+          </div>
+        </div>
+
+        {/* 1.5 Archetype Origin & Special Mechanics Banner */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(15, 23, 42, 0.75))',
+          border: '1px solid rgba(212, 175, 55, 0.4)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '26px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.5rem' }}>{archetypeDetails.icon}</span>
+              <div>
+                <span style={{
+                  background: 'var(--gold-accent)',
+                  color: '#0f172a',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  marginRight: '8px'
+                }}>
+                  {archetypeDetails.num} 아키타입
+                </span>
+                <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--gold-hover)' }}>
+                  {archetypeDetails.title}
+                </span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.85rem', color: '#93c5fd' }}>
+              {archetypeDetails.subtitle}
+            </span>
+          </div>
+
+          <div style={{
+            fontSize: '0.82rem',
+            color: '#e2e8f0',
+            background: 'rgba(0, 0, 0, 0.35)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            marginBottom: '12px',
+            lineHeight: '1.4'
+          }}>
+            <strong style={{ color: 'var(--gold-accent)' }}>📌 아키타입 핵심 룰: </strong>
+            {archetypeDetails.coreRule}
+          </div>
+
+          {/* 4 Archetype Vital Badges */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
+            {archetypeDetails.badgeList.map((badge, bIdx) => (
+              <div key={bIdx} style={{
+                background: 'rgba(0, 0, 0, 0.45)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '1.2rem' }}>{badge.icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{badge.label}</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: badge.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={badge.value}>
+                    {badge.value}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

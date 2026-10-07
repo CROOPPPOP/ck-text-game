@@ -18,12 +18,202 @@ export interface CKStressState {
   breakdownRisk: string;
 }
 
+export type PlayerArchetype = 'noble' | 'wanderer' | 'company' | 'clergy';
+
+export interface CKResourceLabels {
+  goldLabel: string;
+  goldIcon: string;
+  prestigeLabel: string;
+  prestigeIcon: string;
+  pietyLabel: string;
+  pietyIcon: string;
+  leviesLabel: string;
+  leviesIcon: string;
+  domainLabel: string;
+  domainIcon: string;
+}
+
 export interface CKResources {
   gold: string;
   prestige: string;
   piety: string;
   levies: string;
   domain: string;
+  archetype: PlayerArchetype;
+  archetypeTitle: string;
+  labels: CKResourceLabels;
+}
+
+export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
+  const status = (gameState.personalInfo?.['신분'] || '').toLowerCase();
+  const title = (gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '').toLowerCase();
+  const estateType = (gameState.estate?.type || '').toLowerCase();
+
+  if (
+    status.includes('성직') || status.includes('사제') || status.includes('수도') ||
+    status.includes('주교') || status.includes('신부') || status.includes('승려') ||
+    status.includes('도사') || status.includes('수사') || title.includes('사제') ||
+    title.includes('주교') || estateType.includes('예배당') || estateType.includes('수도원')
+  ) {
+    return 'clergy';
+  }
+
+  if (
+    status.includes('용병단') || status.includes('상단') || status.includes('행수') ||
+    status.includes('두목') || status.includes('대장') || status.includes('집단') ||
+    title.includes('단장') || title.includes('행수') || title.includes('대장')
+  ) {
+    return 'company';
+  }
+
+  if (
+    status.includes('방랑') || status.includes('낭인') || status.includes('검객') ||
+    status.includes('모험가') || status.includes('유랑') || status.includes('평민') ||
+    status.includes('용병') || title.includes('방랑자') || estateType.includes('야영지')
+  ) {
+    return 'wanderer';
+  }
+
+  return 'noble';
+}
+
+export function getArchetypeLabels(archetype: PlayerArchetype): CKResourceLabels {
+  switch (archetype) {
+    case 'clergy':
+      return {
+        goldLabel: '교회 헌금',
+        goldIcon: '🪙',
+        prestigeLabel: '교단 발언권',
+        prestigeIcon: '📜',
+        pietyLabel: '신앙 / 경건',
+        pietyIcon: '🕊️',
+        leviesLabel: '수도사 / 신도',
+        leviesIcon: '👥',
+        domainLabel: '교구 / 예배당',
+        domainIcon: '⛪'
+      };
+    case 'company':
+      return {
+        goldLabel: '단원 군자금',
+        goldIcon: '🪙',
+        prestigeLabel: '용병단 명성',
+        prestigeIcon: '🚩',
+        pietyLabel: '부대 사기',
+        pietyIcon: '🔥',
+        leviesLabel: '고용 단원',
+        leviesIcon: '⚔️',
+        domainLabel: '숙영지 / 본진',
+        domainIcon: '⛺'
+      };
+    case 'wanderer':
+      return {
+        goldLabel: '소지 여비',
+        goldIcon: '💰',
+        prestigeLabel: '개인 명망',
+        prestigeIcon: '🗡️',
+        pietyLabel: '의기 / 사기',
+        pietyIcon: '🔥',
+        leviesLabel: '동행 동료',
+        leviesIcon: '👥',
+        domainLabel: '임시 거처',
+        domainIcon: '🏕️'
+      };
+    case 'noble':
+    default:
+      return {
+        goldLabel: '국고 / 금화',
+        goldIcon: '🪙',
+        prestigeLabel: '가문 위신',
+        prestigeIcon: '👑',
+        pietyLabel: '신앙 / 경건',
+        pietyIcon: '🕊️',
+        leviesLabel: '병력 / 징집병',
+        leviesIcon: '⚔️',
+        domainLabel: '직할령 / 성채',
+        domainIcon: '🏰'
+      };
+  }
+}
+
+export interface ArchetypeDetails {
+  archetype: PlayerArchetype;
+  num: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  coreRule: string;
+  badgeList: Array<{ label: string; value: string; icon: string; color: string }>;
+}
+
+export function getArchetypeDetails(gameState: ParsedState): ArchetypeDetails {
+  const archetype = detectPlayerArchetype(gameState);
+  const resources = parseCKResources(gameState);
+
+  if (archetype === 'wanderer') {
+    return {
+      archetype,
+      num: '1번',
+      title: '개인 및 방랑자 (Wanderer / Adventurer)',
+      subtitle: '낭인 · 검객 · 모험가 · 유랑 학자',
+      icon: '🗡️',
+      coreRule: '1인칭 생존 & 의뢰 수주. 여관 노숙 시 체온/피로 위험 관리. 마을 및 영주 의뢰 해결로 무예 명성 축적 및 입신양명.',
+      badgeList: [
+        { label: '소지 여비', value: resources.gold, icon: '💰', color: '#fbbf24' },
+        { label: '개인 명망', value: resources.prestige, icon: '🗡️', color: '#38bdf8' },
+        { label: '임시 거처', value: resources.domain, icon: '🏕️', color: '#34d399' },
+        { label: '동행 인원', value: resources.levies, icon: '👥', color: '#f87171' }
+      ]
+    };
+  }
+
+  if (archetype === 'company') {
+    return {
+      archetype,
+      num: '2번',
+      title: '소규모 집단 및 용병단 (Company / Mercenary Band)',
+      subtitle: '용병단장 · 상단 행수 · 의적 두목',
+      icon: '👥',
+      coreRule: '집단 통솔 & 군자금 관리. 매 턴 단원 주급 및 식량 유지비 소모. 군자금 고갈 시 사기 급락 및 하극상 위험. 참전 계약으로 영지 획득.',
+      badgeList: [
+        { label: '단원 군자금', value: resources.gold, icon: '🪙', color: '#fbbf24' },
+        { label: '용병단 명성', value: resources.prestige, icon: '🚩', color: '#38bdf8' },
+        { label: '부대 사기', value: resources.piety, icon: '🔥', color: '#f97316' },
+        { label: '정예 단원', value: resources.levies, icon: '⚔️', color: '#ef4444' }
+      ]
+    };
+  }
+
+  if (archetype === 'clergy') {
+    return {
+      archetype,
+      num: '3번',
+      title: '성직자 및 수도자 (Clergy / Monastic Order)',
+      subtitle: '사제 · 수도승 · 순례자 · 이단 심문관',
+      icon: '⛪',
+      coreRule: '신앙 & 교단 발언권. 독신 서약 및 금욕 수호. 십일조 수취와 고문서 필사, 세속 영주와의 신성 갈등 대처 및 주교 서품 경쟁.',
+      badgeList: [
+        { label: '교회 헌금', value: resources.gold, icon: '🪙', color: '#fbbf24' },
+        { label: '신앙 / 경건', value: resources.piety, icon: '🕊️', color: '#c084fc' },
+        { label: '교단 발언권', value: resources.prestige, icon: '📜', color: '#38bdf8' },
+        { label: '수도원 장원', value: resources.domain, icon: '⛪', color: '#34d399' }
+      ]
+    };
+  }
+
+  return {
+    archetype: 'noble',
+    num: '4번',
+    title: '봉건 영주 및 귀족 (Feudal Noble)',
+    subtitle: '성주 · 남작 · 백작 · 제후',
+    icon: '👑',
+    coreRule: '영지 통치 & 가문 혈통. 장원 백성 통치, 봉건 징집병 동원, 가문 대를 잇는 정략혼과 계승권 전쟁.',
+    badgeList: [
+      { label: '영지 국고', value: resources.gold, icon: '🪙', color: '#fbbf24' },
+      { label: '가문 위신', value: resources.prestige, icon: '👑', color: '#38bdf8' },
+      { label: '직할 영지', value: resources.domain, icon: '🏰', color: '#34d399' },
+      { label: '동원 병력', value: resources.levies, icon: '⚔️', color: '#ef4444' }
+    ]
+  };
 }
 
 // 텍스트에서 숫자 추출 (예: "15 (+2)" -> 17, "보통 (65%)" -> 65)
@@ -204,44 +394,70 @@ export function parseCKStress(gameState: ParsedState): CKStressState {
 export function parseCKResources(gameState: ParsedState): CKResources {
   const faction = gameState.factionState || {};
   const wealthItems = gameState.inventory?.wealth || [];
-  
+  const archetype = detectPlayerArchetype(gameState);
+  const labels = getArchetypeLabels(archetype);
+
   // 금화
   let gold = faction['세력 재정'] || faction['재정'] || faction['금화'] || '';
   if (!gold && wealthItems.length > 0) {
     const goldFound = wealthItems.find(w => w.includes('금') || w.includes('은') || w.includes('전') || w.includes('동'));
     if (goldFound) gold = goldFound;
   }
-  if (!gold) gold = '금화 120개';
+  if (!gold) {
+    gold = archetype === 'clergy' ? '은화 45닢' : archetype === 'wanderer' ? '동화 30개' : archetype === 'company' ? '금화 150닢' : '금화 350개';
+  }
 
   // 위신 (명성)
   let prestige = gameState.stats?.acquired?.['명성'] || gameState.personalInfo?.['명성'] || '';
   if (!prestige) {
-    const rank = gameState.personalInfo?.['직위'] || gameState.personalInfo?.['신분'] || '귀족';
+    const rank = gameState.personalInfo?.['직위'] || gameState.personalInfo?.['신분'] || (archetype === 'clergy' ? '수도사' : archetype === 'company' ? '용병대장' : archetype === 'wanderer' ? '방랑자' : '귀족');
     prestige = `${rank}의 명망`;
   }
 
   // 신앙 / 사기
-  const piety = gameState.personalInfo?.['종교'] || gameState.playerStatus?.find(s => s.name.includes('사기') || s.name.includes('신앙'))?.value || '신앙심 깊음';
+  const piety = gameState.personalInfo?.['종교'] || gameState.playerStatus?.find(s => s.name.includes('사기') || s.name.includes('신앙'))?.value || (archetype === 'clergy' ? '깊은 신앙 (95%)' : archetype === 'company' ? '부대 사기 높음' : '의기 충천');
 
   // 병력
-  const levies = faction['병력'] || faction['군사'] || '상비군 50명';
+  let levies = faction['병력'] || faction['군사'] || '';
+  if (!levies) {
+    levies = archetype === 'clergy' ? '수도사 12명' : archetype === 'company' ? '정예 단원 24명' : archetype === 'wanderer' ? '단신 (동행 1명)' : '상비군 50명';
+  }
 
   // 직할령 / 거점
-  const estateType = gameState.estate?.type || '야영지';
+  const estateType = gameState.estate?.type || (archetype === 'clergy' ? '작은 예배당' : archetype === 'wanderer' ? '임시 야영지' : archetype === 'company' ? '상설 숙영지' : '봉건 장원');
   const buildingCount = gameState.estate?.buildings?.length || 0;
   const domain = `${estateType} (시설 ${buildingCount}동)`;
+
+  const archetypeTitleMap: Record<PlayerArchetype, string> = {
+    noble: '👑 봉건 영주',
+    wanderer: '🗡️ 방랑 모험가',
+    company: '👥 소규모 집단',
+    clergy: '⛪ 성직자 / 수도자'
+  };
 
   return {
     gold,
     prestige,
     piety,
     levies,
-    domain
+    domain,
+    archetype,
+    archetypeTitle: archetypeTitleMap[archetype],
+    labels
   };
 }
 
 // 가문 문장 엠블럼 심볼
-export function getHeraldryEmblem(name: string, culture: string = ''): { icon: string; border: string; bg: string } {
+export function getHeraldryEmblem(name: string, culture: string = '', archetype?: PlayerArchetype): { icon: string; border: string; bg: string } {
+  if (archetype === 'wanderer') {
+    return { icon: '🗡️', border: '#94a3b8', bg: 'linear-gradient(135deg, #1e293b, #334155)' };
+  }
+  if (archetype === 'company') {
+    return { icon: '⚔️', border: '#f87171', bg: 'linear-gradient(135deg, #7f1d1d, #991b1b)' };
+  }
+  if (archetype === 'clergy') {
+    return { icon: '✝️', border: '#38bdf8', bg: 'linear-gradient(135deg, #0c4a6e, #1e3a8a)' };
+  }
   if (name.includes('사자') || culture.includes('서양') || culture.includes('유럽')) {
     return { icon: '🦁', border: '#d4af37', bg: 'linear-gradient(135deg, #78350f, #b45309)' };
   }

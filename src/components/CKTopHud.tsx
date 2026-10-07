@@ -35,9 +35,9 @@ export default function CKTopHud({
   const rulerName = gameState.personalInfo?.['이름'] || '군주';
   const rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '영주';
   const culture = gameState.personalInfo?.['문화'] || '';
-  const emblem = getHeraldryEmblem(rulerName, culture);
   const resources = parseCKResources(gameState);
   const stress = parseCKStress(gameState);
+  const emblem = getHeraldryEmblem(rulerName, culture, resources.archetype);
 
   const rawDate = gameState.dateLocation || '';
   const cleanDate = rawDate.replace(/\[턴 수:.*\]/, '').trim() || '서기 1066년';
@@ -116,6 +116,16 @@ export default function CKTopHud({
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {rulerTitle}
               </span>
+              <span style={{
+                fontSize: '0.7rem',
+                padding: '1px 6px',
+                borderRadius: '3px',
+                background: 'rgba(212, 175, 55, 0.2)',
+                color: 'var(--gold-hover)',
+                fontWeight: 'normal'
+              }}>
+                {resources.archetypeTitle}
+              </span>
             </div>
             <div style={{
               fontSize: '1.05rem',
@@ -143,52 +153,67 @@ export default function CKTopHud({
           borderRadius: '8px',
           border: '1px solid rgba(255, 255, 255, 0.08)'
         }}>
-          {/* 🪙 Gold */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title="국고 / 금화">
+          {/* 🪙 Gold / Funds */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.goldLabel}>
             <Coins size={16} style={{ color: '#fbbf24' }} />
-            <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#fef08a' }}>
-              {resources.gold}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.goldLabel}</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fef08a' }}>
+                {resources.gold}
+              </span>
+            </div>
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
 
-          {/* 👑 Prestige */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title="위신 / 명성">
+          {/* 👑 Prestige / Standing */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.prestigeLabel}>
             <Crown size={16} style={{ color: '#38bdf8' }} />
-            <span style={{ fontSize: '0.85rem', color: '#bae6fd' }}>
-              {resources.prestige}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.prestigeLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: '#bae6fd' }}>
+                {resources.prestige}
+              </span>
+            </div>
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
 
           {/* 🕊️ Piety / Morale */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title="신앙 / 경건 / 사기">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.pietyLabel}>
             <Sparkles size={16} style={{ color: '#a78bfa' }} />
-            <span style={{ fontSize: '0.85rem', color: '#e9d5ff' }}>
-              {resources.piety}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.pietyLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: '#e9d5ff' }}>
+                {resources.piety}
+              </span>
+            </div>
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
 
-          {/* ⚔️ Army / Levies */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title="병력 / 징집병">
+          {/* ⚔️ Army / Levies / Companions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.leviesLabel}>
             <Shield size={16} style={{ color: '#f87171' }} />
-            <span style={{ fontSize: '0.85rem', color: '#fca5a5', fontWeight: 'bold' }}>
-              {resources.levies}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.leviesLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: '#fca5a5', fontWeight: 'bold' }}>
+                {resources.levies}
+              </span>
+            </div>
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
 
-          {/* 🏰 Domain */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title="직할령 / 거점">
+          {/* 🏰 Domain / Holdings / Camp */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.domainLabel}>
             <Castle size={16} style={{ color: '#34d399' }} />
-            <span style={{ fontSize: '0.85rem', color: '#a7f3d0' }}>
-              {resources.domain}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.domainLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: '#a7f3d0' }}>
+                {resources.domain}
+              </span>
+            </div>
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
@@ -350,7 +375,7 @@ export default function CKTopHud({
           }}
         >
           <Crown size={15} />
-          <span>👤 군주 인물상 (Character)</span>
+          <span>👤 {resources.archetype === 'clergy' ? '사제 인물상' : resources.archetype === 'company' ? '대장 인물상' : resources.archetype === 'wanderer' ? '모험가 인물상' : '군주 인물상'}</span>
         </button>
 
         <button
@@ -373,7 +398,7 @@ export default function CKTopHud({
           }}
         >
           <Users size={15} />
-          <span>👑 가문 계보도 (Family Tree)</span>
+          <span>{resources.archetype === 'clergy' ? '⛪ 교단 계보도 (Religious Tree)' : resources.archetype === 'company' ? '👥 단원 지휘부 (Company Tree)' : resources.archetype === 'wanderer' ? '🗡️ 동료 계보 (Companions)' : '👑 가문 계보도 (Family Tree)'}</span>
         </button>
 
         <button
@@ -395,7 +420,7 @@ export default function CKTopHud({
           }}
         >
           <Castle size={15} />
-          <span>🏰 영지 통치 (Realm Order)</span>
+          <span>{resources.archetype === 'clergy' ? '⛪ 교구 현황 (Parish Order)' : resources.archetype === 'company' ? '⛺ 부대 본진 (Camp Order)' : resources.archetype === 'wanderer' ? '🏕️ 방랑 거점 (Camp Order)' : '🏰 영지 통치 (Realm Order)'}</span>
         </button>
 
         <button

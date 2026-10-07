@@ -815,6 +815,7 @@ export default function Home() {
         <CKRealmModal
           isOpen={true}
           onClose={() => setActiveModal(null)}
+          gameState={gameState}
           factionState={gameState.factionState}
         />
       )}
