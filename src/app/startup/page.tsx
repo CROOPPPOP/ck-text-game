@@ -462,7 +462,7 @@ export default function Startup() {
     if (!arch) return;
     setSelectedArchetype(archId);
 
-    const defaultPreset = arch.statusPresets?.[0];
+    const defaultPreset = arch.statusPresets.find(p => p.playerStatus === arch.status) || arch.statusPresets?.[0];
     if (defaultPreset) {
       setSelectedStatusPresetId(defaultPreset.id);
     }
@@ -657,11 +657,33 @@ export default function Startup() {
       });
       const data = await res.json();
       if (data.config) {
+        let matchedArchId = data.config.archetype;
+        let matchedPresetId = '';
+        const recStatus = data.config.playerStatus;
+
+        // 29개 신분 프리셋 중 일치하는 항목 및 아키타입 탐색
+        for (const arch of ARCHETYPES) {
+          const found = arch.statusPresets.find(p => p.playerStatus === recStatus || p.name === recStatus);
+          if (found) {
+            matchedArchId = arch.id;
+            matchedPresetId = found.id;
+            break;
+          }
+        }
+
+        if (matchedArchId) {
+          setSelectedArchetype(matchedArchId);
+        }
+        if (matchedPresetId) {
+          setSelectedStatusPresetId(matchedPresetId);
+        }
+
         setFormData(fd => ({
           ...fd,
           era: data.config.era || fd.era,
           worldview: data.config.worldview || fd.worldview,
           character: data.config.character || fd.character,
+          archetype: matchedArchId || fd.archetype,
           finalGoal: data.config.finalGoal || fd.finalGoal,
           playerStatus: data.config.playerStatus || fd.playerStatus,
           startLocation: data.config.startLocation || fd.startLocation,
@@ -945,7 +967,7 @@ export default function Startup() {
               {/* Archetype Linked Presets Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '8px' }}>
                 {(ARCHETYPES.find(a => a.id === selectedArchetype)?.statusPresets || []).map((preset: StatusPreset) => {
-                  const isPresetSelected = formData.playerStatus === preset.playerStatus || selectedStatusPresetId === preset.id;
+                  const isPresetSelected = formData.playerStatus === preset.playerStatus;
                   return (
                     <div
                       key={preset.id}

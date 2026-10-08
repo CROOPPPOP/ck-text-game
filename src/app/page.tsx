@@ -11,6 +11,7 @@ import CKCharacterModal from '@/components/CKCharacterModal';
 import FamilyTreeModal from '@/components/FamilyTreeModal';
 import CKRealmModal from '@/components/CKRealmModal';
 import CKRelationsModal from '@/components/CKRelationsModal';
+import ChronicleModal from '@/components/ChronicleModal';
 import CKSaveModal from '@/components/CKSaveModal';
 import CKSettingsModal from '@/components/CKSettingsModal';
 import {
@@ -50,84 +51,6 @@ const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) 
   }, [currentIndex, delay, text]);
 
   return <span>{currentText}</span>;
-};
-
-const Accordion = ({ title, children, defaultOpen = true }: { title: string, children: React.ReactNode, defaultOpen?: boolean }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  return (
-    <section style={{ marginBottom: '16px' }}>
-      <h2 className={styles.accordionHeader} onClick={() => setIsOpen(!isOpen)}>
-        {title}
-        <span style={{ fontSize: '0.8rem', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
-      </h2>
-      {isOpen && <div>{children}</div>}
-    </section>
-  );
-};
-
-const StatValue = ({ value }: { value: string }) => {
-  const match = value.match(/^(.*?)(\([+-]\d+\))$/);
-  if (match) {
-    const isPositive = match[2].includes('+');
-    return (
-      <span>
-        {match[1]}
-        <span style={{ color: isPositive ? 'var(--success)' : 'var(--danger)', marginLeft: '4px', fontSize: '0.9em', fontWeight: 'bold' }}>
-          {match[2]}
-        </span>
-      </span>
-    );
-  }
-  return <span>{value}</span>;
-};
-
-const getTraitColor = (category: string) => {
-  switch (category) {
-    case '신체특성': return { border: 'var(--danger)', color: '#ff9999', bg: 'rgba(239,68,68,0.15)' };
-    case '정신특성': return { border: '#3b82f6', color: '#93c5fd', bg: 'rgba(59,130,246,0.15)' };
-    case '감각특성': return { border: 'var(--success)', color: '#6ee7b7', bg: 'rgba(16,185,129,0.15)' };
-    case '전문특성': return { border: 'var(--gold-accent)', color: 'var(--gold-hover)', bg: 'rgba(212,175,55,0.15)' };
-    case '잠재특성': return { border: '#a855f7', color: '#d8b4fe', bg: 'rgba(168,85,247,0.15)' };
-    case '일시적특성': return { border: '#fff', color: '#fff', bg: 'rgba(255,255,255,0.1)', animation: 'pulse 2s infinite' };
-    default: return { border: 'var(--gold-accent)', color: 'var(--gold-hover)', bg: 'rgba(212,175,55,0.15)' };
-  }
-};
-
-const getTraitIcon = (category: string) => {
-  if (category.includes('신체')) return '💪';
-  if (category.includes('정신')) return '🧠';
-  if (category.includes('감각')) return '👁️';
-  if (category.includes('전문')) return '🎖️';
-  if (category.includes('잠재')) return '✨';
-  if (category.includes('일시적')) return '⏳';
-  return '🏷️';
-};
-
-const getStatusIcon = (name: string) => {
-  if (name.includes('건강')) return '❤️';
-  if (name.includes('체력')) return '⚡';
-  if (name.includes('허기') || name.includes('갈증')) return '🍽️';
-  if (name.includes('피로') || name.includes('수면')) return '🥱';
-  if (name.includes('체온')) return '🌡️';
-  if (name.includes('통증') || name.includes('부상') || name.includes('골절')) return '🤕';
-  if (name.includes('출혈')) return '🩸';
-  if (name.includes('화상')) return '🔥';
-  if (name.includes('질병') || name.includes('감염')) return '🦠';
-  if (name.includes('중독')) return '🤢';
-  if (name.includes('스트레스') || name.includes('정신') || name.includes('분노')) return '💢';
-  if (name.includes('공포') || name.includes('불안')) return '😨';
-  if (name.includes('사기') || name.includes('자신감')) return '🔥';
-  if (name.includes('시각') || name.includes('청각') || name.includes('감각')) return '👁️';
-  return '💠';
-};
-
-const getStatusColor = (statusText: string) => {
-  if (statusText.includes('재앙적') || statusText.includes('매우 낮음')) return '#ef4444';
-  if (statusText.includes('낮음')) return '#f87171';
-  if (statusText.includes('보통')) return '#9ca3af';
-  if (statusText.includes('높음')) return '#34d399';
-  if (statusText.includes('매우 높음') || statusText.includes('탁월함') || statusText.includes('극한 수준')) return '#fbbf24';
-  return 'var(--text-main)';
 };
 
 const getChoiceTheme = (groupType?: string) => {
@@ -216,8 +139,8 @@ export default function Home() {
   const [streamPreview, setStreamPreview] = useState("");
   const [freeAction, setFreeAction] = useState("");
   const [hasAutoSave, setHasAutoSave] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'relations' | 'objective' | 'estate'>('inventory');
-  const [activeModal, setActiveModal] = useState<'character' | 'familyTree' | 'realm' | 'relations' | 'rightPanel' | 'save' | 'settings' | null>(null);
+  const [activeModal, setActiveModal] = useState<'character' | 'familyTree' | 'realm' | 'relations' | 'chronicle' | 'save' | 'settings' | null>(null);
+  const [realmInitialTab, setRealmInitialTab] = useState<'realm' | 'estate'>('realm');
   const [constructionQueue, setConstructionQueue] = useState<QueueItem[]>([]);
   const [turn, setTurn] = useState(0);
   const [constructionNotice, setConstructionNotice] = useState('');
@@ -258,6 +181,16 @@ export default function Home() {
         setStreamPreview(extractLivePreview(raw));
       });
       if (data?.parsed) {
+        // 유저가 선택한 신분 프리셋 확실히 보장
+        if (config.playerStatus) {
+          if (!data.parsed.personalInfo) {
+            data.parsed.personalInfo = {};
+          }
+          data.parsed.personalInfo['신분'] = config.playerStatus;
+          if (!data.parsed.personalInfo['직위'] || data.parsed.personalInfo['직위'] === '귀족' || data.parsed.personalInfo['직위'] === '영주') {
+            data.parsed.personalInfo['직위'] = config.playerStatus;
+          }
+        }
         const initialChronicle: ChronicleItem = {
           turn: 1,
           dateLocation: data.parsed.dateLocation,
@@ -786,11 +719,11 @@ export default function Home() {
         gameState={gameState}
         turn={turn}
         onOpenFamilyTree={() => setActiveModal('familyTree')}
-        onOpenRealm={() => setActiveModal('realm')}
+        onOpenRealm={() => { setRealmInitialTab('realm'); setActiveModal('realm'); }}
         onOpenCharacter={() => setActiveModal('character')}
         onOpenRelations={() => setActiveModal('relations')}
-        onOpenEstate={() => { setActiveTab('estate'); setActiveModal('rightPanel'); }}
-        onOpenChronicle={() => { setActiveTab('objective'); setActiveModal('rightPanel'); }}
+        onOpenEstate={() => { setRealmInitialTab('estate'); setActiveModal('realm'); }}
+        onOpenChronicle={() => setActiveModal('chronicle')}
         onOpenSave={() => setActiveModal('save')}
         onOpenSettings={() => setActiveModal('settings')}
         onQuickSave={handleQuickSave}
@@ -1023,6 +956,17 @@ export default function Home() {
           onClose={() => setActiveModal(null)}
           gameState={gameState}
           factionState={gameState.factionState}
+          initialTab={realmInitialTab}
+          constructionQueue={constructionQueue}
+          turn={turn}
+          loading={loading}
+          onOrderBuild={handleOrderBuild}
+          onCancelBuild={handleCancelBuild}
+          constructionNotice={constructionNotice}
+          promotionOption={promotionOption}
+          derivedUpgradeOptions={derivedUpgradeOptions}
+          maxSlots={maxSlots}
+          domainLimit={domainLimit}
         />
       )}
 
@@ -1059,634 +1003,14 @@ export default function Home() {
         />
       )}
 
-      {activeModal === 'rightPanel' && (
-        <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-              <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
-            </div>
-            <div>
-                
-        <div style={{ display: 'flex', gap: '5px', marginBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', flexShrink: 0 }}>
-          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'inventory' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'inventory' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('inventory')}>자원/세력</button>
-          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'relations' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'relations' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('relations')}>인간관계</button>
-          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'estate' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'estate' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('estate')}>🏕️ 거점/영지</button>
-          <button style={{ flex: 1, padding: '10px 5px', fontSize: '0.9rem', background: activeTab === 'objective' ? 'var(--gold-accent)' : 'rgba(0,0,0,0.3)', color: activeTab === 'objective' ? '#000' : 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setActiveTab('objective')}>📜 로그/상황</button>
-        </div>
-        
-        {activeTab === 'inventory' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <Accordion title="【 국가 및 세력 현황 】">
-          {gameState.factionState && !gameState.factionState.none ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}>
-              {Object.entries(gameState.factionState).map(([key, val], idx) => {
-                 let valueText = val;
-                 let statusText = '';
-                 let color = 'var(--text-main)';
-                 const match = val.match(/^(.*)\(([^)]*)\)$/);
-                 if (match) {
-                   valueText = match[1].trim() || '-';
-                   statusText = match[2].trim();
-                   color = getStatusColor(statusText);
-                 } else {
-                   const descriptors = ['매우 낮음', '매우 높음', '극한 수준', '재앙적', '탁월함', '낮음', '보통', '높음'];
-                   const found = descriptors.find(d => val.includes(d));
-                   if (found) {
-                     statusText = found;
-                     valueText = val.replace(found, '').replace(/\(\)/g, '').trim() || '-';
-                     color = getStatusColor(statusText);
-                   }
-                 }
-                 return (
-                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                     <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold', flexShrink: 0, marginRight: '10px' }}>{key}</span>
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                       <span style={{ color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={valueText}>{valueText}</span>
-                       {statusText && <span style={{ color, fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap', flexShrink: 0 }}>{statusText}</span>}
-                     </div>
-                   </div>
-                 );
-              })}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '10px' }}>통치 중인 영지 없음</div>
-          )}
-        </Accordion>
-          </div>
-        )}
-
-        {activeTab === 'relations' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <Accordion title="【 외교 및 인간 관계 】">
-          {gameState.relationships ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {gameState.relationships.personal && gameState.relationships.personal.length > 0 && (
-                <div>
-                   <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>👥 인간 관계 ({gameState.relationships.personal.length}명)</div>
-                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                     {gameState.relationships.personal.map((rel, idx) => {
-                       const parts = rel.split('|').map(p => p.trim());
-                       if (parts.length >= 4) {
-                         const rawName = parts[0];
-                         const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
-                         const name = roleMatch ? roleMatch[1].trim() : rawName;
-                         const role = roleMatch ? roleMatch[2].trim() : '';
-
-                         const trustStr = parts[1];
-                         const affStr = parts[2];
-                         const descStr = parts.slice(3).join(' | ').replace('관계:', '').trim();
-
-                         const trustMatch = trustStr.match(/(\d+)/);
-                         const affMatch = affStr.match(/(\d+)/);
-                         
-                         const trustVal = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1], 10))) : 0;
-                         const affVal = affMatch ? Math.min(100, Math.max(0, parseInt(affMatch[1], 10))) : 0;
-                         
-                         const isRomance = affStr.includes('애정도');
-                         const isRival = affStr.includes('숙적') || affStr.includes('라이벌') || descStr.includes('숙적') || descStr.includes('라이벌') || (trustStr.includes('경계') && trustVal <= 15);
-                         const isObsessive = affStr.includes('집착') || affStr.includes('광애');
-                         const isExtremeLove = affStr.includes('극애');
-                         const isSwornFriend = affStr.includes('맹우');
-                         const isCompanion = trustStr.includes('동반');
-                         
-                         let currentAffColor = isRomance ? 'linear-gradient(90deg, #be123c, #f43f5e)' : 'linear-gradient(90deg, #b45309, #fbbf24)';
-                         let currentAffGlow = 'none';
-                         let currentTrustColor = 'linear-gradient(90deg, #0369a1, #38bdf8)';
-                         let currentTrustGlow = 'none';
-                         let textColorAff = isRomance ? '#f43f5e' : '#fbbf24';
-                         let textColorTrust = '#38bdf8';
-
-                         if (isRival) {
-                           currentAffColor = 'linear-gradient(90deg, #7f1d1d, #dc2626)';
-                           currentAffGlow = '0 0 10px rgba(220, 38, 38, 0.4)';
-                           textColorAff = '#ef4444';
-                         } else if (isObsessive) {
-                           currentAffColor = 'linear-gradient(90deg, #4a044e, #86198f, #9f1239)';
-                           currentAffGlow = '0 0 12px #86198f';
-                           textColorAff = '#d946ef';
-                         } else if (isExtremeLove) {
-                           currentAffColor = 'linear-gradient(90deg, #db2777, #f472b6, #fce7f3)';
-                           currentAffGlow = '0 0 10px #f472b6';
-                           textColorAff = '#f9a8d4';
-                         } else if (isSwornFriend) {
-                           currentAffColor = 'linear-gradient(90deg, #b45309, #f59e0b, #fef3c7)';
-                           currentAffGlow = '0 0 10px #f59e0b';
-                           textColorAff = '#fcd34d';
-                         }
-                         
-                         if (isCompanion) {
-                           currentTrustColor = 'linear-gradient(90deg, #0284c7, #38bdf8, #e0f2fe)';
-                           currentTrustGlow = '0 0 10px #38bdf8';
-                           textColorTrust = '#bae6fd';
-                         }
-                         
-                         const borderColor = isRival ? '#ef4444' : isObsessive ? '#86198f' : isSwornFriend ? '#f59e0b' : 'rgba(255,255,255,0.08)';
-
-                         return (
-                           <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', border: `1px solid ${borderColor}`, boxShadow: isRival ? '0 0 10px rgba(239,68,68,0.2)' : isObsessive ? '0 0 12px rgba(134,25,143,0.3)' : 'none' }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                 <span style={{ color: isRival ? '#fca5a5' : 'var(--gold-accent)', fontWeight: 'bold', fontSize: '0.98rem' }}>
-                                   {isRival ? '⚔️' : isRomance ? '❤️' : '👤'} {name}
-                                 </span>
-                                 {role && (
-                                   <span style={{ fontSize: '0.72rem', background: 'rgba(56,189,248,0.15)', color: '#7dd3fc', border: '1px solid rgba(56,189,248,0.3)', padding: '1px 6px', borderRadius: '4px' }}>
-                                     {role}
-                                   </span>
-                                 )}
-                               </div>
-                               
-                               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                 {isRival && (
-                                   <span style={{ fontSize: '0.72rem', background: 'rgba(239,68,68,0.25)', color: '#fca5a5', border: '1px solid #ef4444', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                     ⚔️ 숙적 / 라이벌
-                                   </span>
-                                 )}
-                                 {isObsessive && (
-                                   <span style={{ fontSize: '0.72rem', background: 'rgba(192,132,252,0.2)', color: '#d8b4fe', border: '1px solid #c084fc', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                     🔥 집착 / 광애
-                                   </span>
-                                 )}
-                                 {isExtremeLove && (
-                                   <span style={{ fontSize: '0.72rem', background: 'rgba(244,114,182,0.2)', color: '#f472b6', border: '1px solid #f472b6', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                     💖 극애
-                                   </span>
-                                 )}
-                                 {isSwornFriend && (
-                                   <span style={{ fontSize: '0.72rem', background: 'rgba(251,191,36,0.2)', color: '#fcd34d', border: '1px solid #fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                     🛡️ 맹우
-                                   </span>
-                                 )}
-                                 {isCompanion && (
-                                   <span style={{ fontSize: '0.72rem', background: 'rgba(56,189,248,0.2)', color: '#bae6fd', border: '1px solid #38bdf8', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                     👑 동반자
-                                   </span>
-                                 )}
-                               </div>
-                             </div>
-
-                             <span style={{ fontSize: '0.82rem', color: isObsessive ? '#fbcfe8' : 'var(--text-muted)', lineHeight: '1.4' }}>
-                               {descStr}
-                             </span>
-                             
-                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '2px' }}>
-                               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', background: 'rgba(0,0,0,0.2)', padding: '6px 8px', borderRadius: '4px' }}>
-                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: textColorTrust }}>
-                                   <span>🤝 {trustStr.replace(/\d+/, '').replace('-', '').trim() || '신뢰도'}</span>
-                                   <strong>{trustVal}%</strong>
-                                 </div>
-                                 <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden', boxShadow: currentTrustGlow }}>
-                                   <div style={{ width: `${trustVal}%`, height: '100%', background: currentTrustColor }} />
-                                 </div>
-                               </div>
-
-                               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', background: 'rgba(0,0,0,0.2)', padding: '6px 8px', borderRadius: '4px' }}>
-                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: textColorAff, textShadow: currentAffGlow }}>
-                                   <span>{isRival ? '⚔️' : isRomance ? '❤️' : '🌿'} {affStr.replace(/\d+/, '').replace('-', '').trim() || (isRomance ? '애정도' : '우정도')}</span>
-                                   <strong>{affVal}%</strong>
-                                 </div>
-                                 <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden', boxShadow: currentAffGlow }}>
-                                   <div style={{ width: `${affVal}%`, height: '100%', background: currentAffColor }} />
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                         );
-                       }
-                       return <div key={idx} style={{ fontSize: '0.9rem', color: 'var(--text-main)', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '4px' }}>• {rel}</div>;
-                     })}
-                   </div>
-                </div>
-              )}
-              {gameState.relationships.faction && gameState.relationships.faction.length > 0 && (
-                <div>
-                   <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>🛡️ 세력 및 외교 관계 ({gameState.relationships.faction.length}개)</div>
-                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                     {gameState.relationships.faction.map((rel, idx) => {
-                       const match = rel.match(/^(.*?)\s+-\s+(.*)$/);
-                       if (match) {
-                         const name = match[1].replace(/^[○•\s]+/, '').trim();
-                         const rest = match[2].trim();
-                         const pipeParts = rest.split('|').map(p => p.trim());
-                         const status = pipeParts[0];
-                         let threat = '';
-                         let attitude = '';
-                         pipeParts.slice(1).forEach(p => {
-                           if (p.startsWith('위협도:')) threat = p.replace('위협도:', '').trim();
-                           if (p.startsWith('태도:')) attitude = p.replace('태도:', '').trim();
-                         });
-
-                         let badgeColor = 'rgba(255,255,255,0.1)';
-                         let textColor = 'var(--text-muted)';
-                         if (status.includes('동맹') || status.includes('우호')) { badgeColor = 'rgba(56,189,248,0.2)'; textColor = '#38bdf8'; }
-                         else if (status.includes('적대') || status.includes('교전') || status.includes('파문')) { badgeColor = 'rgba(239,68,68,0.2)'; textColor = '#ef4444'; }
-                         else if (status.includes('정전') || status.includes('중립') || status.includes('의심') || status.includes('휴전') || status.includes('계약')) { badgeColor = 'rgba(251,191,36,0.2)'; textColor = '#fbbf24'; }
-                         else if (status.includes('주종') || status.includes('봉신') || status.includes('주군')) { badgeColor = 'rgba(168,85,247,0.2)'; textColor = '#c084fc'; }
-
-                         return (
-                           <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                               <span style={{ fontWeight: 'bold', color: 'var(--gold-accent)', fontSize: '0.95rem' }}>🛡️ {name}</span>
-                               <span style={{ fontSize: '0.8rem', color: textColor, background: badgeColor, border: `1px solid ${textColor}44`, padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                 {status}
-                               </span>
-                             </div>
-
-                             {(threat || attitude) && (
-                               <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', marginTop: '2px' }}>
-                                 {threat && (
-                                   <span style={{ color: threat.includes('위험') || threat.includes('치명') ? '#f87171' : threat.includes('안전') ? '#4ade80' : '#fbbf24', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
-                                     ⚠️ 위협도: {threat}
-                                   </span>
-                                 )}
-                                 {attitude && (
-                                   <span style={{ color: attitude.includes('우호') ? '#38bdf8' : attitude.includes('적대') ? '#f87171' : '#e2e8f0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
-                                     👁️ 태도: {attitude}
-                                   </span>
-                                 )}
-                               </div>
-                             )}
-                           </div>
-                         );
-                       }
-                       return <div key={idx} style={{ fontSize: '0.9rem', color: 'var(--text-main)', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '4px' }}>• {rel}</div>;
-                     })}
-                   </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '10px' }}>주요 관계 정보 없음</div>
-          )}
-        </Accordion>
-
-        <Accordion title="【 가문 및 계승 현황 】">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-            {gameState.familyState ? (
-              <>
-                <div style={{ display: 'flex' }}><strong style={{ width: '90px', color: 'var(--gold-accent)' }}>[배우자]</strong> <span style={{ flex: 1, color: 'var(--text-muted)' }}>{gameState.familyState.spouse || '없음'}</span></div>
-                <div style={{ display: 'flex' }}><strong style={{ width: '90px', color: 'var(--gold-accent)' }}>[자녀]</strong> <span style={{ flex: 1, color: 'var(--text-muted)' }}>{gameState.familyState.children || '없음'}</span></div>
-                <div style={{ display: 'flex' }}><strong style={{ width: '90px', color: 'var(--gold-accent)' }}>[계승법]</strong> <span style={{ flex: 1, color: 'var(--text-muted)' }}>{gameState.familyState.successionLaw || '미정'}</span></div>
-                <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px', marginTop: '5px' }}>
-                  <strong style={{ width: '90px', color: 'var(--success)' }}>[후계자]</strong> <span style={{ flex: 1, fontWeight: 'bold' }}>{gameState.familyState.heir || '미정'}</span>
-                </div>
-              </>
-            ) : (
-              <div style={{ color: 'var(--text-muted)' }}>가문 및 계승 정보가 아직 초기화되지 않았습니다.</div>
-            )}
-          </div>
-        </Accordion>
-          </div>
-        )}
-
-        {activeTab === 'objective' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        {gameState.objective && (
-          <Accordion title="【 현재 국면 및 상황 】">
-            <div style={{ marginBottom: '16px' }}>
-              <span style={{ color: 'var(--gold-accent)', fontSize: '0.85rem', fontWeight: 'bold' }}>[현재 주요 국면]</span> 
-              <div style={{ color: 'var(--text-main)', fontWeight: 'bold', marginTop: '4px', paddingLeft: '8px', borderLeft: '3px solid var(--gold-accent)', lineHeight: '1.4' }}>
-                {gameState.objective.ultimateGoal}
-              </div>
-            </div>
-            {gameState.objective.currentGoal && (
-              <div style={{ marginBottom: '16px' }}>
-                <span style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold' }}>[단기 야망]</span> 
-                <div style={{ color: 'var(--text-main)', fontWeight: 'bold', marginTop: '4px', paddingLeft: '8px', borderLeft: '3px solid #38bdf8', lineHeight: '1.4' }}>
-                  {gameState.objective.currentGoal}
-                </div>
-              </div>
-            )}
-            
-            <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>상태: </span> 
-              <span style={{ 
-                padding: '4px 10px', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold',
-                background: gameState.objective.status.includes('달성') || gameState.objective.status.includes('충족') ? 'rgba(16,185,129,0.2)' : 
-                            gameState.objective.status.includes('실패') || gameState.objective.status.includes('위기') ? 'rgba(239,68,68,0.2)' : 'rgba(212,175,55,0.2)',
-                color: gameState.objective.status.includes('달성') || gameState.objective.status.includes('충족') ? 'var(--success)' : 
-                       gameState.objective.status.includes('실패') || gameState.objective.status.includes('위기') ? 'var(--danger)' : 'var(--gold-hover)',
-                border: `1px solid ${gameState.objective.status.includes('달성') || gameState.objective.status.includes('충족') ? 'var(--success)' : gameState.objective.status.includes('실패') || gameState.objective.status.includes('위기') ? 'var(--danger)' : 'var(--gold-accent)'}`
-              }}>
-                {gameState.objective.status}
-              </span>
-            </div>
-            
-            <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.5', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
-              {gameState.objective.summary}
-            </div>
-          </Accordion>
-        )}
-
-        <Accordion title={`📜 【 가문 역사 연대기 】 (${gameState.chronicle?.length || 0}건)`}>
-          {gameState.chronicle && gameState.chronicle.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
-              {gameState.chronicle.slice().reverse().map((item, idx) => (
-                <div key={idx} style={{
-                  padding: '10px 12px',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  borderLeft: `4px solid ${item.result?.includes('대성공') ? 'var(--success)' : item.result?.includes('성공') || item.result?.includes('시작') ? 'var(--gold-accent)' : 'var(--danger)'}`,
-                  borderRadius: '4px',
-                  borderTop: '1px solid rgba(255,255,255,0.05)',
-                  borderRight: '1px solid rgba(255,255,255,0.05)',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
-                    <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold' }}>턴 {item.turn} {item.dateLocation ? `| ${item.dateLocation.split('/')[0].trim()}` : ''}</span>
-                    <span style={{ 
-                      color: item.result?.includes('대성공') ? 'var(--success)' : item.result?.includes('성공') || item.result?.includes('시작') ? 'var(--gold-accent)' : 'var(--danger)',
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem'
-                    }}>
-                      {item.result}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '4px' }}>
-                    &ldquo;{item.action}&rdquo;
-                  </div>
-                  {item.summary && (
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                      {item.summary}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '10px' }}>
-              아직 기록된 과거 연대기가 없습니다. 턴이 진행되면 결정적인 사건들이 이곳에 누적됩니다.
-            </div>
-          )}
-        </Accordion>
-          </div>
-        )}
-
-        {activeTab === 'estate' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {/* 🏰 영지 / 거점 통합 현황 대시보드 */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.95))',
-              border: '1px solid rgba(212, 175, 55, 0.35)',
-              borderRadius: '10px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '1.6rem' }}>{gameState.estate ? '🏰' : '🏕️'}</span>
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: 'var(--gold-accent)', fontSize: '1.1rem' }}>
-                      {gameState.estate?.type || '임시 야영지'}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      거점 규모: <strong style={{ color: '#60a5fa' }}>{gameState.estate?.level || 'Lv.1 초기 거점'}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{
-                    fontSize: '0.82rem',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    background: constructionQueue.length >= maxSlots ? 'rgba(239,68,68,0.2)' : 'rgba(56,189,248,0.15)',
-                    color: constructionQueue.length >= maxSlots ? '#f87171' : '#38bdf8',
-                    border: `1px solid ${constructionQueue.length >= maxSlots ? '#ef4444' : '#0284c7'}`,
-                    fontWeight: 'bold',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    🔨 건설 슬롯: {constructionQueue.length} / {maxSlots}
-                  </span>
-                  <span style={{
-                    fontSize: '0.82rem',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    background: 'rgba(212,175,55,0.15)',
-                    color: 'var(--gold-hover)',
-                    border: '1px solid rgba(212,175,55,0.4)',
-                    fontWeight: 'bold',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    📜 직할령 한계: {gameState.estate?.buildings?.length || 0} / {domainLimit || 3}동
-                  </span>
-                </div>
-              </div>
-
-              {/* 거점 상주 가신 및 자문관 현황 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold' }}>👥 거점 상주 가신 & 자문관 ({councilVassals.length}명)</span>
-                  {councilVassals.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>인간관계의 주요 인물이 거점 직책을 맡습니다</span>}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {councilVassals.length > 0 ? (
-                    councilVassals.map((v, i) => (
-                      <span key={i} style={{
-                        fontSize: '0.78rem',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        background: 'rgba(0,0,0,0.45)',
-                        border: '1px solid rgba(212,175,55,0.3)',
-                        color: 'var(--text-main)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px'
-                      }}>
-                        <span style={{ color: 'var(--gold-accent)' }}>👑</span>
-                        <strong>{v.name}</strong>
-                        <span style={{ color: '#7dd3fc', fontSize: '0.72rem' }}>({v.role})</span>
-                      </span>
-                    ))
-                  ) : (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                      아직 임명된 직속 가신이 없습니다. (인간관계에서 기사/집사장/사제 등 등용 시 연동)
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <Accordion title="【 거점 및 영지 시설 현황 】">
-              {gameState.estate ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {gameState.estate.buildings.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {gameState.estate.buildings.map((b, idx) => {
-                        const getTagStyle = (t: string) => {
-                          if (t.includes('군사')) return { bg: 'rgba(239,68,68,0.2)', color: '#fca5a5', icon: '⚔️' };
-                          if (t.includes('생산')) return { bg: 'rgba(16,185,129,0.2)', color: '#6ee7b7', icon: '🌾' };
-                          if (t.includes('치안')) return { bg: 'rgba(2,132,199,0.2)', color: '#7dd3fc', icon: '🛡️' };
-                          if (t.includes('행정')) return { bg: 'rgba(245,158,11,0.2)', color: '#fde047', icon: '📜' };
-                          if (t.includes('신앙') || t.includes('문화')) return { bg: 'rgba(168,85,247,0.2)', color: '#d8b4fe', icon: '⛪' };
-                          if (t.includes('민생')) return { bg: 'rgba(20,184,166,0.2)', color: '#5eead4', icon: '🏡' };
-                          return { bg: 'rgba(255,255,255,0.1)', color: 'var(--text-muted)', icon: '🏛️' };
-                        };
-
-                        return (
-                          <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                              <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                                🏛️ {b.name} <span style={{fontSize: '0.8rem', color: '#60a5fa', fontWeight: 'bold'}}>Lv.{b.level}</span>
-                              </span>
-                              {b.tags && b.tags.length > 0 && (
-                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                  {b.tags.map((t, ti) => {
-                                    const st = getTagStyle(t);
-                                    return (
-                                      <span key={ti} style={{ fontSize: '0.72rem', background: st.bg, color: st.color, border: `1px solid ${st.color}33`, padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                        <span>{st.icon}</span> {t}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                            {b.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{b.desc}</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>아직 지어진 시설이 없습니다.</div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                  현재 보유한 거점이나 영지가 없습니다. 야영지 등의 거점을 먼저 건설하면 이곳에 표시됩니다.
-                </div>
-              )}
-            </Accordion>
-            {constructionNotice && (
-              <div style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold-accent)', color: 'var(--gold-hover)', padding: '10px 12px', borderRadius: '6px', fontSize: '0.9rem', lineHeight: '1.4' }}>
-                🔔 {constructionNotice}
-              </div>
-            )}
-            <Accordion title={`〖 건설 가능 시설 · 병렬 슬롯 ${constructionQueue.length}/${maxSlots} 〗`}>
-              {(gameState.buildOptions && gameState.buildOptions.length > 0) || promotionOption || derivedUpgradeOptions.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {promotionOption && (
-                    <div style={{ background: 'rgba(212,175,55,0.1)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong style={{ color: 'var(--gold-accent)', fontSize: '0.95rem' }}>⭐ {promotionOption.name}</strong>
-                        <button className={styles.actionBtn} style={{ padding: '4px 10px', fontSize: '0.8rem', opacity: loading || constructionQueue.length >= maxSlots ? 0.5 : 1 }} disabled={loading || constructionQueue.length >= maxSlots} onClick={() => handleOrderBuild(promotionOption)}>착수</button>
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>소요: {promotionOption.turns}턴 | 비용: {promotionOption.cost}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{promotionOption.desc}</div>
-                    </div>
-                  )}
-                  {derivedUpgradeOptions.map((opt, idx) => {
-                    const already = constructionQueue.some(q => sameBuildingName(q.building, opt.name));
-                    const full = constructionQueue.length >= maxSlots;
-                    const disabled = loading || already || full;
-                    return (
-                      <div key={'upg-'+idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <strong style={{ color: '#38bdf8', fontSize: '0.95rem' }}>⬆ {opt.name}</strong>
-                          <button className={styles.actionBtn} style={{ padding: '4px 10px', fontSize: '0.8rem', opacity: disabled ? 0.5 : 1 }} disabled={disabled} onClick={() => handleOrderBuild(opt)}>{already ? '대기 중' : '착수'}</button>
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>소요: {opt.turns}턴 | 비용: {opt.cost}</div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{opt.desc}</div>
-                      </div>
-                    );
-                  })}
-                  {gameState.buildOptions && gameState.buildOptions.map((opt, idx) => {
-                    const already = constructionQueue.some(q => sameBuildingName(q.building, opt.name));
-                    const full = constructionQueue.length >= maxSlots;
-                    const disabled = loading || already || full;
-                    return (
-                      <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{opt.name}</span>
-                          <span style={{ color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>⏱ {opt.turns}턴</span>
-                        </div>
-                        {opt.cost && <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)' }}>💰 {opt.cost}</span>}
-                        {opt.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{opt.desc}</span>}
-                        <button
-                          disabled={disabled}
-                          onClick={() => handleOrderBuild(opt)}
-                          style={{ marginTop: '4px', padding: '8px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, background: disabled ? 'rgba(0,0,0,0.3)' : 'var(--gold-accent)', color: disabled ? 'var(--text-muted)' : '#000', transition: 'all 0.2s' }}
-                        >
-                          {already ? '🔨 공사 중' : full ? '슬롯 가득 참' : '🏗️ 건설 지시'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ color: 'var(--text-muted)', lineHeight: '1.5', fontSize: '0.9rem' }}>
-                  현재 제안된 건설 후보가 없습니다. 이야기를 진행하면 상황에 맞는 시설이 제안됩니다.
-                </div>
-              )}
-            </Accordion>
-            {constructionQueue.length > 0 && (
-              <Accordion title="【 건설 진행 현황 】">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {constructionQueue.map((q) => (
-                    <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                        <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>🔨 {q.building}</span>
-                        <span style={{ color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                          {q.commandSent ? `${turnsLeft(q, turn)}턴 남음` : `${q.completeTurn - q.startTurn}턴 소요 · 다음 행동 때 비용 차감`}
-                        </span>
-                      </div>
-                      {!q.commandSent && (
-                        <button onClick={() => handleCancelBuild(q.id)} disabled={loading} style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', cursor: 'pointer', whiteSpace: 'nowrap' }}>취소</button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </Accordion>
-            )}
-
-          </div>
-        )}
-
-        {activeTab === 'inventory' && gameState.inventory && (Object.keys(gameState.inventory).length > 0) && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <Accordion title="【 소지품 및 자원 】">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {Object.entries(gameState.inventory).map(([category, items]) => {
-                if (!items || (items as string[]).length === 0) return null;
-                const catName = category === 'equipment' ? '장비 및 영지' : category === 'wealth' ? '재산 및 병력' : category;
-                const catIcon = category === 'equipment' ? '📦' : '💰';
-
-                return (
-                  <div key={category}>
-                    <div style={{ color: 'var(--gold-accent)', fontSize: '0.9rem', marginBottom: '8px', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '4px' }}>{catIcon} {catName}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {(items as string[]).map((item, idx) => {
-                        const match = item.match(/\[(.*?)\]\s*(.*)/);
-                        if (match) {
-                          const name = match[1].trim();
-                          const desc = match[2].trim();
-                          return (
-                             <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                               <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{name}</span>
-                               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{desc}</span>
-                             </div>
-                          );
-                        }
-                        return <div key={idx} style={{ fontSize: '0.9rem', color: 'var(--text-main)', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '4px' }}>• {item}</div>;
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Accordion>
-          </div>
-        )}
-
-            </div>
-          </div>
-        </div>
+      {activeModal === 'chronicle' && (
+        <ChronicleModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          chronicle={gameState.chronicle}
+          objective={gameState.objective}
+          characterName={gameState.personalInfo?.['이름'] || '군주'}
+        />
       )}
 
       {/* ⚡ Quick Save / Undo Notification Toast */}

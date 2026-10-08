@@ -168,7 +168,7 @@ export default function CKSaveModal({
             📂
           </div>
           <h2 style={{ color: 'var(--gold-accent)', fontSize: '1.6rem', fontWeight: 'bold', margin: '0 0 4px 0', letterSpacing: '1px' }}>
-            크루세이더 킹즈 세이브 & 로드 매니저
+            역사 연대기 저장 & 불러오기 관리자
           </h2>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             다중 슬롯 저장, 자동 저장 복원, 퀵 세이브 및 파일 백업

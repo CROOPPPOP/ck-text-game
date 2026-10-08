@@ -82,7 +82,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
             🤝
           </div>
           <h2 style={{ color: 'var(--gold-accent)', fontSize: '1.7rem', fontWeight: 'bold', margin: '0 0 4px 0', letterSpacing: '1px' }}>
-            크루세이더 킹즈 궁정 인물 & 외교 관계망
+            궁정 인물 & 외교 관계망
           </h2>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             군주와의 호감도, 신뢰도, 비밀 음모 및 주변 세력 간 외교 상태

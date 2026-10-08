@@ -414,39 +414,17 @@ export default function CKTopHud({
 
       </div>
 
-      {/* Bottom Navigation Tabs: Iconic Crusader Kings Navigation */}
+      {/* Bottom Navigation Tabs: Clean & Distinct Navigation */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '8px',
+        gap: '10px',
         marginTop: '8px',
         paddingTop: '6px',
         borderTop: '1px solid rgba(212, 175, 55, 0.15)',
         flexWrap: 'wrap'
       }}>
-        <button
-          onClick={onOpenCharacter}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(212, 175, 55, 0.1)',
-            border: '1px solid rgba(212, 175, 55, 0.4)',
-            color: 'var(--gold-hover)',
-            padding: '6px 14px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Crown size={15} />
-          <span>👤 {resources.archetype === 'clergy' ? '사제 인물상' : resources.archetype === 'company' ? '대장 인물상' : resources.archetype === 'wanderer' ? '모험가 인물상' : '군주 인물상'}</span>
-        </button>
-
         <button
           onClick={onOpenFamilyTree}
           className="ck-nav-btn"
@@ -457,7 +435,7 @@ export default function CKTopHud({
             background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.6))',
             border: '1px solid rgba(16, 185, 129, 0.5)',
             color: '#6ee7b7',
-            padding: '6px 14px',
+            padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
@@ -480,7 +458,7 @@ export default function CKTopHud({
             background: 'rgba(56, 189, 248, 0.12)',
             border: '1px solid rgba(56, 189, 248, 0.4)',
             color: '#7dd3fc',
-            padding: '6px 14px',
+            padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
@@ -493,6 +471,28 @@ export default function CKTopHud({
         </button>
 
         <button
+          onClick={onOpenEstate}
+          className="ck-nav-btn"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            color: '#fcd34d',
+            padding: '7px 16px',
+            borderRadius: '6px',
+            fontSize: '0.85rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Castle size={15} />
+          <span>⛺ 거점 시설 및 건설 (Holdings)</span>
+        </button>
+
+        <button
           onClick={onOpenRelations}
           className="ck-nav-btn"
           style={{
@@ -502,7 +502,7 @@ export default function CKTopHud({
             background: 'rgba(244, 63, 94, 0.12)',
             border: '1px solid rgba(244, 63, 94, 0.4)',
             color: '#fda4af',
-            padding: '6px 14px',
+            padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
@@ -515,28 +515,6 @@ export default function CKTopHud({
         </button>
 
         <button
-          onClick={onOpenEstate}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(245, 158, 11, 0.12)',
-            border: '1px solid rgba(245, 158, 11, 0.4)',
-            color: '#fcd34d',
-            padding: '6px 14px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Castle size={15} />
-          <span>⛺ 거점 건설 (Holdings)</span>
-        </button>
-
-        <button
           onClick={onOpenChronicle}
           className="ck-nav-btn"
           style={{
@@ -546,7 +524,7 @@ export default function CKTopHud({
             background: 'rgba(168, 85, 247, 0.12)',
             border: '1px solid rgba(168, 85, 247, 0.4)',
             color: '#d8b4fe',
-            padding: '6px 14px',
+            padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
@@ -555,28 +533,7 @@ export default function CKTopHud({
           }}
         >
           <Scroll size={15} />
-          <span>📜 연대기 (Chronicle)</span>
-        </button>
-
-        <button
-          onClick={onOpenSettings}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            color: 'var(--text-main)',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Settings size={14} />
-          <span>⚙️ 편의 설정</span>
+          <span>📜 연대기 & 국면 (Chronicle)</span>
         </button>
       </div>
     </header>

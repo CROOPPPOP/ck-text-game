@@ -9,7 +9,7 @@ import {
   groupTraitsBySession, 
   TraitCategoryKey 
 } from '@/lib/traitUtils';
-import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock } from 'lucide-react';
+import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -300,7 +300,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               margin: 0
             }}>
               <Award size={18} />
-              <span>크루세이더 킹즈 5대 핵심 능력치 및 기량</span>
+              <span>5대 핵심 능력치 및 기량</span>
             </h2>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               선천 및 후천 능력치 기반 산출
@@ -906,7 +906,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
 
         {/* 4. Vital Health & Physical Condition (건강 및 신체 상태) */}
         {gameState.playerStatus && gameState.playerStatus.length > 0 && (
-          <div>
+          <div style={{ marginBottom: '24px' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -954,6 +954,63 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
                       color: isDanger ? '#ef4444' : isWarning ? '#f97316' : 'var(--gold-accent)'
                     }}>
                       {status.value}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 5. Inventory & Possessions (소지품 및 자원) */}
+        {gameState.inventory && Object.keys(gameState.inventory).length > 0 && (
+          <div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              color: 'var(--gold-accent)',
+              marginBottom: '12px',
+              borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+              paddingBottom: '8px'
+            }}>
+              <Package size={18} />
+              <span>소지품 및 자원 (Inventory & Possessions)</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {Object.entries(gameState.inventory).map(([category, items]) => {
+                if (!items || (items as string[]).length === 0) return null;
+                const catName = category === 'equipment' ? '장비 및 거점' : category === 'wealth' ? '재산 및 병력' : category;
+                const isWealth = category === 'wealth';
+
+                return (
+                  <div key={category} style={{ background: 'rgba(0,0,0,0.25)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ color: isWealth ? '#fcd34d' : '#7dd3fc', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {isWealth ? <Coins size={14} /> : <Package size={14} />}
+                      <span>{catName}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
+                      {(items as string[]).map((item, idx) => {
+                        const match = item.match(/\[(.*?)\]\s*(.*)/);
+                        const name = match ? match[1].trim() : item;
+                        const desc = match ? match[2].trim() : '';
+
+                        return (
+                          <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                              {name}
+                            </div>
+                            {desc && (
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: '1.3' }}>
+                                {desc}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

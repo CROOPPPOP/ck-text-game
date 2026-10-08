@@ -583,7 +583,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
       }}>
         <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🏕️</div>
         <div style={{ fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '4px' }}>통치 중인 영지 없음 (방랑자/개인 신분)</div>
-        <div style={{ fontSize: '0.85rem' }}>영지를 획득하거나 직위를 제수받으면 크루세이더 킹즈 봉건 영지 통치 패널이 활성화됩니다.</div>
+        <div style={{ fontSize: '0.85rem' }}>영지를 획득하거나 직위를 제수받으면 영지 통치 패널이 활성화됩니다.</div>
       </div>
     );
   }
