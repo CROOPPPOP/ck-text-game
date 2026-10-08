@@ -1,10 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
 import { parseCKResources, parseCKStress, getHeraldryEmblem } from '@/lib/ckVisuals';
 import { checkStatusPromotion } from '@/lib/statusPromotion';
-import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap } from 'lucide-react';
+import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X } from 'lucide-react';
 
 interface Props {
   gameState: ParsedState;
@@ -46,6 +46,7 @@ export default function CKTopHud({
   const stress = parseCKStress(gameState);
   const emblem = getHeraldryEmblem(rulerName, culture, resources.archetype);
   const promoReport = checkStatusPromotion(gameState);
+  const [showLedger, setShowLedger] = useState(false);
 
   const rawDate = gameState.dateLocation || '';
   const cleanDate = rawDate.replace(/\[턴 수:.*\]/, '').trim() || '서기 1066년';
@@ -174,15 +175,196 @@ export default function CKTopHud({
           borderRadius: '8px',
           border: '1px solid rgba(255, 255, 255, 0.08)'
         }}>
-          {/* 🪙 Gold / Funds */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.goldLabel}>
+          {/* 🪙 Gold / Funds & Turn Income */}
+          <div 
+            onClick={() => setShowLedger(prev => !prev)}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              padding: '2px 8px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              background: showLedger ? 'rgba(251, 191, 36, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              border: showLedger ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255, 255, 255, 0.06)',
+              transition: 'all 0.2s ease',
+              position: 'relative'
+            }} 
+            title={`${resources.labels.goldLabel} 클릭하여 턴 당 재정 수지 명세서(Financial Ledger) 열기`}
+          >
             <Coins size={16} style={{ color: '#fbbf24' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.goldLabel}</span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fef08a' }}>
-                {resources.gold}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fef08a' }}>
+                  {resources.gold}
+                </span>
+                {/* 턴 당 순수입 배지 */}
+                <span style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 'bold',
+                  color: resources.income.netIncome >= 0 ? '#4ade80' : '#f87171',
+                  background: resources.income.netIncome >= 0 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  border: `1px solid ${resources.income.netIncome >= 0 ? 'rgba(74, 222, 128, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`,
+                  lineHeight: '1.2'
+                }}>
+                  {resources.income.formattedNet}/턴
+                </span>
+              </div>
             </div>
+
+            {/* Financial Ledger Popover */}
+            {showLedger && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: '0',
+                  zIndex: 120,
+                  width: '340px',
+                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(10, 15, 29, 0.98))',
+                  border: '1px solid rgba(212, 175, 55, 0.45)',
+                  boxShadow: '0 12px 36px rgba(0, 0, 0, 0.85), 0 0 20px rgba(212, 175, 55, 0.2)',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  backdropFilter: 'blur(12px)',
+                  cursor: 'default',
+                  textAlign: 'left'
+                }}
+              >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(212, 175, 55, 0.25)', paddingBottom: '8px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Coins size={16} style={{ color: '#fbbf24' }} />
+                    <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--gold-accent)' }}>
+                      턴 당 재정 수지 명세서
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowLedger(false)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '2px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                {/* Net Income Banner */}
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  border: `1px solid ${resources.income.netIncome >= 0 ? 'rgba(74, 222, 128, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`,
+                  borderRadius: '8px',
+                  padding: '10px',
+                  marginBottom: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>턴 당 순수입 (Net Balance)</span>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                      color: resources.income.statusColor
+                    }}>
+                      {resources.income.statusLabel}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{
+                      fontSize: '1.25rem',
+                      fontWeight: 'bold',
+                      color: resources.income.netIncome >= 0 ? '#4ade80' : '#f87171'
+                    }}>
+                      {resources.income.formattedNet} {resources.income.currencyName} / 턴
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      세입 +{resources.income.grossIncome} | 세출 -{resources.income.grossExpense}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Scrollable Items Container */}
+                <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                  {/* Gross Income List */}
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4ade80', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <TrendingUp size={13} />
+                      <span>총 세입 (+{resources.income.grossIncome} {resources.income.currencyName})</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {resources.income.incomeItems.map(item => (
+                        <div key={item.id} style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          padding: '4px 8px',
+                          borderRadius: '5px',
+                          fontSize: '0.75rem'
+                        }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ color: '#e2e8f0', fontWeight: '500' }}>{item.name}</span>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{item.desc}</span>
+                          </div>
+                          <span style={{ color: '#4ade80', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                            +{item.amount.toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Gross Expense List */}
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#f87171', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <TrendingDown size={13} />
+                      <span>총 세출 (-{resources.income.grossExpense} {resources.income.currencyName})</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {resources.income.expenseItems.map(item => (
+                        <div key={item.id} style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          padding: '4px 8px',
+                          borderRadius: '5px',
+                          fontSize: '0.75rem'
+                        }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ color: '#e2e8f0', fontWeight: '500' }}>{item.name}</span>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{item.desc}</span>
+                          </div>
+                          <span style={{ color: '#f87171', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                            -{item.amount.toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Tip */}
+                <div style={{
+                  marginTop: '10px',
+                  paddingTop: '8px',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                  fontSize: '0.68rem',
+                  color: '#94a3b8',
+                  lineHeight: '1.4'
+                }}>
+                  💡 관리력(Stewardship) 향상 또는 생산·무역 시설 확충 시 턴당 세입이 증가합니다.
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />

@@ -1,7 +1,7 @@
 // Comprehensive integration & output stability test suite
 import { parseLLMResponse } from './src/lib/parser';
 import { checkStatusPromotion, STATUS_LADDER } from './src/lib/statusPromotion';
-import { getMaxHoldingCapacity, getDomainLimitBreakdown } from './src/lib/ckVisuals';
+import { getMaxHoldingCapacity, getDomainLimitBreakdown, determineRelationTier, calculateTurnIncome } from './src/lib/ckVisuals';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -338,6 +338,183 @@ const overMock: any = {
 const overBreakdown = getDomainLimitBreakdown(overMock);
 assert(overBreakdown.maxBuildingCapacity === 3, "Lv.1 Chapel max capacity is 3");
 assert(overBreakdown.isOverCapacity === true, "5 buildings in Lv.1 chapel correctly flagged as over-capacity");
+
+// ==========================================
+// TEST 9: Relationship Tier Classification & Merchant Regression Test
+// ==========================================
+console.log("\n--- 9. Testing Relationship Tier Classification & Mateo Regression ---");
+
+// 9.1 The Mateo case: Merchant in Cathedral Guild with [동료] tag
+const mateoTagged = determineRelationTier(
+  '[마테오 (우르비노 주교좌 상단 행수)]',
+  '[동료] 고품질 올리브유 독점 공급 계약을 체결하고 사제의 수완과 성당의 위세에 깊은 인상을 받음.',
+  '우정도 22 - 지인',
+  '우르비노 주교좌 상단 행수'
+);
+assert(mateoTagged.id === 'peer', "Mateo with [동료] tag is classified as 'peer' (🤝 대등한 동료)");
+assert(mateoTagged.id !== 'superior', "Mateo is NOT classified as 'superior' (👑 상급자 / 주군)");
+
+// 9.2 The Mateo case without tag: Keyword fallback must not mistake '주교좌' for '주교'
+const mateoUntagged = determineRelationTier(
+  '마테오 (우르비노 주교좌 상단 행수)',
+  '고품질 올리브유 독점 공급 계약을 체결하고 깊은 인상을 받음.',
+  '우정도 22 - 지인',
+  '우르비노 주교좌 상단 행수'
+);
+assert(mateoUntagged.id === 'peer', "Mateo even without tag is classified as 'peer' (NOT superior)");
+assert(mateoUntagged.id !== 'superior', "Mateo without tag is NOT classified as 'superior'");
+
+// 9.3 True Superior: Bishop with [상급자] tag
+const trueBishop = determineRelationTier(
+  '[루카 (우르비노 교구장 주교)]',
+  '[상급자] 교단의 영적 지도자이자 본당 관할 주교',
+  '신뢰도 70 - 친밀',
+  '우르비노 교구장 주교'
+);
+assert(trueBishop.id === 'superior', "True Bishop is classified as 'superior' (👑 상급자 / 주군)");
+
+// 9.4 Cathedral Altar Boy: Altar boy at Cathedral See with [직속부하] tag must not be superior
+const altarBoy = determineRelationTier(
+  '[줄리아노 (우르비노 주교좌 성당 복사)]',
+  '[직속부하] 성당 전례와 미사를 보좌하는 충실한 복사 소년',
+  '신뢰도 65 - 친밀',
+  '우르비노 주교좌 성당 복사'
+);
+assert(altarBoy.id === 'subordinate', "Cathedral altar boy is 'subordinate' despite '주교좌' in title");
+assert(altarBoy.id !== 'superior', "Cathedral altar boy is NOT superior");
+
+// 9.5 Wealthy Merchant Patron: Merchant patron with [후원자] tag
+const merchantPatron = determineRelationTier(
+  '[코시모 (피렌체 메디치 상회 거상)]',
+  '[후원자] 성당 건축 기금을 아낌없이 헌납하는 유력 대상인',
+  '신뢰도 60 - 우호',
+  '피렌체 메디치 상회 거상'
+);
+assert(merchantPatron.id === 'patron', "Merchant patron is classified as 'patron' (📜 후원자 / 신도)");
+
+// 9.6 Rival/Hostile: Rival priest with [적대] tag
+const rivalPriest = determineRelationTier(
+  '[안토니오 (이웃 본당 주임사제)]',
+  '[적대] 교구 내 영향력을 두고 끊임없이 암투를 벌이는 숙적',
+  '신뢰도 10 - 경계',
+  '이웃 본당 주임사제'
+);
+assert(rivalPriest.id === 'rival', "Rival priest is classified as 'rival' (⚔️ 숙적 / 적대)");
+
+// 9.7 Status Promotion: Mateo does not count towards superior trust
+const promotionStateWithMateo: any = {
+  personalInfo: { '이름': '토마스', '신분': '수사', '위신': '80', '신앙': '80' },
+  inventory: { '재화': ['금화 350닢'] },
+  estate: { level: 'Lv.1 작은 예배당' },
+  relationships: {
+    personal: [
+      '[마테오 (우르비노 주교좌 상단 행수)] | 신뢰도 90 - 동반 | 우정도 80 - 맹우 | 관계: [동료] 주교좌 상단 행수',
+      '[루카 (교구장 주교)] | 신뢰도 30 - 관심 | 우정도 20 - 지인 | 관계: [상급자] 영적 지도자'
+    ]
+  }
+};
+const promoCheck = checkStatusPromotion(promotionStateWithMateo);
+const reqSuperior = promoCheck.possibleTargets[0]?.requirements.find(r => r.id === 'superior');
+assert(reqSuperior !== undefined, "Promotion requirement has superior approval requirement");
+assert(reqSuperior?.current === 30, `Superior trust checked against Bishop (30), NOT Mateo (90) (found: ${reqSuperior?.current})`);
+
+// ==========================================
+// TEST 10: Turn Income Calculation & Financial Ledger (CK3 Economy)
+// ==========================================
+console.log("\n--- 10. Testing Turn Income Calculation & Financial Ledger ---");
+
+// 10.1 Clergy archetype with Parish church, Mateo trade deal, Altar boy, Bishop
+const clergyGameState: any = {
+  personalInfo: { '이름': '토마스', '신분': '사제', '직위': '주임신부' },
+  estate: {
+    type: '교구 본당',
+    level: 'Lv.2 교구 본당',
+    buildings: [
+      { name: '올리브 착유장', desc: '고품질 성유 및 올리브유 생산', tags: ['생산', '재정'] },
+      { name: '사제관 및 서재', desc: '교구 행정 및 학문 연구', tags: ['행정', '학문'] }
+    ]
+  },
+  factionState: {
+    '병력': '성당 경비단 12명',
+    '세력 재정': '은화 145닢'
+  },
+  relationships: {
+    personal: [
+      '[마테오 (우르비노 주교좌 상단 행수)] | 신뢰도 50 - 우호 | 우정도 40 - 친우 | 관계: [동료] 고품질 올리브유 독점 공급 계약 체결',
+      '[줄리아노 (성당 복사)] | 신뢰도 65 - 친밀 | 우정도 45 - 친우 | 관계: [직속부하] 제단 및 미사 보좌',
+      '[루카 (교구장 주교)] | 신뢰도 70 - 친밀 | 우정도 35 - 호감 | 관계: [상급자] 영적 지도자이자 교구 관할 주교'
+    ]
+  },
+  stats: {
+    acquired: { '행정력': '65' }
+  }
+};
+
+const clergyIncome = calculateTurnIncome(clergyGameState);
+assert(clergyIncome.currencyName === '은화', "Clergy currency is silver (은화)");
+assert(clergyIncome.grossIncome > 10, `Clergy gross income is substantial (found: ${clergyIncome.grossIncome})`);
+assert(clergyIncome.grossExpense > 0, `Clergy gross expense is non-zero (found: ${clergyIncome.grossExpense})`);
+assert(clergyIncome.netIncome > 0, `Clergy net income is profitable (+${clergyIncome.netIncome})`);
+assert(clergyIncome.formattedNet.startsWith('+'), `Formatted net income has '+' prefix (found: ${clergyIncome.formattedNet})`);
+
+// Verify specific income & expense items
+const tradeItem = clergyIncome.incomeItems.find(i => i.id.startsWith('trade_'));
+assert(tradeItem !== undefined, "Mateo trade deal generates commercial revenue");
+assert(tradeItem?.amount === 2.5, "Trade deal amount is exactly +2.5");
+
+const titheItem = clergyIncome.expenseItems.find(i => i.id === 'superior_tithe');
+assert(titheItem !== undefined, "Church tithe expense exists when superior bishop is present");
+
+const altarBoyUpkeep = clergyIncome.expenseItems.find(i => i.id === 'subordinate_upkeep');
+assert(altarBoyUpkeep !== undefined, "Altar boy courtier upkeep is accounted for");
+
+// 10.2 Wanderer archetype (Vagrant with 동화)
+const wandererGameState: any = {
+  personalInfo: { '이름': '떠돌이', '신분': '부랑자' },
+  estate: { type: '임시 거처', level: 'Lv.1', buildings: [] }
+};
+const wandererIncome = calculateTurnIncome(wandererGameState);
+assert(wandererIncome.currencyName === '동화', "Wanderer currency is copper (동화)");
+assert(wandererIncome.grossIncome >= 1.0, `Wanderer has basic survival income (found: ${wandererIncome.grossIncome})`);
+
+// 10.3 Noble archetype with vassals
+const nobleGameState: any = {
+  personalInfo: { '이름': '로렌초', '신분': '남작' },
+  estate: {
+    type: '성채 장원',
+    level: 'Lv.2 장원',
+    buildings: [
+      { name: '장원 제분소', desc: '곡물 제분 및 조세 수취', tags: ['생산', '재정'] }
+    ]
+  },
+  factionState: {
+    '병력': '징집병 30명',
+    '세력 재정': '금화 250닢'
+  },
+  relationships: {
+    personal: [
+      '[귀도 (가신 기사)] | 신뢰도 60 - 우호 | 우정도 50 - 친우 | 관계: [직속부하] 직속 식읍 기사'
+    ]
+  }
+};
+const nobleIncome = calculateTurnIncome(nobleGameState);
+assert(nobleIncome.currencyName === '금화', "Noble currency is gold (금화)");
+const vassalTax = nobleIncome.incomeItems.find(i => i.id.startsWith('vassal_'));
+assert(vassalTax !== undefined, "Noble receives feudal vassal tax (+1.2)");
+
+// 10.4 Overcapacity penalty on holding upkeep
+const overEstateGameState: any = {
+  personalInfo: { '이름': '작은 수도사', '신분': '수사' },
+  estate: {
+    type: '작은 예배당',
+    level: 'Lv.1 작은 예배당',
+    buildings: [{ name: '1' }, { name: '2' }, { name: '3' }, { name: '4' }, { name: '5' }] // capacity is 3
+  }
+};
+const overIncome = calculateTurnIncome(overEstateGameState);
+const overPenalty = overIncome.expenseItems.find(i => i.id === 'overcapacity_penalty');
+assert(overPenalty !== undefined, "Overcapacity holding triggers overcrowding expense penalty");
+assert(overPenalty !== undefined && overPenalty.amount > 0, `Overcrowding penalty amount is positive (found: ${overPenalty?.amount})`);
 
 // ==========================================
 // Summary

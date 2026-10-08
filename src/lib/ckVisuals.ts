@@ -51,6 +51,26 @@ export interface CKResourceLabels {
   domainIcon: string;
 }
 
+export interface CKIncomeItem {
+  id: string;
+  name: string;
+  amount: number;
+  category: 'rank' | 'estate' | 'relation' | 'stewardship' | 'upkeep' | 'military' | 'tithe';
+  desc: string;
+}
+
+export interface CKIncomeBreakdown {
+  grossIncome: number;
+  grossExpense: number;
+  netIncome: number;
+  currencyName: string;
+  formattedNet: string;
+  incomeItems: CKIncomeItem[];
+  expenseItems: CKIncomeItem[];
+  statusLabel: string;
+  statusColor: string;
+}
+
 export interface CKResources {
   gold: string;
   prestige: string;
@@ -60,6 +80,7 @@ export interface CKResources {
   archetype: PlayerArchetype;
   archetypeTitle: string;
   labels: CKResourceLabels;
+  income: CKIncomeBreakdown;
 }
 
 export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
@@ -617,6 +638,8 @@ export function parseCKResources(gameState: ParsedState): CKResources {
     clergy: '⛪ 성직자 및 수도자'
   };
 
+  const income = calculateTurnIncome(gameState);
+
   return {
     gold,
     prestige,
@@ -625,7 +648,8 @@ export function parseCKResources(gameState: ParsedState): CKResources {
     domain,
     archetype,
     archetypeTitle: archetypeTitleMap[archetype],
-    labels
+    labels,
+    income
   };
 }
 
@@ -661,4 +685,339 @@ export function getHeraldryEmblem(name: string, culture: string = '', archetype?
     return { icon: '✝️', border: '#38bdf8', bg: 'linear-gradient(135deg, #0c4a6e, #0284c7)' };
   }
   return { icon: '🛡️', border: '#d4af37', bg: 'linear-gradient(135deg, #1e293b, #0f172a)' };
+}
+
+export interface RelationTierInfo {
+  id: 'superior' | 'patron' | 'peer' | 'subordinate' | 'rival';
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+// 5대 관계 위계(Tier) 판별 함수 (명시적 태그 최우선 + 기관명/상인 오인식 방지)
+export function determineRelationTier(
+  rawName: string,
+  descStr: string,
+  affStr: string = '',
+  role: string = '',
+  subordinateName: string = '직속 가신 / 보좌'
+): RelationTierInfo {
+  // 1단계: AI가 명시적으로 출력한 5대 표준 위계 태그 최우선 판별
+  if (descStr.includes('[적대]') || affStr.includes('숙적') || affStr.includes('라이벌')) {
+    return { id: 'rival', label: '⚔️ 숙적 / 적대', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' };
+  }
+  if (descStr.includes('[상급자]')) {
+    return { id: 'superior', label: '👑 상급자 / 주군', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)', border: '#f59e0b' };
+  }
+  if (descStr.includes('[후원자]')) {
+    return { id: 'patron', label: '📜 후원자 / 신도', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: '#0284c7' };
+  }
+  if (descStr.includes('[직속부하]') || descStr.includes('[가신]')) {
+    return { id: 'subordinate', label: subordinateName, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
+  }
+  if (descStr.includes('[동료]')) {
+    return { id: 'peer', label: '🤝 대등한 동료', color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)', border: '#10b981' };
+  }
+
+  // 2단계: 태그 누락 시 텍스트 및 직책(Role) 키워드 정밀 분석 (기관명 오인식 방어)
+  const combined = `${rawName} ${descStr} ${affStr}`;
+
+  // 2-1. 적대 관계
+  if (combined.includes('숙적') || combined.includes('라이벌') || combined.includes('원한') || combined.includes('적대자')) {
+    return { id: 'rival', label: '⚔️ 숙적 / 적대', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' };
+  }
+
+  // 2-2. 상인, 길드, 평민, 장인 직책은 상급자에서 엄격 제외
+  const isMerchantOrCommoner = role.includes('행수') || role.includes('상단') || role.includes('상인') ||
+                               role.includes('도제') || role.includes('점원') || role.includes('길드원') ||
+                               role.includes('주점') || role.includes('여관');
+
+  // 2-3. 상급자(교단 상급자, 봉건 주군) 판별
+  // '주교좌'는 주교좌 성당/주교좌 상단 등 기관/장소명이므로 '주교' 단순 포함 매칭에서 엄격 제외
+  const isClergySuperior = (combined.includes('교구장') || combined.includes('대주교') || combined.includes('교황') || combined.includes('종정')) ||
+                           (combined.includes('주교') && !combined.includes('주교좌') && !isMerchantOrCommoner);
+  const isFeudalSuperior = combined.includes('주군') || combined.includes('국왕') || combined.includes('황제') || combined.includes('스승') || combined.includes('상관');
+
+  if (!isMerchantOrCommoner && (combined.includes('상급자') || isClergySuperior || isFeudalSuperior)) {
+    return { id: 'superior', label: '👑 상급자 / 주군', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)', border: '#f59e0b' };
+  }
+
+  // 2-4. 후원자 / 유력 신도 / 고용주
+  if (combined.includes('후원자') || combined.includes('신도') || combined.includes('미망인') || combined.includes('고용주') || combined.includes('의뢰인') || combined.includes('후원') || combined.includes('영부인') || combined.includes('대상인')) {
+    return { id: 'patron', label: '📜 후원자 / 신도', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: '#0284c7' };
+  }
+
+  // 2-5. 직속 부하 / 가신 / 복사 / 시종
+  if (combined.includes('직속부하') || combined.includes('가신') || combined.includes('부관') || combined.includes('시종') || combined.includes('복사') || combined.includes('수련수사') || combined.includes('도제') || combined.includes('사병')) {
+    return { id: 'subordinate', label: subordinateName, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
+  }
+
+  // 기본값: 대등한 동료
+  return { id: 'peer', label: '🤝 대등한 동료', color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)', border: '#10b981' };
+}
+
+// 29개 신분 프리셋별 턴당 기초 소득 기준표
+const RANK_BASE_INCOME: Record<string, number> = {
+  // 방랑자 (1.0 ~ 3.5)
+  '부랑자': 1.0, '소작농': 1.5, '평민': 2.0, '도제': 2.2, '용병': 2.5,
+  '음유시인': 2.8, '학사': 3.0, '장인': 3.2, '방랑 검사': 3.5,
+  // 소규모 집단 (3.5 ~ 9.5)
+  '도적단 두목': 3.5, '촌장': 4.5, '장원 관리인': 6.0, '상단주': 7.5,
+  '용병대장': 8.0, '길드마스터': 9.5,
+  // 성직자 (2.0 ~ 38.0)
+  '평신도': 2.0, '수사': 3.5, '사제': 6.0, '수도원장': 10.0,
+  '주교': 16.0, '대주교': 24.0, '교황': 38.0,
+  // 봉건 귀족 (5.0 ~ 48.0)
+  '기사': 5.0, '남작': 8.5, '자작': 13.0, '백작': 19.0,
+  '후작': 26.0, '공작': 34.0, '황제': 48.0
+};
+
+// 턴 당 수입 및 재정 수지(Financial Ledger) 정밀 산정 함수
+export function calculateTurnIncome(gameState: ParsedState): CKIncomeBreakdown {
+  const archetype = detectPlayerArchetype(gameState);
+  const currencyName = archetype === 'clergy' ? '은화' : archetype === 'wanderer' ? '동화' : '금화';
+  const attributes = calculateCKAttributes(gameState);
+  const stewScore = attributes.stewardship.value; // 1~30
+
+  const incomeItems: CKIncomeItem[] = [];
+  const expenseItems: CKIncomeItem[] = [];
+
+  // 1. 신분 기본 품계 소득 (Rank Base Income)
+  const rawStatus = gameState.personalInfo?.['신분'] || gameState.personalInfo?.['직위'] || '평민';
+  const cleanStatus = rawStatus.split('/')[0].split('(')[0].trim();
+  const baseRankIncome = RANK_BASE_INCOME[cleanStatus] || (
+    archetype === 'wanderer' ? 2.0 :
+    archetype === 'company' ? 5.0 :
+    archetype === 'clergy' ? 5.0 : 8.0
+  );
+  incomeItems.push({
+    id: 'rank_base',
+    name: `${cleanStatus} 기본 품계 소득`,
+    amount: baseRankIncome,
+    category: 'rank',
+    desc: `${cleanStatus} 신분 위계에 따른 기본 생활비 및 직무 수당`
+  });
+
+  // 2. 직할 거점 및 생산 시설 수입 (Holding & Buildings)
+  const estate = gameState.estate;
+  let estateLevelNum = 1;
+  if (estate?.level) {
+    const lvMatch = estate.level.match(/(?:Lv\.?|레벨)\s*(\d+)/i);
+    if (lvMatch) estateLevelNum = parseInt(lvMatch[1], 10);
+  }
+  const estateBaseAmount = Math.round(estateLevelNum * 1.5 * 10) / 10;
+  incomeItems.push({
+    id: 'estate_base',
+    name: `${estate?.type || '직할 거점'} 기본 생산성 (Lv.${estateLevelNum})`,
+    amount: estateBaseAmount,
+    category: 'estate',
+    desc: `거점 규모에 따른 직할지 기초 생산력`
+  });
+
+  if (estate?.buildings && estate.buildings.length > 0) {
+    estate.buildings.forEach((b, idx) => {
+      const bTags = (b.tags || []).join(' ');
+      const bCombined = `${b.name} ${b.desc} ${bTags}`;
+      let bIncome = 1.0;
+      let bCategoryDesc = '기본 부대시설 수익';
+
+      if (bCombined.includes('생산') || bCombined.includes('재정') || bCombined.includes('무역') || bCombined.includes('상업') || bCombined.includes('제분') || bCombined.includes('양조') || bCombined.includes('착유') || bCombined.includes('공방') || bCombined.includes('대장간')) {
+        bIncome = 3.0;
+        bCategoryDesc = '고부가가치 물품 생산 및 상업 교역';
+      } else if (bCombined.includes('행정') || bCombined.includes('민생') || bCombined.includes('서재') || bCombined.includes('서기관')) {
+        bIncome = 1.8;
+        bCategoryDesc = '조세 징수 및 행정 효율 증대';
+      } else if (bCombined.includes('신앙') || bCombined.includes('문화') || bCombined.includes('예배') || bCombined.includes('기도')) {
+        bIncome = archetype === 'clergy' ? 2.2 : 1.2;
+        bCategoryDesc = '신도 헌금 및 미사 예물 수취';
+      } else if (bCombined.includes('군사') || bCombined.includes('치안') || bCombined.includes('훈련') || bCombined.includes('방벽')) {
+        bIncome = 0.5;
+        bCategoryDesc = '치안 유지 및 통행세 보전';
+      }
+
+      incomeItems.push({
+        id: `building_${idx}`,
+        name: `${b.name} 생산 수익`,
+        amount: bIncome,
+        category: 'estate',
+        desc: `${bCategoryDesc} (${b.desc || '거점 확충 시설'})`
+      });
+    });
+  }
+
+  // 3. 인간 관계망 기여 (Patrons, Trade Deals, Feudal Vassals)
+  const personalRels = gameState.relationships?.personal || [];
+  let superiorFound = false;
+  let subordinateCount = 0;
+
+  personalRels.forEach((rel, idx) => {
+    const parts = rel.split('|').map(p => p.trim());
+    if (parts.length >= 4) {
+      const rawName = parts[0];
+      const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+      const name = roleMatch ? roleMatch[1].trim() : rawName;
+      const role = roleMatch ? roleMatch[2].trim() : '';
+      const trustStr = parts[1];
+      const affStr = parts[2];
+      const descStr = parts.slice(3).join(' ').replace('관계:', '').trim();
+      const trustVal = parseInt(trustStr.match(/(\d+)/)?.[1] || '50', 10);
+
+      const tier = determineRelationTier(rawName, descStr, affStr, role);
+
+      if (tier.id === 'superior') {
+        superiorFound = true;
+      } else if (tier.id === 'subordinate') {
+        subordinateCount++;
+        if (archetype === 'noble') {
+          incomeItems.push({
+            id: `vassal_${idx}`,
+            name: `${name} 봉신 공납세`,
+            amount: 1.2,
+            category: 'relation',
+            desc: `직속 가신의 봉건 공납금`
+          });
+        }
+      } else if (tier.id === 'patron') {
+        const patronAmount = Math.round((2.0 + (trustVal / 100) * 3.0) * 10) / 10;
+        incomeItems.push({
+          id: `patron_${idx}`,
+          name: `${name} 후원금/헌납금`,
+          amount: patronAmount,
+          category: 'relation',
+          desc: `유력 신도/외부 후원자의 정기 지원금 (신뢰도 ${trustVal}%)`
+        });
+      } else if (tier.id === 'peer') {
+        const isTrade = role.includes('행수') || role.includes('상단') || role.includes('상인') ||
+                        descStr.includes('공급') || descStr.includes('독점') || descStr.includes('무역') || descStr.includes('계약');
+        if (isTrade) {
+          incomeItems.push({
+            id: `trade_${idx}`,
+            name: `${name} 상업 교역 배당금`,
+            amount: 2.5,
+            category: 'relation',
+            desc: `상단 독점 물품 공급 및 무역 협정 이익`
+          });
+        }
+      }
+    }
+  });
+
+  // 4. 관리력(Stewardship) 세무 보너스
+  const baseSubtotal = incomeItems.reduce((acc, i) => acc + i.amount, 0);
+  const stewBonusRate = stewScore * 0.02; // e.g. 15 -> 30%
+  const stewBonusAmount = Math.round(baseSubtotal * stewBonusRate * 10) / 10;
+  if (stewBonusAmount > 0) {
+    incomeItems.push({
+      id: 'stewardship_bonus',
+      name: `관리력 세무 효율 (+${Math.round(stewScore * 2)}%)`,
+      amount: stewBonusAmount,
+      category: 'stewardship',
+      desc: `높은 관리력(${stewScore})으로 인한 탈세 방지 및 조세 징수 최적화`
+    });
+  }
+
+  // 5. 세출 계산 (Gross Expense)
+  // 5-1. 거점 시설 유지 보수비
+  const buildingCount = estate?.buildings?.length || 0;
+  const domainBreakdown = getDomainLimitBreakdown(gameState);
+  const baseUpkeep = Math.round(buildingCount * 0.5 * 10) / 10;
+  if (baseUpkeep > 0) {
+    expenseItems.push({
+      id: 'facility_upkeep',
+      name: `거점 시설 유지비 (${buildingCount}동)`,
+      amount: baseUpkeep,
+      category: 'upkeep',
+      desc: `시설 난방, 시설 감가상각 및 청소/유지보수 비용`
+    });
+  }
+  if (domainBreakdown.isOverCapacity) {
+    const overCount = Math.max(1, buildingCount - domainBreakdown.maxBuildingCapacity);
+    const overPenalty = Math.round(overCount * 1.5 * 10) / 10;
+    expenseItems.push({
+      id: 'overcapacity_penalty',
+      name: `거점 시설 과밀 페널티 (${overCount}동 초과)`,
+      amount: overPenalty,
+      category: 'upkeep',
+      desc: `거점 수용 한도 초과로 인한 부대 관리비 및 임차료 급증`
+    });
+  }
+
+  // 5-2. 군비 및 부대/가신 급료
+  const faction = gameState.factionState || {};
+  const leviesStr = faction['병력'] || faction['군사'] || '';
+  const leviesMatch = leviesStr.match(/(\d+)/);
+  const leviesCount = leviesMatch ? parseInt(leviesMatch[1], 10) : (archetype === 'company' ? 20 : archetype === 'noble' ? 30 : 10);
+  const militaryUpkeep = Math.round(Math.max(0.5, (leviesCount / 12) * 1.0) * 10) / 10;
+  expenseItems.push({
+    id: 'military_upkeep',
+    name: `${archetype === 'company' ? '용병단원' : archetype === 'clergy' ? '성당 경비단' : '상비군'} 급료 및 군비`,
+    amount: militaryUpkeep,
+    category: 'military',
+    desc: `동원 병력/단원(${leviesCount}명)의 식량 조달 및 정기 급료`
+  });
+
+  if (subordinateCount > 0) {
+    const subordinateUpkeep = Math.round(subordinateCount * 0.5 * 10) / 10;
+    expenseItems.push({
+      id: 'subordinate_upkeep',
+      name: `직속 보좌/복사/시종 수당 (${subordinateCount}인)`,
+      amount: subordinateUpkeep,
+      category: 'upkeep',
+      desc: `가신단 및 성당 복사 소년들의 숙식 제공 및 생활 보조비`
+    });
+  }
+
+  // 5-3. 상급자 십일조 / 주군 공납금
+  if (superiorFound) {
+    const titheRate = archetype === 'clergy' ? 0.10 : archetype === 'noble' ? 0.15 : 0.08;
+    const titheAmount = Math.round(baseSubtotal * titheRate * 10) / 10;
+    if (titheAmount > 0) {
+      expenseItems.push({
+        id: 'superior_tithe',
+        name: archetype === 'clergy' ? '교단 상급자 십일조 (10%)' : '주군 영주 봉건 공납 (15%)',
+        amount: titheAmount,
+        category: 'tithe',
+        desc: `상급 교구장 주교 또는 주군 제후에 대한 의무적 조세 상납`
+      });
+    }
+  }
+
+  // 6. 합산 및 최종 순수입
+  const grossIncome = Math.round(incomeItems.reduce((acc, i) => acc + i.amount, 0) * 10) / 10;
+  const grossExpense = Math.round(expenseItems.reduce((acc, i) => acc + i.amount, 0) * 10) / 10;
+  const netIncome = Math.round((grossIncome - grossExpense) * 10) / 10;
+
+  const formattedNet = netIncome > 0 ? `+${netIncome.toFixed(1)}` : netIncome < 0 ? `${netIncome.toFixed(1)}` : '±0.0';
+
+  let statusLabel = '⚖️ 균형 재정 (수지 균형)';
+  let statusColor = '#38bdf8';
+  if (netIncome >= 10.0) {
+    statusLabel = '✨ 고도 번영 (초과 흑자)';
+    statusColor = '#10b981';
+  } else if (netIncome >= 3.0) {
+    statusLabel = '📈 안정 흑자 (거점 확장 추천)';
+    statusColor = '#34d399';
+  } else if (netIncome >= 0) {
+    statusLabel = '⚖️ 균형 재정 (건전 재정)';
+    statusColor = '#38bdf8';
+  } else if (netIncome >= -5.0) {
+    statusLabel = '⚠️ 경미한 적자 (지출 점검 필요)';
+    statusColor = '#fbbf24';
+  } else {
+    statusLabel = '🚨 심각한 재정 적자 (군비 감축 시급)';
+    statusColor = '#f87171';
+  }
+
+  return {
+    grossIncome,
+    grossExpense,
+    netIncome,
+    currencyName,
+    formattedNet,
+    incomeItems,
+    expenseItems,
+    statusLabel,
+    statusColor
+  };
 }

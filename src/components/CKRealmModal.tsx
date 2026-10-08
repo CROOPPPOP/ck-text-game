@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import RealmDashboard from './RealmDashboard';
 import { ParsedState } from '@/lib/parser';
-import { getArchetypeDetails, getDomainLimitBreakdown } from '@/lib/ckVisuals';
+import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome } from '@/lib/ckVisuals';
 import { QueueItem, BuildOption, turnsLeft, sameBuildingName } from '@/lib/construction';
-import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle } from 'lucide-react';
+import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle, Coins, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -56,6 +56,7 @@ export default function CKRealmModal({
   const domainBreakdown = getDomainLimitBreakdown(gameState || {});
   const archetypeDetails = gameState ? getArchetypeDetails(gameState) : null;
   const archetype = archetypeDetails?.archetype || 'noble';
+  const income = gameState ? calculateTurnIncome(gameState) : null;
   const modalIcon = archetypeDetails ? archetypeDetails.icon : '🏰';
   const modalTitle = archetypeDetails
     ? `${archetypeDetails.num} ${archetypeDetails.title} 대시보드`
@@ -67,9 +68,14 @@ export default function CKRealmModal({
     const descStr = rel.split('|').slice(3).join(' ') || '';
     const combined = `${rawName} ${descStr}`;
 
-    // 제외 대상: 상급자, 후원자, 외부 유력자, 적대자
-    const excludeKeywords = ['상급자', '교구장', '주교', '대주교', '교황', '주군', '영주', '국왕', '황제', '스승', '종정', '후원자', '미망인', '영부인', '고용주', '의뢰인', '적대', '숙적', '라이벌'];
+    // 1. 명시적 태그 최우선 판별
+    if (descStr.includes('[직속부하]') || descStr.includes('[가신]')) return true;
+    if (descStr.includes('[상급자]') || descStr.includes('[후원자]') || descStr.includes('[동료]') || descStr.includes('[적대]')) return false;
+
+    // 2. 키워드 제외 대상: 상급자, 후원자, 외부 유력자, 적대자 (주교좌 등 기관명 오인식 방지)
+    const excludeKeywords = ['상급자', '교구장', '대주교', '교황', '주군', '영주', '국왕', '황제', '스승', '종정', '후원자', '미망인', '영부인', '고용주', '의뢰인', '적대', '숙적', '라이벌'];
     if (excludeKeywords.some(k => combined.includes(k))) return false;
+    if (combined.includes('주교') && !combined.includes('주교좌')) return false;
 
     // 포함 대상: 직속 부하/가신/보좌/단원
     const subordinateKeywords = ['직속부하', '가신', '기사', '집사장', '원수', '첩보장', '부대장', '부원장', '관리인', '서기관', '참모', '시종', '복사', '수련수사', '도제', '조력자', '부관'];
@@ -343,6 +349,87 @@ export default function CKRealmModal({
                 </div>
               </div>
             </div>
+
+            {/* 🪙 거점 재정 및 턴 당 수지 명세 카드 */}
+            {income && (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(20, 29, 47, 0.7), rgba(15, 23, 42, 0.95))',
+                border: '1px solid rgba(212, 175, 55, 0.35)',
+                borderRadius: '10px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Coins size={18} style={{ color: '#fbbf24' }} />
+                    <span style={{ fontWeight: 'bold', color: 'var(--gold-accent)', fontSize: '1rem' }}>
+                      거점 재정 및 턴 당 수지 (Financial Balance)
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      color: income.statusColor,
+                      background: 'rgba(0,0,0,0.3)',
+                      padding: '3px 8px',
+                      borderRadius: '5px',
+                      border: `1px solid ${income.statusColor}40`
+                    }}>
+                      {income.statusLabel}
+                    </span>
+                    <span style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      color: income.netIncome >= 0 ? '#4ade80' : '#f87171',
+                      background: income.netIncome >= 0 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      border: `1px solid ${income.netIncome >= 0 ? '#10b981' : '#ef4444'}`
+                    }}>
+                      {income.formattedNet} {income.currencyName} / 턴
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2-Column Summary: 세입원 vs 세출원 */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {/* 세입 */}
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(74, 222, 128, 0.2)' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#4ade80', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <TrendingUp size={14} />
+                      <span>총 세입 (+{income.grossIncome} {income.currencyName})</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {income.incomeItems.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', padding: '3px 6px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px' }}>
+                          <span style={{ color: '#cbd5e1' }}>{item.name}</span>
+                          <span style={{ color: '#4ade80', fontWeight: 'bold' }}>+{item.amount.toFixed(1)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 세출 */}
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(248, 113, 113, 0.2)' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#f87171', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <TrendingDown size={14} />
+                      <span>총 세출 (-{income.grossExpense} {income.currencyName})</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {income.expenseItems.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', padding: '3px 6px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px' }}>
+                          <span style={{ color: '#cbd5e1' }}>{item.name}</span>
+                          <span style={{ color: '#f87171', fontWeight: 'bold' }}>-{item.amount.toFixed(1)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 알림 메시지 */}
             {constructionNotice && (

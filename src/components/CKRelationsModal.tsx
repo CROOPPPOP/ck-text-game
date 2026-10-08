@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { getArchetypeDetails } from '@/lib/ckVisuals';
+import { getArchetypeDetails, determineRelationTier } from '@/lib/ckVisuals';
 import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck } from 'lucide-react';
 
 interface Props {
@@ -60,22 +60,9 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
     subordinateName: '직속 가신 / 보좌'
   };
 
-  // 5대 관계 위계(Tier) 판별 함수
-  const getRelationTier = (rawName: string, descStr: string, affStr: string) => {
-    const combined = `${rawName} ${descStr} ${affStr}`;
-    if (combined.includes('숙적') || combined.includes('라이벌') || combined.includes('[적대]') || combined.includes('적대') || combined.includes('원한')) {
-      return { id: 'rival' as const, label: '⚔️ 숙적 / 적대', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' };
-    }
-    if (combined.includes('[상급자]') || combined.includes('상급자') || combined.includes('교구장') || combined.includes('주교') || combined.includes('대주교') || combined.includes('교황') || combined.includes('주군') || combined.includes('국왕') || combined.includes('황제') || combined.includes('스승') || combined.includes('종정')) {
-      return { id: 'superior' as const, label: '👑 상급자 / 주군', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)', border: '#f59e0b' };
-    }
-    if (combined.includes('[후원자]') || combined.includes('후원자') || combined.includes('신도') || combined.includes('미망인') || combined.includes('고용주') || combined.includes('의뢰인') || combined.includes('후원') || combined.includes('영부인')) {
-      return { id: 'patron' as const, label: '📜 후원자 / 신도', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: '#0284c7' };
-    }
-    if (combined.includes('[직속부하]') || combined.includes('직속부하') || combined.includes('가신') || combined.includes('부관') || combined.includes('시종') || combined.includes('복사') || combined.includes('수련수사') || combined.includes('도제') || combined.includes('사병')) {
-      return { id: 'subordinate' as const, label: config.subordinateName, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
-    }
-    return { id: 'peer' as const, label: '🤝 대등한 동료', color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)', border: '#10b981' };
+  // 5대 관계 위계(Tier) 판별 함수 (공용 판별 로직 위임)
+  const getRelationTier = (rawName: string, descStr: string, affStr: string, role: string = '') => {
+    return determineRelationTier(rawName, descStr, affStr, role, config.subordinateName);
   };
 
   // 파싱 및 위계 분류된 인물 목록
@@ -97,7 +84,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
       const trustVal = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1], 10))) : 50;
       const affVal = affMatch ? Math.min(100, Math.max(0, parseInt(affMatch[1], 10))) : 50;
 
-      const tier = getRelationTier(rawName, descStr, affStr);
+      const tier = getRelationTier(rawName, descStr, affStr, role);
 
       const isRomance = affStr.includes('애정도') || descStr.includes('연인') || descStr.includes('배우자');
       const isRival = tier.id === 'rival';

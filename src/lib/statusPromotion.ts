@@ -338,7 +338,14 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
       const rawRelDesc = parts[3] || '';
       const rawTrust = parts[1] || '';
 
-      const isSuperior = rawRelDesc.includes('상급자') || rawRelDesc.includes('후원자') || rawRelDesc.includes('주교') || rawRelDesc.includes('주군') || rawRelDesc.includes('국왕') || rawRelDesc.includes('촌장');
+      const isNotSuperior = rawRelDesc.includes('[동료]') || rawRelDesc.includes('[직속부하]') || rawRelDesc.includes('[가신]') || rawRelDesc.includes('[적대]');
+      const isSuperior = !isNotSuperior && (
+        rawRelDesc.includes('[상급자]') || rawRelDesc.includes('[후원자]') ||
+        rawRelDesc.includes('상급자') || rawRelDesc.includes('후원자') ||
+        (rawRelDesc.includes('주교') && !rawRelDesc.includes('주교좌')) ||
+        rawRelDesc.includes('교구장') || rawRelDesc.includes('대주교') || rawRelDesc.includes('교황') ||
+        rawRelDesc.includes('주군') || rawRelDesc.includes('국왕') || rawRelDesc.includes('황제') || rawRelDesc.includes('촌장')
+      );
       if (isSuperior) {
         const trustM = rawTrust.match(/신뢰도\s*\[?(\d+)\]?/);
         if (trustM) {

@@ -122,6 +122,11 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold' }}>소지 여비</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {resources?.gold || '동화 30개'}
+              {resources?.income && (
+                <span style={{ fontSize: '0.72rem', color: resources.income.netIncome >= 0 ? '#4ade80' : '#f87171', marginLeft: '4px', fontWeight: 'bold' }}>
+                  ({resources.income.formattedNet}/턴)
+                </span>
+              )}
             </div>
           </div>
 
@@ -306,6 +311,11 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold' }}>단원 군자금</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {companyFund}
+              {resources?.income && (
+                <span style={{ fontSize: '0.72rem', color: resources.income.netIncome >= 0 ? '#4ade80' : '#f87171', marginLeft: '4px', fontWeight: 'bold' }}>
+                  ({resources.income.formattedNet}/턴)
+                </span>
+              )}
             </div>
           </div>
 
@@ -476,6 +486,11 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold' }}>교회 헌금 & 십일조</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {titheFund}
+              {resources?.income && (
+                <span style={{ fontSize: '0.72rem', color: resources.income.netIncome >= 0 ? '#4ade80' : '#f87171', marginLeft: '4px', fontWeight: 'bold' }}>
+                  ({resources.income.formattedNet}/턴)
+                </span>
+              )}
             </div>
           </div>
 
@@ -629,6 +644,11 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
               <div style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>{key}</div>
               <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={val}>
                 {val}
+                {(key.includes('재정') || key.includes('금화') || key.includes('자금')) && resources?.income && (
+                  <span style={{ fontSize: '0.72rem', color: resources.income.netIncome >= 0 ? '#4ade80' : '#f87171', marginLeft: '4px', fontWeight: 'bold' }}>
+                    ({resources.income.formattedNet}/턴)
+                  </span>
+                )}
               </div>
             </div>
           );
