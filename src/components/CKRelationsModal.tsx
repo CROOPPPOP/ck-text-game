@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
 import { getArchetypeDetails } from '@/lib/ckVisuals';
 import { parseAllPersonalRelations, ParsedCharacterRelation } from '@/lib/characterRelations';
+import { mergeAndDeduplicateFactionRelations } from '@/lib/factionRelations';
 import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck } from 'lucide-react';
 
 interface Props {
@@ -18,7 +19,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
   if (!isOpen) return null;
 
   const personalRels = gameState.relationships?.personal || [];
-  const factionRels = gameState.relationships?.faction || [];
+  const factionRels = mergeAndDeduplicateFactionRelations(gameState.relationships?.faction || []);
 
   const archetypeDetails = getArchetypeDetails(gameState);
   const archetype = archetypeDetails.archetype;

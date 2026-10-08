@@ -29,6 +29,7 @@ import {
   SaveSlotData
 } from '@/lib/saveManager';
 import { sanitizeEstateState } from '@/lib/estate';
+import { mergeFactionLists } from '@/lib/factionRelations';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
   const [currentText, setCurrentText] = useState('');
@@ -476,10 +477,9 @@ export default function Home() {
                (r: string) => sanitizeNameAndRole(r.split('|')[0] || '').name
             );
 
-            const mergedFactionRels = mergeArrayByKey(
+            const mergedFactionRels = mergeFactionLists(
                prevState.relationships?.faction || [],
-               data.parsed.relationships?.faction || [],
-               (r: string) => r.split('-')[0].trim()
+               data.parsed.relationships?.faction || []
             );
 
             const mergedRelationships = {

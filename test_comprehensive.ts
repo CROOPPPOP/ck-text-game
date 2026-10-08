@@ -22,6 +22,7 @@ import {
 } from './src/lib/estateEconomy';
 import { getUpgradeCandidates, mergeEstateBuildings, sanitizeEstateState } from './src/lib/estate';
 import { autoMigrateAndSanitizeStorage } from './src/lib/saveManager';
+import { isSameFaction, mergeAndDeduplicateFactionRelations, mergeFactionLists } from './src/lib/factionRelations';
 import { buildSystemCommands } from './src/lib/construction';
 import {
   parsePopulationCount,
@@ -1138,6 +1139,44 @@ assert(updatedLegacyOlive.level === 2, "LocalStorage ck_auto_save olive press pe
 // Cleanup mock
 delete (global as any).window;
 delete (global as any).localStorage;
+
+// ==========================================
+// TEST 20: Faction Relations Deduplication & Normalization (성당 vs 대성당 단일화)
+// ==========================================
+console.log("\n--- 20. Testing Faction Relations Deduplication & Normalization ---");
+
+const relOld = "[우르비노 주교좌 성당] - 주종 관계(교구 재정관 대행 겸 참사회원) | 위협도: 안전 | 태도: 우호적";
+const relNew = "[우르비노 주교좌 대성당] - 주종 관계(교구 재정관 겸 참사회 수석위원) | 위협도: 안전 | 태도: 우호적";
+
+// 20.1 Test isSameFaction with morphological variations
+assert(isSameFaction("[우르비노 주교좌 성당]", "[우르비노 주교좌 대성당]"), "isSameFaction recognizes 성당 and 대성당 as identical faction");
+assert(isSameFaction("우르비노 주교좌 성당", "우르비노 주교좌"), "isSameFaction matches root without suffix");
+assert(isSameFaction("[밀라노 공국]", "[밀라노 공작령]"), "isSameFaction recognizes 공국 and 공작령 as identical faction");
+assert(!isSameFaction("[우르비노 주교좌 성당]", "[우르비노 상단]"), "isSameFaction distinguishes church from merchant group in same city");
+
+// 20.2 Test mergeAndDeduplicateFactionRelations
+const splitFactions = [relOld, relNew];
+const deduplicated = mergeAndDeduplicateFactionRelations(splitFactions);
+assert(deduplicated.length === 1, "Split factions correctly merged into 1 single faction entry (found: " + deduplicated.length + ")");
+assert(deduplicated[0].includes('대성당'), "Merged entry adopts more detailed name '대성당'");
+assert(deduplicated[0].includes('교구 재정관 겸 참사회 수석위원'), "Merged entry preserves updated promotion status (수석위원)");
+assert(deduplicated[0].includes('위협도: 안전'), "Merged entry preserves threat level");
+assert(deduplicated[0].includes('태도: 우호적'), "Merged entry preserves attitude");
+
+// 20.3 Test mergeFactionLists across turns
+const mergedAcrossTurns = mergeFactionLists([relOld], [relNew]);
+assert(mergedAcrossTurns.length === 1, "mergeFactionLists across turns yields exactly 1 faction entry");
+
+// 20.4 Test sanitizeEstateState automatically heals split factions in saves
+const stateWithSplitFactions = {
+  relationships: {
+    personal: ["베르나르도 | 85 | 80"],
+    faction: [relOld, relNew]
+  }
+};
+const sanitizedFactionState = sanitizeEstateState(stateWithSplitFactions);
+assert(sanitizedFactionState.relationships.faction.length === 1, "sanitizeEstateState automatically heals and unifies split factions in saves");
+
 
 
 // ==========================================

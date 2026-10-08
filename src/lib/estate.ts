@@ -1,4 +1,5 @@
 import { ESTATE_LEVELS } from './estateTheme';
+import { mergeAndDeduplicateFactionRelations } from './factionRelations';
 
 export interface Building {
   name: string;
@@ -362,6 +363,11 @@ export function sanitizeEstateState<T extends Record<string, any>>(state: T): T 
         }
         return true;
       });
+    }
+
+    // 4. relationships.faction 세력 관계 중복 쪼개짐(예: '우르비노 주교좌 성당' vs '우르비노 주교좌 대성당') 단일화 병합
+    if (cloned.relationships && Array.isArray(cloned.relationships.faction)) {
+      cloned.relationships.faction = mergeAndDeduplicateFactionRelations(cloned.relationships.faction);
     }
 
     return cloned;
