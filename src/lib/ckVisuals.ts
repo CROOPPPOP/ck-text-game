@@ -597,7 +597,12 @@ export function parseCKStress(gameState: ParsedState): CKStressState {
 // CK3 핵심 자원 요약 추출
 export function parseCKResources(gameState: ParsedState, previousPopulation?: number): CKResources {
   const faction = gameState.factionState || {};
-  const wealthItems = gameState.inventory?.wealth || [];
+  const rawWealth: any = gameState.inventory?.wealth;
+  const wealthItems: string[] = Array.isArray(rawWealth)
+    ? rawWealth
+    : typeof rawWealth === 'string' && rawWealth.trim()
+    ? [rawWealth.trim()]
+    : [];
   const archetype = detectPlayerArchetype(gameState);
   const labels = getArchetypeLabels(archetype);
   const attributes = calculateCKAttributes(gameState);

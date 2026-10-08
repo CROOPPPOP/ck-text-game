@@ -140,14 +140,15 @@ export interface UpgradeCandidate {
  */
 export function getUpgradeCandidates(
   currentEstateLevel: number,
-  buildings: Building[],
+  buildings: Building[] = [],
   archetype: PlayerArchetype = 'noble',
   stewardshipScore: number = 10
 ): UpgradeCandidate[] {
+  const safeBuildings = Array.isArray(buildings) ? buildings : [];
   const maxBuildingLevel = ESTATE_LEVELS[currentEstateLevel as keyof typeof ESTATE_LEVELS]?.maxBuildingLevel || 1;
   
-  return buildings
-    .filter(b => b.level < maxBuildingLevel)
+  return safeBuildings
+    .filter(b => b && typeof b.level === 'number' && b.level < maxBuildingLevel)
     .map(b => {
       const targetLevel = b.level + 1;
       const estimate = calculateBuildingUpgradeCost(b, currentEstateLevel, archetype, stewardshipScore);

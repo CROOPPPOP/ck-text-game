@@ -43,13 +43,13 @@ export function parsePopulationCount(rawText: string | undefined): number {
   // 쉼표 제거 (예: "3,500명" -> "3500명")
   const clean = rawText.replace(/,/g, '');
 
-  // "145명" 또는 "단원 24명", "동행 1명" 등 추출
+  // "145명" 또는 "단원 24명", "동행 1명" 등 숫자 추출
   const match = clean.match(/(\d+)\s*명?/);
   if (match) {
     return parseInt(match[1], 10);
   }
   
-  return extractNumericValue(clean);
+  return 0;
 }
 
 /** 거점 레벨별 최대 인구 수용 한도 (Holding Population Capacity) */

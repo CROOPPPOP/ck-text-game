@@ -89,14 +89,14 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
       >
         <div
           style={{
-            background: 'linear-gradient(145deg, #1e293b, #0f172a)',
-            border: '1px solid rgba(212, 175, 55, 0.4)',
+            background: 'linear-gradient(145deg, #1f1812, #140f0b)',
+            border: '1px solid rgba(200, 159, 60, 0.45)',
             borderRadius: '12px',
             width: '100%',
             maxWidth: '520px',
             padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
-            color: '#f8fafc',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5)',
+            color: '#f5ecd8',
             display: 'flex',
             flexDirection: 'column',
             gap: '16px'
@@ -104,7 +104,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(200, 159, 60, 0.2)', paddingBottom: '12px' }}>
             <div>
               <div style={{ fontSize: '0.8rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
                 【 영지 인구 통계 & 정착민 장부 】
@@ -131,7 +131,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#94a3b8',
+                color: 'var(--gold-accent)',
                 fontSize: '1.4rem',
                 cursor: 'pointer',
                 padding: '0 4px',
@@ -144,8 +144,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
           {/* Capacity Progress Bar Card */}
           <div style={{
-            background: 'rgba(0, 0, 0, 0.35)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'rgba(0, 0, 0, 0.45)',
+            border: '1px solid rgba(200, 159, 60, 0.2)',
             borderRadius: '8px',
             padding: '14px'
           }}>
@@ -153,7 +153,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
               <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
                 🏰 거점 규모 수용 한도 (Capacity)
               </span>
-              <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isOvercrowded ? '#f87171' : '#38bdf8' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isOvercrowded ? '#f87171' : 'var(--gold-hover)' }}>
                 {pop.currentPopulation.toLocaleString()}명 / {pop.maxCapacity.toLocaleString()}명 ({capacityPercent}%)
               </span>
             </div>
@@ -161,7 +161,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
               <div style={{
                 width: `${capacityPercent}%`,
                 height: '100%',
-                background: isOvercrowded ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #38bdf8, #34d399)',
+                background: isOvercrowded ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #8a6d2b, #c89f3c)',
                 borderRadius: '4px',
                 transition: 'width 0.4s ease'
               }} />
@@ -181,8 +181,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
               </span>
             </div>
             <div style={{
-              background: 'rgba(15, 23, 42, 0.6)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
+              background: 'rgba(18, 14, 11, 0.75)',
+              border: '1px solid rgba(200, 159, 60, 0.15)',
               borderRadius: '8px',
               padding: '10px 14px',
               display: 'flex',
@@ -226,7 +226,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           )}
 
           {/* Guide tip footer */}
-          <div style={{ fontSize: '0.75rem', color: '#64748b', lineHeight: '1.3' }}>
+          <div style={{ fontSize: '0.75rem', color: '#a89d91', lineHeight: '1.3' }}>
             💡 거점 등급 승격이나 식료창고·주거 시설 증축 시 인구 수용 한도와 유입 속도가 증가합니다. 민심과 치안이 낮으면 인구가 이탈할 수 있습니다.
           </div>
 
@@ -235,15 +235,16 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             onClick={() => setShowPopModal(false)}
             style={{
               marginTop: '4px',
-              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.05))',
-              border: '1px solid var(--gold-accent)',
+              background: 'linear-gradient(180deg, #c89f3c 0%, #8a6d2b 100%)',
+              border: '1px solid rgba(200, 159, 60, 0.8)',
               borderRadius: '6px',
-              color: 'var(--gold-accent)',
-              padding: '8px',
+              color: '#0d0b09',
+              padding: '10px',
               fontSize: '0.88rem',
               fontWeight: 'bold',
               cursor: 'pointer',
-              transition: 'background 0.2s'
+              boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+              transition: 'all 0.15s ease'
             }}
           >
             확인 및 닫기
@@ -267,8 +268,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         {/* Title */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(15, 23, 42, 0.8))',
-          border: '1px solid rgba(56, 189, 248, 0.4)',
+          background: 'linear-gradient(135deg, rgba(80, 55, 30, 0.5), rgba(20, 15, 11, 0.9))',
+          border: '1px solid rgba(200, 159, 60, 0.35)',
           borderRadius: '10px',
           padding: '14px 18px',
           display: 'flex',
@@ -278,7 +279,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           gap: '8px'
         }}>
           <div>
-            <div style={{ color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold' }}>
+            <div style={{ color: 'var(--gold-accent)', fontSize: '0.8rem', fontWeight: 'bold' }}>
               【 1번 아키타입 】
             </div>
             <div style={{ color: '#fff', fontSize: '1.15rem', fontWeight: 'bold' }}>
@@ -286,8 +287,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             </div>
           </div>
           <span style={{
-            background: 'rgba(56, 189, 248, 0.2)',
-            color: '#7dd3fc',
+            background: 'rgba(200, 159, 60, 0.15)',
+            color: 'var(--gold-accent)',
+            border: '1px solid rgba(200, 159, 60, 0.3)',
             padding: '4px 10px',
             borderRadius: '6px',
             fontSize: '0.8rem',
@@ -300,14 +302,14 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
         {/* 4 Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(251, 191, 36, 0.3)',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+            border: '1px solid rgba(200, 159, 60, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
             textAlign: 'center'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>💰</div>
-            <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold' }}>소지 여비</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>소지 여비</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {resources?.gold || '동화 30개'}
               {resources?.income && (
@@ -319,21 +321,21 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+            border: '1px solid rgba(200, 159, 60, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
             textAlign: 'center'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>🗡️</div>
-            <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 'bold' }}>개인 명망</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--gold-hover)', fontWeight: 'bold' }}>개인 명망</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {resources?.prestige || '방랑자의 명성'}
             </div>
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
             border: '1px solid rgba(52, 211, 153, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
@@ -347,7 +349,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
             border: '1px solid rgba(248, 113, 113, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
@@ -363,8 +365,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* Survival Gauges */}
         <div style={{
-          background: 'rgba(0, 0, 0, 0.35)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(20, 16, 12, 0.7)',
+          border: '1px solid rgba(200, 159, 60, 0.2)',
           borderRadius: '10px',
           padding: '16px'
         }}>
@@ -408,12 +410,12 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* Guidance Tip Box */}
         <div style={{
-          background: 'rgba(56, 189, 248, 0.08)',
-          border: '1px dashed rgba(56, 189, 248, 0.3)',
+          background: 'rgba(38, 29, 21, 0.65)',
+          border: '1px dashed rgba(200, 159, 60, 0.35)',
           borderRadius: '8px',
           padding: '12px 14px',
           fontSize: '0.85rem',
-          color: '#bae6fd',
+          color: '#e6ded5',
           lineHeight: '1.4'
         }}>
           <strong>💡 방랑자 활동 지침: </strong>
@@ -442,8 +444,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         {/* Title */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(15, 23, 42, 0.8))',
-          border: '1px solid rgba(239, 68, 68, 0.4)',
+          background: 'linear-gradient(135deg, rgba(110, 30, 30, 0.5), rgba(20, 14, 11, 0.9))',
+          border: '1px solid rgba(220, 60, 60, 0.4)',
           borderRadius: '10px',
           padding: '14px 18px',
           display: 'flex',
@@ -461,8 +463,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             </div>
           </div>
           <span style={{
-            background: 'rgba(239, 68, 68, 0.2)',
+            background: 'rgba(220, 60, 60, 0.2)',
             color: '#fca5a5',
+            border: '1px solid rgba(220, 60, 60, 0.4)',
             padding: '4px 10px',
             borderRadius: '6px',
             fontSize: '0.8rem',
@@ -477,12 +480,13 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           <div
             onClick={() => setShowPopModal(true)}
             style={{
-              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+              border: '1px solid rgba(220, 60, 60, 0.35)',
               borderRadius: '8px',
               padding: '12px 10px',
               textAlign: 'center',
               cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
               transition: 'transform 0.15s, border-color 0.15s'
             }}
             title="클릭하여 단원/인구 동태 장부 확인"
@@ -514,14 +518,15 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(251, 191, 36, 0.3)',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+            border: '1px solid rgba(200, 159, 60, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>🪙</div>
-            <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold' }}>단원 군자금</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>단원 군자금</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {companyFund}
               {resources?.income && (
@@ -533,11 +538,12 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
             border: '1px solid rgba(249, 115, 22, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>🔥</div>
             <div style={{ fontSize: '0.75rem', color: '#f97316', fontWeight: 'bold' }}>부대 사기</div>
@@ -547,11 +553,12 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
             border: '1px solid rgba(52, 211, 153, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>⛺</div>
             <div style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 'bold' }}>이동식 군영</div>
@@ -563,8 +570,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* Company Gauges */}
         <div style={{
-          background: 'rgba(0, 0, 0, 0.35)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(20, 16, 12, 0.7)',
+          border: '1px solid rgba(200, 159, 60, 0.2)',
           borderRadius: '10px',
           padding: '16px'
         }}>
@@ -608,8 +615,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* Guidance Tip Box */}
         <div style={{
-          background: 'rgba(239, 68, 68, 0.08)',
-          border: '1px dashed rgba(239, 68, 68, 0.3)',
+          background: 'rgba(50, 20, 20, 0.55)',
+          border: '1px dashed rgba(220, 60, 60, 0.35)',
           borderRadius: '8px',
           padding: '12px 14px',
           fontSize: '0.85rem',
@@ -645,7 +652,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         {/* Title */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(15, 23, 42, 0.8))',
+          background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.45), rgba(20, 14, 11, 0.9))',
           border: '1px solid rgba(168, 85, 247, 0.4)',
           borderRadius: '10px',
           padding: '14px 18px',
@@ -666,6 +673,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           <span style={{
             background: 'rgba(168, 85, 247, 0.2)',
             color: '#e9d5ff',
+            border: '1px solid rgba(168, 85, 247, 0.35)',
             padding: '4px 10px',
             borderRadius: '6px',
             fontSize: '0.8rem',
@@ -680,12 +688,13 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           <div
             onClick={() => setShowPopModal(true)}
             style={{
-              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
+              background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+              border: '1px solid rgba(168, 85, 247, 0.35)',
               borderRadius: '8px',
               padding: '12px 10px',
               textAlign: 'center',
               cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
               transition: 'transform 0.15s, border-color 0.15s'
             }}
             title="클릭하여 교구민/인구 동태 장부 확인"
@@ -717,14 +726,15 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(251, 191, 36, 0.3)',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+            border: '1px solid rgba(200, 159, 60, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>🪙</div>
-            <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold' }}>교회 헌금 & 십일조</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>교회 헌금 & 십일조</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {titheFund}
               {resources?.income && (
@@ -736,28 +746,30 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(52, 211, 153, 0.3)',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+            border: '1px solid rgba(200, 159, 60, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>⛪</div>
-            <div style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 'bold' }}>교구 성당</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--gold-hover)', fontWeight: 'bold' }}>교구 성당</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {churchEstate}
             </div>
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
+            background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+            border: '1px solid rgba(168, 85, 247, 0.3)',
             borderRadius: '8px',
             padding: '12px 10px',
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>🛡️</div>
-            <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 'bold' }}>호위 수사</div>
+            <div style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 'bold' }}>호위 수사</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {holyOrder}
             </div>
@@ -766,8 +778,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* Clergy Gauges */}
         <div style={{
-          background: 'rgba(0, 0, 0, 0.35)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(20, 16, 12, 0.7)',
+          border: '1px solid rgba(200, 159, 60, 0.2)',
           borderRadius: '10px',
           padding: '16px'
         }}>
@@ -811,8 +823,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* Guidance Tip Box */}
         <div style={{
-          background: 'rgba(168, 85, 247, 0.08)',
-          border: '1px dashed rgba(168, 85, 247, 0.3)',
+          background: 'rgba(40, 20, 50, 0.55)',
+          border: '1px dashed rgba(168, 85, 247, 0.35)',
           borderRadius: '8px',
           padding: '12px 14px',
           fontSize: '0.85rem',
@@ -881,8 +893,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
               key={key}
               onClick={isPopKey ? () => setShowPopModal(true) : undefined}
               style={{
-                background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-                border: isPopKey ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(212, 175, 55, 0.25)',
+                background: 'linear-gradient(145deg, rgba(35, 27, 21, 0.85), rgba(18, 14, 11, 0.95))',
+                border: isPopKey ? '1px solid rgba(200, 159, 60, 0.45)' : '1px solid rgba(200, 159, 60, 0.25)',
                 borderRadius: '8px',
                 padding: '12px 10px',
                 textAlign: 'center',
@@ -893,7 +905,7 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
               title={isPopKey ? "클릭하여 영지 인구 동태 장부 확인" : val}
             >
               <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>{getResourceIcon(key)}</div>
-              <div style={{ fontSize: '0.75rem', color: isPopKey ? '#38bdf8' : 'var(--gold-accent)', fontWeight: 'bold' }}>{key}</div>
+              <div style={{ fontSize: '0.75rem', color: isPopKey ? 'var(--gold-hover)' : 'var(--gold-accent)', fontWeight: 'bold' }}>{key}</div>
               <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={val}>
                 {val}
                 {(key.includes('재정') || key.includes('금화') || key.includes('자금')) && resources?.income && (
@@ -928,8 +940,8 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
       {/* 2. Visual Stability & Order Gauges */}
       <div style={{
-        background: 'rgba(0, 0, 0, 0.3)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'rgba(20, 16, 12, 0.7)',
+        border: '1px solid rgba(200, 159, 60, 0.2)',
         borderRadius: '10px',
         padding: '16px'
       }}>

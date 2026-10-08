@@ -5,18 +5,39 @@
 :root {
   --font-serif: 'Noto Serif KR', 'KoPub Batang', 'Nanum Myeongjo', serif;
   --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  --bg-dark: #0a0e1a;
-  --panel-bg: rgba(20, 27, 45, 0.75);
-  --panel-border: rgba(212, 175, 55, 0.25);
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --gold-accent: #d4af37;
-  --gold-hover: #fcd34d;
-  --gold-shadow: rgba(212, 175, 55, 0.3);
-  --danger: #ef4444;
-  --success: #10b981;
-  --ck-royal-blue: #1e3a8a;
-  --ck-crimson: #991b1b;
+  
+  /* 중세 성채 암석 & 앤틱 오크 원목 기본 서피스 */
+  --bg-dark: #0d0b09;
+  --panel-bg: rgba(24, 19, 15, 0.92);
+  --panel-border: rgba(200, 159, 60, 0.35);
+  --panel-border-subtle: rgba(200, 159, 60, 0.18);
+  --panel-wood-card: rgba(35, 27, 21, 0.85);
+  
+  /* 양피지 고문서 톤 */
+  --parchment-bg: #231b14;
+  --parchment-text: #f4ecd8;
+  --parchment-border: rgba(200, 159, 60, 0.28);
+  
+  /* 텍스트 가독성 */
+  --text-main: #f5efe6;
+  --text-muted: #aba092;
+  --text-dim: #7a7062;
+  
+  /* 앤틱 황금 & 황동 악센트 */
+  --gold-accent: #c89f3c;
+  --gold-hover: #e2b755;
+  --gold-dim: #8a6d2b;
+  --gold-shadow: rgba(200, 159, 60, 0.25);
+  
+  /* 궁정 헤럴드리 컬러 */
+  --ck-crimson: #852b2b;
+  --ck-burgundy: #5c1313;
+  --ck-royal-navy: #1e293b;
+  --ck-umber: #78350f;
+  --danger: #b91c1c;
+  --danger-bg: rgba(185, 28, 28, 0.2);
+  --success: #15803d;
+  --success-gold: #34d399;
 }
 
 * {
@@ -36,7 +57,7 @@ body {
   word-break: keep-all;
   overflow-wrap: break-word;
   background-image: 
-    linear-gradient(rgba(10, 14, 26, 0.82), rgba(10, 14, 26, 0.94)),
+    linear-gradient(rgba(13, 11, 9, 0.88), rgba(13, 11, 9, 0.96)),
     url('/bg.jpg');
   background-size: cover;
   background-position: center;
@@ -49,25 +70,76 @@ body {
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
-  box-shadow: 0 10px 35px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(212, 175, 55, 0.15);
+  box-shadow: 0 10px 35px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(200, 159, 60, 0.2);
 }
 
 /* Crusader Kings Navigation Buttons */
-.ck-nav-btn:hover {
-  filter: brightness(1.2);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
+.ck-nav-btn {
+  background: linear-gradient(180deg, #382a1c 0%, #201710 100%);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold-hover);
+  transition: all 0.2s ease;
 }
 
-/* Narrative Event Frame */
+.ck-nav-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  border-color: var(--gold-accent);
+  box-shadow: 0 4px 14px rgba(200, 159, 60, 0.3);
+}
+
+/* Medieval Antique Embossed Button */
+.ck-btn-brass {
+  background: linear-gradient(180deg, #443422 0%, #291f14 100%);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold-hover);
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.ck-btn-brass:hover:not(:disabled) {
+  background: linear-gradient(180deg, #54412c 0%, #34281a 100%);
+  border-color: var(--gold-accent);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(200, 159, 60, 0.25);
+}
+
+.ck-btn-brass:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+/* Medieval Wax Seal Button */
+.ck-btn-seal {
+  background: linear-gradient(180deg, #7f1d1d 0%, #4c1111 100%);
+  border: 1px solid #991b1b;
+  color: #fecaca;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ck-btn-seal:hover:not(:disabled) {
+  background: linear-gradient(180deg, #991b1b 0%, #5c1313 100%);
+  border-color: #f87171;
+  color: #fff;
+}
+
+/* Narrative Event Frame (Ancient Manuscript / Vellum) */
 .ck-event-frame {
   position: relative;
   font-family: var(--font-serif);
-  background: linear-gradient(180deg, rgba(23, 29, 45, 0.85) 0%, rgba(13, 17, 28, 0.92) 100%);
-  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(180deg, rgba(32, 25, 19, 0.92) 0%, rgba(20, 15, 11, 0.96) 100%);
+  border: 1px solid rgba(200, 159, 60, 0.4);
   border-radius: 10px;
   padding: 24px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), inset 0 0 25px rgba(0, 0, 0, 0.5);
 }
 
 .serif-font {
@@ -81,8 +153,8 @@ body {
   top: 6px;
   left: 8px;
   color: var(--gold-accent);
-  font-size: 0.9rem;
-  opacity: 0.7;
+  font-size: 0.95rem;
+  opacity: 0.8;
 }
 
 .ck-event-frame::after {
@@ -91,23 +163,23 @@ body {
   top: 6px;
   right: 8px;
   color: var(--gold-accent);
-  font-size: 0.9rem;
-  opacity: 0.7;
+  font-size: 0.95rem;
+  opacity: 0.8;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Burnished Gold Thumb */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(15, 12, 9, 0.4);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.35);
+  background: rgba(200, 159, 60, 0.35);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.7);
+  background: rgba(200, 159, 60, 0.75);
 }
 
 @keyframes pulse {
@@ -117,8 +189,8 @@ body {
 }
 
 @keyframes goldGlow {
-  0% { box-shadow: 0 0 5px rgba(212, 175, 55, 0.2); }
-  50% { box-shadow: 0 0 15px rgba(212, 175, 55, 0.5); }
-  100% { box-shadow: 0 0 5px rgba(212, 175, 55, 0.2); }
+  0% { box-shadow: 0 0 5px rgba(200, 159, 60, 0.2); }
+  50% { box-shadow: 0 0 15px rgba(200, 159, 60, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(200, 159, 60, 0.2); }
 }
 

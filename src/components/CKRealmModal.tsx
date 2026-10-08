@@ -99,14 +99,14 @@ export default function CKRealmModal({
     >
       <div 
         style={{
-          background: 'linear-gradient(145deg, rgba(26, 32, 48, 0.98), rgba(15, 20, 32, 0.98))',
+          background: 'linear-gradient(160deg, #1e1711 0%, #120e0a 100%)',
           width: '94%',
           maxWidth: '860px',
           maxHeight: '90vh',
           overflowY: 'auto',
           borderRadius: '16px',
-          border: '2px solid rgba(212, 175, 55, 0.45)',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(212, 175, 55, 0.2)',
+          border: '2px solid rgba(200, 159, 60, 0.45)',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.95), 0 0 35px rgba(200, 159, 60, 0.2)',
           padding: '28px',
           position: 'relative'
         }} 
@@ -131,7 +131,7 @@ export default function CKRealmModal({
         </button>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(212, 175, 55, 0.25)', paddingBottom: '16px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(200, 159, 60, 0.25)', paddingBottom: '16px' }}>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -139,10 +139,11 @@ export default function CKRealmModal({
             width: '56px',
             height: '56px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(56, 189, 248, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            border: '2px solid #38bdf8',
+            background: 'radial-gradient(circle, rgba(200, 159, 60, 0.25) 0%, rgba(22, 16, 11, 0.95) 100%)',
+            border: '2px solid var(--gold-accent)',
             fontSize: '1.8rem',
-            marginBottom: '10px'
+            marginBottom: '10px',
+            boxShadow: '0 0 16px rgba(200, 159, 60, 0.25)'
           }}>
             {modalIcon}
           </div>
@@ -154,46 +155,50 @@ export default function CKRealmModal({
           </div>
 
           {/* Integrated Tabs */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
             <button
               onClick={() => setActiveTab('realm')}
+              className="ck-nav-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '8px 18px',
                 borderRadius: '8px',
-                border: activeTab === 'realm' ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
-                background: activeTab === 'realm' ? 'linear-gradient(45deg, rgba(212, 175, 55, 0.25), rgba(15, 23, 42, 0.8))' : 'rgba(0,0,0,0.3)',
+                border: activeTab === 'realm' ? '1px solid var(--gold-accent)' : '1px solid rgba(200, 159, 60, 0.2)',
+                background: activeTab === 'realm' ? 'linear-gradient(180deg, #443422 0%, #291f14 100%)' : 'rgba(20, 15, 11, 0.6)',
                 color: activeTab === 'realm' ? 'var(--gold-hover)' : 'var(--text-muted)',
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
+                boxShadow: activeTab === 'realm' ? '0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(200, 159, 60, 0.2)' : 'none',
                 transition: 'all 0.2s'
               }}
             >
-              <Castle size={16} />
+              <Castle size={16} style={{ color: 'var(--gold-accent)' }} />
               <span>🏛️ 통치 지표 (Realm Dashboard)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('estate')}
+              className="ck-nav-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '8px 18px',
                 borderRadius: '8px',
-                border: activeTab === 'estate' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
-                background: activeTab === 'estate' ? 'linear-gradient(45deg, rgba(56, 189, 248, 0.25), rgba(15, 23, 42, 0.8))' : 'rgba(0,0,0,0.3)',
-                color: activeTab === 'estate' ? '#7dd3fc' : 'var(--text-muted)',
+                border: activeTab === 'estate' ? '1px solid var(--gold-accent)' : '1px solid rgba(200, 159, 60, 0.2)',
+                background: activeTab === 'estate' ? 'linear-gradient(180deg, #443422 0%, #291f14 100%)' : 'rgba(20, 15, 11, 0.6)',
+                color: activeTab === 'estate' ? 'var(--gold-hover)' : 'var(--text-muted)',
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
+                boxShadow: activeTab === 'estate' ? '0 2px 8px rgba(0,0,0,0.5), 0 0 10px rgba(200, 159, 60, 0.2)' : 'none',
                 transition: 'all 0.2s'
               }}
             >
-              <Hammer size={16} />
+              <Hammer size={16} style={{ color: '#fbbf24' }} />
               <span>🔨 거점 시설 및 건설 (Holdings & Build)</span>
             </button>
           </div>
@@ -209,15 +214,16 @@ export default function CKRealmModal({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* 거점 / 영지 현황 헤더 카드 */}
             <div style={{
-              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.95))',
-              border: '1px solid rgba(212, 175, 55, 0.35)',
+              background: 'linear-gradient(135deg, rgba(42, 33, 23, 0.88), rgba(24, 18, 13, 0.96))',
+              border: '1.5px solid rgba(200, 159, 60, 0.35)',
               borderRadius: '10px',
               padding: '16px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px'
+              gap: '12px',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid rgba(200, 159, 60, 0.2)', paddingBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '1.6rem' }}>{gameState?.estate ? '🏰' : '🏕️'}</span>
                   <div>
@@ -225,7 +231,7 @@ export default function CKRealmModal({
                       {gameState?.estate?.type || '임시 야영지'}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      거점 규모: <strong style={{ color: '#60a5fa' }}>{gameState?.estate?.level || 'Lv.1 초기 거점'}</strong>
+                      거점 규모: <strong style={{ color: 'var(--gold-hover)' }}>{gameState?.estate?.level || 'Lv.1 초기 거점'}</strong>
                     </div>
                   </div>
                 </div>
@@ -235,9 +241,9 @@ export default function CKRealmModal({
                     fontSize: '0.82rem',
                     padding: '4px 10px',
                     borderRadius: '6px',
-                    background: constructionQueue.length >= maxSlots ? 'rgba(239,68,68,0.2)' : 'rgba(56,189,248,0.15)',
-                    color: constructionQueue.length >= maxSlots ? '#f87171' : '#38bdf8',
-                    border: `1px solid ${constructionQueue.length >= maxSlots ? '#ef4444' : '#0284c7'}`,
+                    background: constructionQueue.length >= maxSlots ? 'rgba(185, 28, 28, 0.2)' : 'rgba(200, 159, 60, 0.15)',
+                    color: constructionQueue.length >= maxSlots ? '#fca5a5' : 'var(--gold-hover)',
+                    border: `1px solid ${constructionQueue.length >= maxSlots ? '#b91c1c' : 'rgba(200, 159, 60, 0.4)'}`,
                     fontWeight: 'bold',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -250,9 +256,9 @@ export default function CKRealmModal({
                     fontSize: '0.82rem',
                     padding: '4px 10px',
                     borderRadius: '6px',
-                    background: domainBreakdown.isOverCapacity ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.15)',
-                    color: domainBreakdown.isOverCapacity ? '#f87171' : '#6ee7b7',
-                    border: `1px solid ${domainBreakdown.isOverCapacity ? '#ef4444' : '#10b981'}`,
+                    background: domainBreakdown.isOverCapacity ? 'rgba(185, 28, 28, 0.2)' : 'rgba(34, 197, 94, 0.15)',
+                    color: domainBreakdown.isOverCapacity ? '#fca5a5' : '#86efac',
+                    border: `1px solid ${domainBreakdown.isOverCapacity ? '#b91c1c' : '#15803d'}`,
                     fontWeight: 'bold',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -266,9 +272,9 @@ export default function CKRealmModal({
                     fontSize: '0.82rem',
                     padding: '4px 10px',
                     borderRadius: '6px',
-                    background: 'rgba(212,175,55,0.15)',
+                    background: 'rgba(200, 159, 60, 0.15)',
                     color: 'var(--gold-hover)',
-                    border: '1px solid rgba(212,175,55,0.4)',
+                    border: '1px solid rgba(200, 159, 60, 0.4)',
                     fontWeight: 'bold',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -452,7 +458,7 @@ export default function CKRealmModal({
                       <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                           <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                            🏛️ {cleanName} <span style={{fontSize: '0.8rem', color: '#60a5fa', fontWeight: 'bold'}}>Lv.{b.level}</span>
+                            🏛️ {cleanName} <span style={{fontSize: '0.8rem', color: 'var(--gold-accent)', fontWeight: 'bold'}}>Lv.{b.level}</span>
                           </span>
                           {validTags.length > 0 && (
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
@@ -481,21 +487,21 @@ export default function CKRealmModal({
 
             {/* 건설 진행 현황 (Construction Queue) */}
             {constructionQueue.length > 0 && (
-              <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '10px', padding: '16px' }}>
-                <h3 style={{ color: '#7dd3fc', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '6px' }}>
+              <div style={{ background: 'rgba(38, 29, 21, 0.65)', border: '1px solid rgba(200, 159, 60, 0.35)', borderRadius: '10px', padding: '16px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)' }}>
+                <h3 style={{ color: 'var(--gold-accent)', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid rgba(200, 159, 60, 0.2)', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   🔨 공사 진행 중인 시설 ({constructionQueue.length}/{maxSlots})
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {constructionQueue.map((q) => (
-                    <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.35)', padding: '10px 14px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: 'rgba(18, 14, 11, 0.7)', padding: '10px 14px', borderRadius: '6px', border: '1px solid rgba(200, 159, 60, 0.15)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                         <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>🔨 {q.building}</span>
-                        <span style={{ color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                          {q.commandSent ? `${turnsLeft(q, turn)}턴 남음` : `${q.completeTurn - q.startTurn}턴 소요 · 다음 행동 때 비용 차감`}
+                        <span style={{ color: 'var(--gold-hover)', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                          {q.commandSent ? `⏳ ${turnsLeft(q, turn)}턴 남음` : `⏳ ${q.completeTurn - q.startTurn}턴 소요 · 다음 행동 때 비용 차감`}
                         </span>
                       </div>
                       {!q.commandSent && onCancelBuild && (
-                        <button onClick={() => onCancelBuild(q.id)} disabled={loading} style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', cursor: 'pointer', whiteSpace: 'nowrap' }}>공사 취소</button>
+                        <button onClick={() => onCancelBuild(q.id)} disabled={loading} style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid rgba(180, 50, 50, 0.5)', background: 'rgba(120, 30, 30, 0.4)', color: '#fca5a5', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s ease' }}>공사 취소</button>
                       )}
                     </div>
                   ))}
@@ -504,8 +510,8 @@ export default function CKRealmModal({
             )}
 
             {/* 건설 가능 시설 및 업그레이드 */}
-            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px' }}>
-              <h3 style={{ color: 'var(--gold-accent)', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
+            <div style={{ background: 'rgba(24, 19, 15, 0.5)', border: '1px solid rgba(200, 159, 60, 0.2)', borderRadius: '10px', padding: '16px' }}>
+              <h3 style={{ color: 'var(--gold-accent)', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid rgba(200, 159, 60, 0.15)', paddingBottom: '6px' }}>
                 🏗️ 건설 가능 시설 및 승격 공사
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -514,21 +520,33 @@ export default function CKRealmModal({
                   const canAffordPromo = currentWealth === 0 || promoCostNum === 0 || currentWealth >= promoCostNum;
                   const promoDisabled = loading || constructionQueue.length >= maxSlots || !canAffordPromo;
                   return (
-                    <div style={{ background: 'rgba(212,175,55,0.1)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ background: 'rgba(200, 159, 60, 0.12)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(200, 159, 60, 0.4)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <strong style={{ color: 'var(--gold-accent)', fontSize: '0.98rem' }}>⭐ {promotionOption.name}</strong>
                         <button 
-                          style={{ padding: '5px 12px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid var(--gold-accent)', background: promoDisabled ? 'rgba(212,175,55,0.2)' : 'var(--gold-accent)', color: promoDisabled ? 'var(--text-muted)' : '#000', cursor: promoDisabled ? 'not-allowed' : 'pointer', opacity: promoDisabled ? 0.6 : 1 }} 
+                          style={{
+                            padding: '6px 14px',
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold',
+                            borderRadius: '4px',
+                            border: promoDisabled ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200, 159, 60, 0.8)',
+                            background: promoDisabled ? 'rgba(30, 24, 18, 0.5)' : 'linear-gradient(180deg, #c89f3c 0%, #8a6d2b 100%)',
+                            color: promoDisabled ? 'var(--text-muted)' : '#0d0b09',
+                            cursor: promoDisabled ? 'not-allowed' : 'pointer',
+                            opacity: promoDisabled ? 0.6 : 1,
+                            boxShadow: promoDisabled ? 'none' : '0 2px 6px rgba(0,0,0,0.5)',
+                            transition: 'all 0.15s ease'
+                          }} 
                           disabled={promoDisabled} 
                           onClick={() => onOrderBuild && onOrderBuild(promotionOption)}
                         >
-                          {!canAffordPromo ? '자금 부족' : '승격 착수'}
+                          {!canAffordPromo ? '자금 부족' : '👑 승격 착수'}
                         </button>
                       </div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span>⏱️ 소요: {promotionOption.turns}턴</span>
                         <span>•</span>
-                        <span style={{ color: !canAffordPromo ? '#f87171' : 'var(--gold-accent)', fontWeight: 'bold' }}>
+                        <span style={{ color: !canAffordPromo ? '#f87171' : 'var(--gold-hover)', fontWeight: 'bold' }}>
                           💰 비용: {promotionOption.cost} {!canAffordPromo && `(보유: ${currentWealth}${playerCurrency})`}
                         </span>
                       </div>
@@ -544,21 +562,33 @@ export default function CKRealmModal({
                   const canAffordUpg = currentWealth === 0 || upgCostNum === 0 || currentWealth >= upgCostNum;
                   const disabled = loading || already || full || !canAffordUpg;
                   return (
-                    <div key={'upg-'+idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div key={'upg-'+idx} style={{ background: 'rgba(18, 14, 11, 0.7)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(200, 159, 60, 0.15)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong style={{ color: '#38bdf8', fontSize: '0.95rem' }}>⬆ {opt.name}</strong>
+                        <strong style={{ color: 'var(--gold-accent)', fontSize: '0.95rem' }}>⬆ {opt.name}</strong>
                         <button 
-                          style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid rgba(56,189,248,0.4)', background: disabled ? 'rgba(0,0,0,0.3)' : 'rgba(56,189,248,0.2)', color: disabled ? 'var(--text-muted)' : '#7dd3fc', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }} 
+                          style={{
+                            padding: '5px 14px',
+                            fontSize: '0.82rem',
+                            fontWeight: 'bold',
+                            borderRadius: '4px',
+                            border: disabled ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200, 159, 60, 0.6)',
+                            background: disabled ? 'rgba(30, 24, 18, 0.5)' : 'linear-gradient(180deg, #3a2e20 0%, #221a12 100%)',
+                            color: disabled ? 'var(--text-muted)' : 'var(--gold-accent)',
+                            cursor: disabled ? 'not-allowed' : 'pointer',
+                            opacity: disabled ? 0.6 : 1,
+                            boxShadow: disabled ? 'none' : '0 2px 5px rgba(0,0,0,0.4)',
+                            transition: 'all 0.15s ease'
+                          }} 
                           disabled={disabled} 
                           onClick={() => onOrderBuild && onOrderBuild(opt)}
                         >
-                          {already ? '대기 중' : !canAffordUpg ? '자금 부족' : '강화 착수'}
+                          {already ? '대기 중' : !canAffordUpg ? '자금 부족' : '⚡ 강화 착수'}
                         </button>
                       </div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span>⏱️ 소요: {opt.turns}턴</span>
                         <span>•</span>
-                        <span style={{ color: !canAffordUpg ? '#f87171' : 'var(--gold-accent)', fontWeight: 'bold' }}>
+                        <span style={{ color: !canAffordUpg ? '#f87171' : 'var(--gold-hover)', fontWeight: 'bold' }}>
                           💰 비용: {opt.cost} {!canAffordUpg && `(보유: ${currentWealth}${playerCurrency})`}
                         </span>
                       </div>
@@ -582,17 +612,30 @@ export default function CKRealmModal({
                   }
 
                   return (
-                    <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div key={idx} style={{ background: 'rgba(18, 14, 11, 0.7)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(200, 159, 60, 0.15)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{displayOptName}</span>
-                        <span style={{ color: '#38bdf8', fontSize: '0.82rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>⏱ {opt.turns}턴</span>
+                        <span style={{ color: 'var(--gold-hover)', fontSize: '0.82rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>⏱ {opt.turns}턴</span>
                       </div>
                       {opt.cost && <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)' }}>💰 {opt.cost}</span>}
                       {opt.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{opt.desc}</span>}
                       <button
                         disabled={disabled}
                         onClick={() => onOrderBuild && onOrderBuild(opt)}
-                        style={{ marginTop: '4px', padding: '8px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, background: disabled ? 'rgba(0,0,0,0.3)' : 'var(--gold-accent)', color: disabled ? 'var(--text-muted)' : '#000', transition: 'all 0.2s' }}
+                        style={{
+                          marginTop: '4px',
+                          padding: '8px',
+                          fontSize: '0.85rem',
+                          fontWeight: 'bold',
+                          borderRadius: '4px',
+                          border: disabled ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200, 159, 60, 0.6)',
+                          cursor: disabled ? 'not-allowed' : 'pointer',
+                          opacity: disabled ? 0.5 : 1,
+                          background: disabled ? 'rgba(30, 24, 18, 0.5)' : 'linear-gradient(180deg, #c89f3c 0%, #8a6d2b 100%)',
+                          color: disabled ? 'var(--text-muted)' : '#0d0b09',
+                          boxShadow: disabled ? 'none' : '0 2px 6px rgba(0,0,0,0.5)',
+                          transition: 'all 0.15s ease'
+                        }}
                       >
                         {already ? '🔨 공사 중' : full ? '슬롯 가득 참' : '🏗️ 건설 지시'}
                       </button>

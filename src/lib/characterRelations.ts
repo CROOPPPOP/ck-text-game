@@ -41,17 +41,26 @@ export interface ParsedCharacterRelation {
 export function sanitizeNameAndRole(rawName: string): { name: string; role: string; fullName: string } {
   if (!rawName) return { name: '미상', role: '', fullName: '미상' };
   
-  // 겉을 감싼 대괄호 [ ... ] 제거
-  let cleaned = rawName.trim().replace(/^\[+|\]+$/g, '').trim();
-
-  // 내부 괄호 (직책) 추출: 이름 (직책) 또는 [직책] 형태
+  let cleaned = rawName.trim();
   let name = cleaned;
   let role = '';
 
-  const parenMatch = cleaned.match(/^(.*?)\s*[\(\[]\s*(.*?)\s*[\)\]]$/);
-  if (parenMatch) {
-    name = parenMatch[1].trim().replace(/^\[+|\]+$/g, '').trim();
-    role = parenMatch[2].trim().replace(/^\[+|\]+$/g, '').trim();
+  // 패턴 A: [직책] 이름 (예: "[호위 수사] 베르나르도", "[동료] 마테오")
+  const prefixTagMatch = cleaned.match(/^\[(.*?)\]\s*(.+)$/);
+  if (prefixTagMatch) {
+    role = prefixTagMatch[1].trim();
+    name = prefixTagMatch[2].trim();
+  } else {
+    // 겉을 감싼 대괄호 [ ... ] 제거
+    cleaned = cleaned.replace(/^\[+|\]+$/g, '').trim();
+    name = cleaned;
+
+    // 패턴 B: 이름 (직책)
+    const parenMatch = cleaned.match(/^(.*?)\s*[\(\[]\s*(.*?)\s*[\)\]]$/);
+    if (parenMatch) {
+      name = parenMatch[1].trim().replace(/^\[+|\]+$/g, '').trim();
+      role = parenMatch[2].trim().replace(/^\[+|\]+$/g, '').trim();
+    }
   }
 
   // 불필요한 특수문자 정제
@@ -129,7 +138,29 @@ export function parsePersonalRelation(
   rawRel: string, 
   playerArchetype: string = 'noble'
 ): ParsedCharacterRelation {
-  const parts = rawRel.split('|').map(s => s.trim());
+  let parts: string[];
+  if (rawRel.includes('|')) {
+    parts = rawRel.split('|').map(s => s.trim());
+  } else if (rawRel.includes(':')) {
+    // 레거시 콜론 포맷: "이름 (직책) : 설명 (신뢰 X / 호감 Y)" 또는 "[직책] 이름 (신뢰 X / 호감 Y): 설명"
+    const colonIdx = rawRel.indexOf(':');
+    let firstPart = rawRel.substring(0, colonIdx).trim();
+    const restPart = rawRel.substring(colonIdx + 1).trim();
+
+    // 신뢰도/호감도 추출
+    const trustMatch = rawRel.match(/신뢰(?:도)?\s*[:\s\[\(]?\s*(\d+)/);
+    const affMatch = rawRel.match(/(?:호감|우정)(?:도)?\s*[:\s\[\(]?\s*(\d+)/);
+
+    // firstPart에 (신뢰 ... 호감 ...)이 포함되어 있다면 제거하여 순수 이름/직책만 남김
+    firstPart = firstPart.replace(/\s*\([^\)]*신뢰[^\)]*\)/, '').trim();
+
+    const tStr = trustMatch ? `신뢰도 [${trustMatch[1]}]` : '';
+    const aStr = affMatch ? `호감도 [${affMatch[1]}]` : '';
+    parts = [firstPart, tStr, aStr, restPart];
+  } else {
+    parts = [rawRel];
+  }
+
   const rawName = parts[0] || '';
   const { name, role, fullName } = sanitizeNameAndRole(rawName);
 
@@ -272,9 +303,9 @@ export function parsePersonalRelation(
     };
   }
 
-  // 6단계: 직속부하 / 가신 판별 (베르나르도 사례 보정)
+  // 6단계: 직속부하 / 가신 판별 (베르나르도 사례 보정: 호위/수호대/경비대)
   const hasExplicitSubordinateTag = explicitTag.includes('직속부하') || explicitTag.includes('가신') || rawDescStr.includes('[직속부하]') || rawDescStr.includes('[가신]');
-  const isSubordinateKeyword = combined.includes('직속부하') || combined.includes('가신') || combined.includes('부관') || combined.includes('시종') || combined.includes('복사') || combined.includes('수련수사') || combined.includes('도제') || combined.includes('사병');
+  const isSubordinateKeyword = combined.includes('직속부하') || combined.includes('가신') || combined.includes('부관') || combined.includes('시종') || combined.includes('복사') || combined.includes('수련수사') || combined.includes('도제') || combined.includes('사병') || combined.includes('호위') || combined.includes('수호대') || combined.includes('경비대') || combined.includes('호위대') || combined.includes('경호');
 
   if (hasExplicitSubordinateTag || isSubordinateKeyword) {
     // 플레이어 아키타입과 NPC의 직능(Vocation)을 결합하여 동적 라벨 결정

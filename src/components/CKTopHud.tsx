@@ -53,9 +53,9 @@ export default function CKTopHud({
 
   return (
     <header style={{
-      background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(10, 15, 29, 0.95) 100%)',
-      borderBottom: '2px solid rgba(212, 175, 55, 0.4)',
-      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(212, 175, 55, 0.2)',
+      background: 'linear-gradient(180deg, rgba(28, 22, 17, 0.98) 0%, rgba(16, 12, 9, 0.96) 100%)',
+      borderBottom: '2px solid rgba(200, 159, 60, 0.45)',
+      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(200, 159, 60, 0.2)',
       padding: '8px 16px',
       position: 'relative',
       zIndex: 50,
@@ -81,17 +81,18 @@ export default function CKTopHud({
             cursor: 'pointer',
             padding: '4px 10px',
             borderRadius: '8px',
-            background: 'rgba(212, 175, 55, 0.08)',
-            border: '1px solid rgba(212, 175, 55, 0.3)',
+            background: 'rgba(38, 29, 21, 0.75)',
+            border: '1px solid rgba(200, 159, 60, 0.35)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
             transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = 'var(--gold-accent)';
-            e.currentTarget.style.boxShadow = '0 0 12px rgba(212, 175, 55, 0.3)';
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(200, 159, 60, 0.35)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(212, 175, 55, 0.3)';
-            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.borderColor = 'rgba(200, 159, 60, 0.35)';
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)';
           }}
         >
           {/* Heraldry Shield */}
@@ -170,10 +171,11 @@ export default function CKTopHud({
           alignItems: 'center',
           gap: '8px',
           flexWrap: 'wrap',
-          background: 'rgba(0, 0, 0, 0.4)',
+          background: 'rgba(25, 19, 14, 0.85)',
           padding: '6px 14px',
           borderRadius: '8px',
-          border: '1px solid rgba(255, 255, 255, 0.08)'
+          border: '1px solid rgba(200, 159, 60, 0.25)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)'
         }}>
           {/* 🪙 Gold / Funds & Turn Income */}
           <div 
@@ -185,18 +187,18 @@ export default function CKTopHud({
               padding: '2px 8px',
               borderRadius: '6px',
               cursor: 'pointer',
-              background: showLedger ? 'rgba(251, 191, 36, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              border: showLedger ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255, 255, 255, 0.06)',
+              background: showLedger ? 'rgba(200, 159, 60, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+              border: showLedger ? '1px solid rgba(200, 159, 60, 0.5)' : '1px solid rgba(200, 159, 60, 0.15)',
               transition: 'all 0.2s ease',
               position: 'relative'
             }} 
             title={`${resources.labels.goldLabel} 클릭하여 턴 당 재정 수지 명세서(Financial Ledger) 열기`}
           >
-            <Coins size={16} style={{ color: '#fbbf24' }} />
+            <Coins size={16} style={{ color: 'var(--gold-accent)' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.goldLabel}</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.goldLabel}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fef08a' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--gold-hover)' }}>
                   {resources.gold}
                 </span>
                 {/* 턴 당 순수입 배지 */}
@@ -225,9 +227,9 @@ export default function CKTopHud({
                   left: '0',
                   zIndex: 120,
                   width: '340px',
-                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(10, 15, 29, 0.98))',
-                  border: '1px solid rgba(212, 175, 55, 0.45)',
-                  boxShadow: '0 12px 36px rgba(0, 0, 0, 0.85), 0 0 20px rgba(212, 175, 55, 0.2)',
+                  background: 'linear-gradient(145deg, rgba(32, 25, 19, 0.98), rgba(20, 15, 11, 0.98))',
+                  border: '1.5px solid rgba(200, 159, 60, 0.45)',
+                  boxShadow: '0 16px 40px rgba(0, 0, 0, 0.9), 0 0 20px rgba(200, 159, 60, 0.2)',
                   borderRadius: '10px',
                   padding: '14px',
                   backdropFilter: 'blur(12px)',
@@ -236,7 +238,7 @@ export default function CKTopHud({
                 }}
               >
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(212, 175, 55, 0.25)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(200, 159, 60, 0.25)', paddingBottom: '8px', marginBottom: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Coins size={16} style={{ color: '#fbbf24' }} />
                     <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--gold-accent)' }}>
@@ -367,59 +369,59 @@ export default function CKTopHud({
             )}
           </div>
 
-          <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
 
           {/* 👑 Prestige / Standing */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.prestigeLabel}>
-            <Crown size={16} style={{ color: '#38bdf8' }} />
+            <Crown size={16} style={{ color: 'var(--gold-accent)' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.prestigeLabel}</span>
-              <span style={{ fontSize: '0.85rem', color: '#bae6fd' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.prestigeLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)', fontWeight: 'bold' }}>
                 {resources.prestige}
               </span>
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
 
           {/* 🕊️ Piety / Morale */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.pietyLabel}>
-            <Sparkles size={16} style={{ color: '#a78bfa' }} />
+            <Sparkles size={16} style={{ color: '#d8b4fe' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.pietyLabel}</span>
-              <span style={{ fontSize: '0.85rem', color: '#e9d5ff' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.pietyLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: '#f3e8ff', fontWeight: 'bold' }}>
                 {resources.piety}
               </span>
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
 
           {/* ⚔️ Army / Levies / Companions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.leviesLabel}>
             <Shield size={16} style={{ color: '#f87171' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.leviesLabel}</span>
-              <span style={{ fontSize: '0.85rem', color: '#fca5a5', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.leviesLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: '#fee2e2', fontWeight: 'bold' }}>
                 {resources.levies}
               </span>
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
 
           {/* 🏰 Domain / Holdings / Camp */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.domainLabel}>
-            <Castle size={16} style={{ color: '#34d399' }} />
+            <Castle size={16} style={{ color: '#86efac' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{resources.labels.domainLabel}</span>
-              <span style={{ fontSize: '0.85rem', color: '#a7f3d0' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.domainLabel}</span>
+              <span style={{ fontSize: '0.85rem', color: '#dcfce7', fontWeight: 'bold' }}>
                 {resources.domain}
               </span>
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
 
           {/* 💢 Stress 3-Tier Bar */}
           <div 
@@ -467,11 +469,11 @@ export default function CKTopHud({
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(15, 23, 42, 0.6))',
+            background: 'linear-gradient(135deg, rgba(42, 32, 23, 0.9), rgba(24, 18, 13, 0.95))',
             border: '1px solid var(--gold-accent)',
             borderRadius: '6px',
             padding: '5px 12px',
-            boxShadow: '0 0 10px rgba(212, 175, 55, 0.15)'
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(200, 159, 60, 0.2)'
           }}>
             <Calendar size={14} style={{ color: 'var(--gold-accent)' }} />
             <span style={{
@@ -483,12 +485,13 @@ export default function CKTopHud({
               {cleanDate}
             </span>
             <span style={{
-              background: 'var(--gold-accent)',
-              color: '#0f172a',
+              background: 'linear-gradient(180deg, #c89f3c, #967425)',
+              color: '#1a130c',
               fontWeight: 'bold',
               fontSize: '0.75rem',
-              padding: '2px 6px',
-              borderRadius: '4px'
+              padding: '2px 7px',
+              borderRadius: '4px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.5)'
             }}>
               TURN {turn}
             </span>
@@ -629,19 +632,19 @@ export default function CKTopHud({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.6))',
-            border: '1px solid rgba(16, 185, 129, 0.5)',
-            color: '#6ee7b7',
+            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
+            border: '1px solid rgba(200, 159, 60, 0.4)',
+            color: 'var(--gold-hover)',
             padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
             cursor: 'pointer',
             transition: 'all 0.2s',
-            boxShadow: '0 0 10px rgba(16, 185, 129, 0.15)'
+            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
           }}
         >
-          <Users size={15} />
+          <Users size={15} style={{ color: '#a7f3d0' }} />
           <span>{resources.archetype === 'clergy' ? '⛪ 교단 계보도 (Religious Tree)' : resources.archetype === 'company' ? '👥 단원 지휘부 (Company Tree)' : resources.archetype === 'wanderer' ? '🗡️ 동료 계보 (Companions)' : '👑 가문 계보도 (Family Tree)'}</span>
         </button>
 
@@ -652,18 +655,19 @@ export default function CKTopHud({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'rgba(56, 189, 248, 0.12)',
-            border: '1px solid rgba(56, 189, 248, 0.4)',
-            color: '#7dd3fc',
+            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
+            border: '1px solid rgba(200, 159, 60, 0.4)',
+            color: 'var(--gold-hover)',
             padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
           }}
         >
-          <Castle size={15} />
+          <Castle size={15} style={{ color: 'var(--gold-accent)' }} />
           <span>{resources.archetype === 'clergy' ? '⛪ 교구 현황 (Parish Order)' : resources.archetype === 'company' ? '⛺ 부대 본진 (Camp Order)' : resources.archetype === 'wanderer' ? '🏕️ 방랑 거점 (Camp Order)' : '🏰 영지 통치 (Realm Order)'}</span>
         </button>
 
@@ -674,18 +678,19 @@ export default function CKTopHud({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'rgba(245, 158, 11, 0.12)',
-            border: '1px solid rgba(245, 158, 11, 0.4)',
-            color: '#fcd34d',
+            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
+            border: '1px solid rgba(200, 159, 60, 0.4)',
+            color: 'var(--gold-hover)',
             padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
           }}
         >
-          <Castle size={15} />
+          <Castle size={15} style={{ color: '#fbbf24' }} />
           <span>⛺ 거점 시설 및 건설 (Holdings)</span>
         </button>
 
@@ -696,18 +701,19 @@ export default function CKTopHud({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'rgba(244, 63, 94, 0.12)',
-            border: '1px solid rgba(244, 63, 94, 0.4)',
-            color: '#fda4af',
+            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
+            border: '1px solid rgba(200, 159, 60, 0.4)',
+            color: 'var(--gold-hover)',
             padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
           }}
         >
-          <Heart size={15} />
+          <Heart size={15} style={{ color: '#fca5a5' }} />
           <span>{
             resources.archetype === 'clergy' ? '⛪ 교구 인맥 (Relations)' :
             resources.archetype === 'wanderer' ? '🗡️ 방랑 인맥 (Relations)' :
@@ -723,18 +729,19 @@ export default function CKTopHud({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'rgba(168, 85, 247, 0.12)',
-            border: '1px solid rgba(168, 85, 247, 0.4)',
-            color: '#d8b4fe',
+            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
+            border: '1px solid rgba(200, 159, 60, 0.4)',
+            color: 'var(--gold-hover)',
             padding: '7px 16px',
             borderRadius: '6px',
             fontSize: '0.85rem',
             fontWeight: 'bold',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
           }}
         >
-          <Scroll size={15} />
+          <Scroll size={15} style={{ color: '#d8b4fe' }} />
           <span>📜 연대기 & 국면 (Chronicle)</span>
         </button>
       </div>

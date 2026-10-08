@@ -281,7 +281,9 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
     playerGold = extractNumericValue(resources.gold);
   }
   if (gameState.inventory?.wealth) {
-    gameState.inventory.wealth.forEach(w => {
+    const rawW = gameState.inventory.wealth;
+    const wealthList: string[] = Array.isArray(rawW) ? rawW : typeof rawW === 'string' ? [rawW] : [];
+    wealthList.forEach(w => {
       const v = extractNumericValue(w);
       if (v > playerGold) playerGold = v;
     });

@@ -61,14 +61,14 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
     >
       <div 
         style={{
-          background: 'linear-gradient(145deg, rgba(26, 32, 48, 0.98), rgba(15, 20, 32, 0.98))',
+          background: 'linear-gradient(145deg, rgba(26, 20, 15, 0.98), rgba(15, 11, 8, 0.98))',
           width: '94%',
           maxWidth: '880px',
           maxHeight: '88vh',
           overflowY: 'auto',
           borderRadius: '16px',
-          border: '2px solid rgba(212, 175, 55, 0.45)',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(212, 175, 55, 0.2)',
+          border: '2px solid rgba(200, 159, 60, 0.45)',
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(200, 159, 60, 0.15)',
           padding: '28px',
           position: 'relative',
           fontFamily: 'var(--font-sans, "Pretendard", sans-serif)',

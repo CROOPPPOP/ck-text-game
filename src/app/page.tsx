@@ -57,19 +57,19 @@ const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) 
 };
 
 const getChoiceTheme = (groupType?: string) => {
-  if (!groupType) return { bg: 'rgba(255, 215, 0, 0.05)', border: 'var(--gold-accent)', icon: '💬' };
+  if (!groupType) return { bg: 'linear-gradient(135deg, rgba(35, 27, 21, 0.75), rgba(22, 17, 13, 0.85))', border: 'var(--gold-accent)', icon: '💬' };
   
   if (groupType.includes('개인 전투')) {
-    return { bg: 'linear-gradient(45deg, rgba(127, 29, 29, 0.6), rgba(185, 28, 28, 0.6))', border: '#ef4444', icon: '⚔️' };
+    return { bg: 'linear-gradient(135deg, rgba(92, 19, 19, 0.8), rgba(58, 14, 14, 0.9))', border: '#a83232', icon: '⚔️' };
   }
   if (groupType.includes('국가') || groupType.includes('세력')) {
-    return { bg: 'linear-gradient(45deg, rgba(31, 41, 55, 0.8), rgba(55, 65, 81, 0.8))', border: '#9ca3af', icon: '🚩' };
+    return { bg: 'linear-gradient(135deg, rgba(32, 25, 20, 0.85), rgba(20, 16, 12, 0.95))', border: 'var(--gold-dim)', icon: '🚩' };
   }
   if (groupType.includes('돌발') || groupType.includes('위기')) {
-    return { bg: 'linear-gradient(45deg, rgba(180, 83, 9, 0.6), rgba(217, 119, 6, 0.6))', border: '#f59e0b', icon: '⚠️' };
+    return { bg: 'linear-gradient(135deg, rgba(120, 53, 15, 0.75), rgba(77, 34, 10, 0.85))', border: '#d97706', icon: '⚠️' };
   }
   
-  return { bg: 'rgba(255, 215, 0, 0.05)', border: 'var(--gold-accent)', icon: '💬' };
+  return { bg: 'linear-gradient(135deg, rgba(35, 27, 21, 0.75), rgba(22, 17, 13, 0.85))', border: 'var(--gold-accent)', icon: '💬' };
 };
 
 const mergeObject = (prev: any, next: any) => {

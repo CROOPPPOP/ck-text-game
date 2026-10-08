@@ -10,24 +10,29 @@
 }
 .modalOverlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(5, 7, 15, 0.85); backdrop-filter: blur(8px);
+  background: rgba(8, 6, 4, 0.88); backdrop-filter: blur(8px);
   z-index: 1000; display: flex; justify-content: center; align-items: center;
 }
 .modalContent {
   background: var(--panel-bg); width: 92%; max-width: 720px; max-height: 86vh;
-  overflow-y: auto; border-radius: 14px; border: 1px solid var(--panel-border);
-  padding: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.85);
+  overflow-y: auto; border-radius: 14px; border: 1.5px solid var(--panel-border);
+  padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.9), 0 0 25px rgba(200, 159, 60, 0.15);
 }
 .navBar {
   display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
 }
 .navBtn {
-  background: rgba(0,0,0,0.4); border: 1px solid var(--panel-border);
-  color: var(--text-main); padding: 10px 16px; border-radius: 8px;
+  background: linear-gradient(180deg, #382a1c 0%, #201710 100%);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold-hover); padding: 10px 16px; border-radius: 8px;
   cursor: pointer; transition: all 0.2s ease; font-size: 0.95rem; font-weight: bold;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }
 .navBtn:hover {
-  background: rgba(212,175,55,0.15); border-color: var(--gold-accent); color: var(--gold-accent);
+  background: linear-gradient(180deg, #4d3a27 0%, #2b1f15 100%);
+  border-color: var(--gold-accent); color: #fff;
+  box-shadow: 0 4px 12px rgba(200, 159, 60, 0.25);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 1024px) {
@@ -100,12 +105,12 @@
   gap: 12px;
   overflow-y: auto;
   padding-left: 15px;
-  border-left: 1px solid var(--panel-border);
+  border-left: 1px solid var(--panel-border-subtle);
   padding-right: 10px;
 }
 
 .choiceBtn {
-  background: rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, rgba(35, 27, 20, 0.8) 0%, rgba(22, 17, 12, 0.9) 100%);
   border: 1px solid var(--panel-border);
   color: var(--text-main);
   padding: 16px;
@@ -116,18 +121,20 @@
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .choiceBtn:hover {
   border-color: var(--gold-accent);
-  background: rgba(212, 175, 55, 0.1);
+  background: linear-gradient(135deg, rgba(48, 37, 27, 0.9) 0%, rgba(30, 23, 16, 0.95) 100%);
   transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 12px rgba(200, 159, 60, 0.2);
 }
 
 .choiceProbability {
   display: block;
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--gold-dim);
   margin-top: 8px;
 }
 

@@ -200,10 +200,11 @@ export function getPlayerWealthAmount(gameState: ParsedState, currencyName: stri
   if (!gameState) return 0;
 
   const faction = gameState.factionState || {};
+  const toSafeArray = (v: any): string[] => Array.isArray(v) ? v : typeof v === 'string' && v.trim() ? [v.trim()] : [];
   const wealthList: string[] = [
-    ...(gameState.inventory?.wealth || []),
-    ...(gameState.inventory?.['재산및병력'] || []),
-    ...(gameState.inventory?.['소지품'] || []),
+    ...toSafeArray(gameState.inventory?.wealth),
+    ...toSafeArray(gameState.inventory?.['재산및병력']),
+    ...toSafeArray(gameState.inventory?.['소지품']),
     faction['세력 재정'] || '',
     faction['재정'] || '',
     faction['금화'] || '',
