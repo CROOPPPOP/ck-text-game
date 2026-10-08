@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
-import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
+import { checkPromotion, getUpgradeCandidates, mergeEstateBuildings } from '@/lib/estate';
 import { calculateEstatePromotionCost, getPlayerWealthAmount } from '@/lib/estateEconomy';
 import { parsePopulationCount } from '@/lib/populationEconomy';
 import { calculateCKAttributes, detectPlayerArchetype } from '@/lib/ckVisuals';
@@ -491,13 +491,29 @@ export default function Home() {
             };
             const updatedChronicle = [...(prevState.chronicle || []), newHistoryItem].slice(-25);
             
+            // 거점 건물 안전 병합:
+            // 1) 이전 턴(prevState)에 이미 달성된 건물 레벨은 AI가 이번 턴에 Lv 표기를 누락했더라도 절대 다운그레이드(1로 초기화)되지 않도록 보존
+            // 2) 이번 턴에 완공된 건설/업그레이드 큐 항목의 targetLevel 승격을 확정 반영
+            const completedQueueItems = constructionQueue.filter(q => sys.completedIds.includes(q.id));
+            const prevEstateBuildings = prevState.estate?.buildings || [];
+            const newEstateBuildings = data.parsed.estate?.buildings || [];
+            const mergedEstateBuildings = mergeEstateBuildings(prevEstateBuildings, newEstateBuildings, completedQueueItems);
+
+            const mergedEstate = (data.parsed.estate || prevState.estate)
+              ? {
+                  type: data.parsed.estate?.type || prevState.estate?.type || '거점 없음',
+                  level: data.parsed.estate?.level || prevState.estate?.level || '',
+                  buildings: mergedEstateBuildings
+                }
+              : undefined;
+
             return {
             ...prevState,
             ...data.parsed,
             objective: data.parsed.objective || prevState.objective,
             longTermPlan: data.parsed.longTermPlan !== undefined ? data.parsed.longTermPlan : prevState.longTermPlan,
             inventory: data.parsed.inventory || prevState.inventory,
-            estate: data.parsed.estate || prevState.estate,
+            estate: mergedEstate,
             buildOptions: data.parsed.buildOptions ?? prevState.buildOptions,
             constructionRejected: undefined,
             traits: mergedTraits,

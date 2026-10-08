@@ -176,3 +176,110 @@ export function getFactionTier(estateLevel: number, hasAuthority: boolean): 0 | 
   if (estateLevel >= 2 || hasAuthority) return 1;
   return 0;
 }
+
+/**
+ * 건물 목록을 안전하게 병합합니다.
+ * 1) 이전 턴(prevBuildings)에 이미 달성된 레벨은 AI가 이번 턴에 Lv 표기를 누락했더라도 절대 다운그레이드(초기화)되지 않도록 보존합니다.
+ * 2) 이번 턴에 완공된 건설 큐 항목(completedQueueItems)의 목표 레벨(targetLevel)을 확정 반영합니다.
+ * 3) 새로운 설명(desc)이나 효과 태그(tags)는 최신 AI 서사를 우선 반영합니다.
+ */
+export function mergeEstateBuildings(
+  prevBuildings: Building[] = [],
+  newBuildings: Building[] = [],
+  completedQueueItems: Array<{ building: string; targetLevel?: number; tags?: string[]; desc?: string }> = []
+): Building[] {
+  const getCleanKey = (name: string) => 
+    (name || '')
+      .replace(/\s*업그레이드.*$/i, '')
+      .replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '')
+      .replace(/^[\[\{]+|[\]\}]+$/g, '')
+      .replace(/\s+/g, '')
+      .trim();
+
+  const targetLevelMap = new Map<string, { targetLevel: number; tags?: string[]; desc?: string }>();
+  (completedQueueItems || []).forEach(q => {
+    if (!q || !q.building) return;
+    const k = getCleanKey(q.building);
+    if (k && q.targetLevel) {
+      targetLevelMap.set(k, { targetLevel: q.targetLevel, tags: q.tags, desc: q.desc });
+    }
+  });
+
+  const prevMap = new Map<string, Building>();
+  (prevBuildings || []).forEach(b => {
+    if (!b || !b.name) return;
+    const k = getCleanKey(b.name);
+    if (k) {
+      prevMap.set(k, b);
+    }
+  });
+
+  const mergedList: Building[] = [];
+  const visitedKeys = new Set<string>();
+
+  (newBuildings || []).forEach(newB => {
+    if (!newB || !newB.name) return;
+    const k = getCleanKey(newB.name);
+    visitedKeys.add(k);
+
+    const prevB = prevMap.get(k);
+    const queuedTarget = targetLevelMap.get(k);
+
+    let finalLevel = Math.max(1, typeof newB.level === 'number' ? newB.level : 1);
+
+    // 1. 이전 턴에 이미 달성된 레벨이 더 높다면 다운그레이드 방어 (AI Lv 표기 누락 완벽 보호)
+    if (prevB && typeof prevB.level === 'number' && prevB.level > finalLevel) {
+      finalLevel = prevB.level;
+    }
+
+    // 2. 이번 턴에 완공된 큐 항목의 목표 레벨이 있다면 승격 확정 반영
+    if (queuedTarget && queuedTarget.targetLevel > finalLevel) {
+      finalLevel = queuedTarget.targetLevel;
+    }
+
+    // 태그 보존 및 최신화
+    const finalTags = (newB.tags && newB.tags.length > 0)
+      ? newB.tags
+      : (prevB?.tags && prevB.tags.length > 0 ? prevB.tags : (queuedTarget?.tags || ['기타']));
+
+    mergedList.push({
+      name: newB.name,
+      desc: newB.desc || prevB?.desc || queuedTarget?.desc || '',
+      level: finalLevel,
+      tags: finalTags
+    });
+  });
+
+  // 이전 턴에 있었으나 AI 응답 텍스트에서 일시 누락된 기존 건물 복원
+  (prevBuildings || []).forEach(prevB => {
+    if (!prevB || !prevB.name) return;
+    const k = getCleanKey(prevB.name);
+    if (k && !visitedKeys.has(k)) {
+      visitedKeys.add(k);
+      const queuedTarget = targetLevelMap.get(k);
+      const finalLevel = queuedTarget && queuedTarget.targetLevel > prevB.level ? queuedTarget.targetLevel : prevB.level;
+      mergedList.push({
+        ...prevB,
+        level: finalLevel
+      });
+    }
+  });
+
+  // 이번 턴 완공되었으나 AI가 미처 본문에 추가하지 않은 신규 완공 건물 복원
+  (completedQueueItems || []).forEach(q => {
+    if (!q || !q.building) return;
+    const k = getCleanKey(q.building);
+    if (k && !visitedKeys.has(k)) {
+      visitedKeys.add(k);
+      const cleanName = q.building.replace(/\s*업그레이드.*$/i, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim() || q.building;
+      mergedList.push({
+        name: cleanName,
+        desc: q.desc || '완공된 시설',
+        level: q.targetLevel || 1,
+        tags: q.tags && q.tags.length > 0 ? q.tags : ['기타']
+      });
+    }
+  });
+
+  return mergedList;
+}

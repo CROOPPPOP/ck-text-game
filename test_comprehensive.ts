@@ -20,7 +20,8 @@ import {
   getCurrencyForArchetype,
   getPlayerWealthAmount
 } from './src/lib/estateEconomy';
-import { getUpgradeCandidates } from './src/lib/estate';
+import { getUpgradeCandidates, mergeEstateBuildings } from './src/lib/estate';
+import { buildSystemCommands } from './src/lib/construction';
 import {
   parsePopulationCount,
   getEstatePopulationCapacity,
@@ -905,6 +906,87 @@ const parsedExplicit = parsePersonalRelation(explicitStageRel, 'clergy');
 assert(parsedExplicit.trustStage === '신뢰', "Explicit stage parses '신뢰'");
 assert(parsedExplicit.affLabel === '애정도', "Explicit stage has '애정도'");
 assert(parsedExplicit.affStage === '사랑', "Explicit stage parses '사랑'");
+
+// ==========================================
+// TEST 17: Building Level Upgrade Persistence & Rollback Prevention
+// ==========================================
+console.log("\n--- 17. Testing Building Level Upgrade Persistence & Rollback Prevention ---");
+
+// 17.1 parser.ts extracts level 2 when Lv.2 is in header
+const sampleLlmTextLv2 = `【 영지 및 야영지 상태 】
+[거점 형태]: 교구 본당
+[거점 규모]: Lv.2 교구 본당
+▶ [장원 올리브 압착장 Lv.2] [생산·민생]: 신형 나선식 압착기 가동, 올리브유 생산량 2배 증대 및 상단 납품 수익 급증
+▶ [본당 예배당 Lv.1] [신앙]: 미사 집전`;
+const parsedSampleLv2 = parseLLMResponse(sampleLlmTextLv2);
+const oliveLv2 = parsedSampleLv2.estate?.buildings.find(b => b.name === '장원 올리브 압착장');
+assert(oliveLv2 !== undefined, "Olive press found in parsed buildings");
+assert(oliveLv2?.level === 2, "Olive press parsed as Lv.2 when Lv.2 is in header (found: " + oliveLv2?.level + ")");
+assert(oliveLv2?.name === '장원 올리브 압착장', "Clean name does not have Lv.2 in it");
+
+// 17.2 parser.ts extracts level 2 even when Lv.2 is at start of desc: "(Lv.2) 신형 나선식..."
+const sampleLlmTextDescLv2 = `【 영지 및 야영지 상태 】
+[거점 형태]: 교구 본당
+[거점 규모]: Lv.2 교구 본당
+▶ [장원 올리브 압착장] [생산·민생]: (Lv.2) 신형 나선식 압착기 가동, 올리브유 생산량 2배 증대
+▶ [본당 예배당] [신앙]: 미사 집전`;
+const parsedSampleDescLv2 = parseLLMResponse(sampleLlmTextDescLv2);
+const oliveDescLv2 = parsedSampleDescLv2.estate?.buildings.find(b => b.name === '장원 올리브 압착장');
+assert(oliveDescLv2?.level === 2, "Olive press parsed as Lv.2 when (Lv.2) is at start of desc (found: " + oliveDescLv2?.level + ")");
+
+// 17.3 CRITICAL: mergeEstateBuildings prevents rollback when AI omits Lv.2 entirely
+const sampleLlmNoLv = `【 영지 및 야영지 상태 】
+[거점 형태]: 교구 본당
+[거점 규모]: Lv.2 교구 본당
+▶ [장원 올리브 압착장] [생산·민생]: 신형 나선식 압착기 가동, 올리브유 생산량 2배 증대 및 상단 납품 수익 급증
+▶ [본당 예배당] [신앙]: 미사 집전`;
+const parsedNoLv = parseLLMResponse(sampleLlmNoLv);
+const parsedBuildingNoLv = parsedNoLv.estate?.buildings.find(b => b.name === '장원 올리브 압착장');
+assert(parsedBuildingNoLv?.level === 1, "Raw parser defaults to 1 when AI omits Lv");
+
+const prevBuildingsLv2 = [
+  { name: '장원 올리브 압착장', desc: '이전 설명', level: 2, tags: ['생산', '민생'] },
+  { name: '본당 예배당', desc: '예배당', level: 1, tags: ['신앙'] }
+];
+const protectedMerged = mergeEstateBuildings(prevBuildingsLv2, parsedNoLv.estate?.buildings || [], []);
+const protectedOlive = protectedMerged.find(b => b.name === '장원 올리브 압착장');
+assert(protectedOlive?.level === 2, "mergeEstateBuildings protects already achieved Lv.2 from resetting to 1 (found: " + protectedOlive?.level + ")");
+assert(Boolean(protectedOlive?.desc?.includes('신형 나선식 압착기')), "Updated description is preserved in merged building");
+
+// 17.4 CRITICAL: mergeEstateBuildings applies targetLevel when queue item completes
+const prevBuildingsLv1 = [
+  { name: '장원 올리브 압착장', desc: '기존 Lv.1 설명', level: 1, tags: ['생산', '민생'] }
+];
+const completedQueue = [
+  { building: '장원 올리브 압착장 업그레이드 (Lv.1→2)', targetLevel: 2, tags: ['생산', '민생'] }
+];
+const queueMerged = mergeEstateBuildings(prevBuildingsLv1, parsedNoLv.estate?.buildings || [], completedQueue);
+const queueOlive = queueMerged.find(b => b.name === '장원 올리브 압착장');
+assert(queueOlive?.level === 2, "mergeEstateBuildings immediately upgrades building to targetLevel 2 upon completion");
+
+// 17.5 getUpgradeCandidates does NOT offer Lv.1->2 for Lv.2 building in Lv.2 holding
+const candidatesAfterUpgrade = getUpgradeCandidates(2, queueMerged, 'clergy', 10);
+const oliveCandidate = candidatesAfterUpgrade.find(c => c.buildingName.includes('올리브 압착장'));
+assert(oliveCandidate === undefined, "Olive press Lv.2 has NO Lv.1->2 upgrade candidate (maxBuildingLevel is 2 in Lv.2 estate)");
+
+// 17.6 buildSystemCommands specifies Lv.2 in completion command
+const queueItemToComplete = [
+  {
+    id: 'test-q-1',
+    building: '장원 올리브 압착장 업그레이드 (Lv.1→2)',
+    cost: '은화 25닢',
+    desc: '기능 강화',
+    startTurn: 1,
+    completeTurn: 2,
+    commandSent: true,
+    kind: 'upgrade' as const,
+    targetLevel: 2,
+    tags: ['생산', '민생']
+  }
+];
+const sysCmds = buildSystemCommands(queueItemToComplete, 1);
+assert(sysCmds.completedIds.includes('test-q-1'), "test-q-1 is in completedIds");
+assert(sysCmds.text.includes('장원 올리브 압착장 Lv.2'), "System command explicitly instructs AI to output Lv.2 (found: " + sysCmds.text + ")");
 
 // ==========================================
 // Summary

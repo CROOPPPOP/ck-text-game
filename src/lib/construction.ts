@@ -147,8 +147,10 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
           `소지품/자원에서 비용을 정확히 차감하세요. 완공 명령이 오기 전까지는 【 영지 및 야영지 상태 】의 [거점 규모]를 변경하지 마세요.`
         );
       } else if (q.kind === 'upgrade') {
+        const cleanName = q.building.replace(/\s*업그레이드.*$/i, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim() || q.building;
+        const targetLv = q.targetLevel || 2;
         lines.push(
-          `[시스템 명령] 건물 업그레이드 착수: ${q.building} (비용: ${costText}, ${turns}턴 소요). ` +
+          `[시스템 명령] 건물 업그레이드 착수: ${cleanName} (목표: Lv.${targetLv}, 비용: ${costText}, ${turns}턴 소요). ` +
           `소지품/자원에서 비용을 정확히 차감하세요. 완공 명령이 오기 전까지는 【 영지 및 야영지 상태 】 건물 레벨을 올리지 마세요.`
         );
       } else {
@@ -170,16 +172,22 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
           `【 영지 및 야영지 상태 】의 [거점 규모]를 갱신하고, 상황 서술에 거점이 크게 발전하고 승격하는 장면을 서술하세요.`
         );
       } else if (q.kind === 'upgrade') {
-        const tagHint = q.tags && q.tags.length > 0 ? ` (효과 태그: ${q.tags.join('·')})` : '';
+        const cleanName = q.building.replace(/\s*업그레이드.*$/i, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim() || q.building;
+        const targetLv = q.targetLevel || 2;
+        const tagHint = q.tags && q.tags.length > 0 ? ` [${q.tags.join('·')}]` : '';
         lines.push(
-          `[시스템 명령] 건물 업그레이드 완공: ${q.building}${tagHint}. ` +
-          `【 영지 및 야영지 상태 】 건물 레벨을 갱신하고, 해당 효과 태그에 맞춰 【 세력 상태 】 수치에 소폭 긍정적 변화를 반영하며 완공 장면을 서술하세요.`
+          `[시스템 명령] 건물 업그레이드 완공: ${cleanName} Lv.${targetLv}${tagHint}. ` +
+          `【 영지 및 야영지 상태 】 목록에 반드시 "▶ [${cleanName} Lv.${targetLv}]${tagHint}: (강화된 2배 이상의 상세 효과 및 수익 묘사)" 형식으로 헤더에 'Lv.${targetLv}'를 명시하여 갱신하고, ` +
+          `해당 효과 태그에 맞춰 【 세력 상태 】 수치에 소폭 긍정적 변화를 반영하며 완공 장면을 서술하세요.`
         );
       } else {
-        const tagHint = q.tags && q.tags.length > 0 ? ` (효과 태그: ${q.tags.join('·')})` : '';
+        const cleanName = q.building.replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim() || q.building;
+        const targetLv = q.targetLevel || 1;
+        const tagHint = q.tags && q.tags.length > 0 ? ` [${q.tags.join('·')}]` : '';
         lines.push(
-          `[시스템 명령] 건설 완공: ${q.building}${tagHint}. ` +
-          `【 영지 및 야영지 상태 】 건물 목록에 추가(이미 있으면 레벨 갱신)하고, 해당 효과 태그를 세력 수치에 반영하며 이번 상황 서술에 완공 장면을 자연스럽게 섞으세요.`
+          `[시스템 명령] 건설 완공: ${cleanName} Lv.${targetLv}${tagHint}. ` +
+          `【 영지 및 야영지 상태 】 건물 목록에 "▶ [${cleanName} Lv.${targetLv}]${tagHint}: (상세 기능 및 효과)" 형식으로 추가(이미 있으면 레벨 갱신)하고, ` +
+          `해당 효과 태그를 세력 수치에 반영하며 이번 상황 서술에 완공 장면을 자연스럽게 섞으세요.`
         );
       }
       completedIds.push(q.id);

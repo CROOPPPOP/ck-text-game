@@ -391,8 +391,10 @@ export function parseLLMResponse(text: string): ParsedState {
                nameWithLv = outside || (bracketMatches[0] && !VALID_TAG_KEYWORD.test(bracketMatches[0]) ? bracketMatches[0] : '거점 시설');
              }
 
-             // 레벨 추출
-             const lvMatch = nameWithLv.match(/(?:Lv\.?|레벨)\s*(\d+)/i) || headerPart.match(/(?:Lv\.?|레벨)\s*(\d+)/i);
+             // 레벨 추출: 시설명, 헤더 전체, 또는 설명문 앞부분의 Lv/레벨 표기까지 광범위 감지
+             const lvMatch = nameWithLv.match(/(?:Lv\.?|레벨)\s*(\d+)/i) || 
+                             headerPart.match(/(?:Lv\.?|레벨)\s*(\d+)/i) ||
+                             desc.match(/^(?:[\(\[\{]?(?:Lv\.?|레벨)\s*(\d+)[\)\]\}]?)/i);
              const level = lvMatch ? parseInt(lvMatch[1], 10) : 1;
 
              // 시설 이름 정제: 괄호 및 레벨 표기 제거
