@@ -334,7 +334,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
 
                         {c.isRomance && (
                           <span style={{ fontSize: '0.72rem', color: '#fda4af', background: 'rgba(244, 63, 94, 0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #f43f5e', whiteSpace: 'nowrap' }}>
-                            연인 / 정
+                            {c.descStr.includes('연인') || c.affVal >= 80 ? '💖 연인 / 정인' : '💗 로맨스 / 연정'}
                           </span>
                         )}
                         {(c.descStr.includes('밀회') || c.descStr.includes('은밀한 연인') || c.descStr.includes('내통') || c.descStr.includes('사생아') || c.descStr.includes('혈통')) && (
