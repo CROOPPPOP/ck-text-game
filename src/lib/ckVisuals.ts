@@ -695,6 +695,23 @@ export interface RelationTierInfo {
   border: string;
 }
 
+// 이름 및 직책 문자열 정제 (예: "[베르나르도 (성 미카엘 수호대장)]" -> { name: "베르나르도", role: "성 미카엘 수호대장" })
+export function parseNameAndRole(rawName: string): { name: string; role: string } {
+  if (!rawName) return { name: '', role: '' };
+  const cleanRaw = rawName.replace(/^\[|\]$/g, '').trim();
+  const roleMatch = cleanRaw.match(/^(.*?)\s*\((.*?)\)$/);
+  if (roleMatch) {
+    return {
+      name: roleMatch[1].trim(),
+      role: roleMatch[2].trim()
+    };
+  }
+  return {
+    name: cleanRaw,
+    role: ''
+  };
+}
+
 // 5대 관계 위계(Tier) 판별 함수 (명시적 태그 최우선 + 기관명/상인 오인식 방지)
 export function determineRelationTier(
   rawName: string,
@@ -703,6 +720,16 @@ export function determineRelationTier(
   role: string = '',
   subordinateName: string = '직속 가신 / 보좌'
 ): RelationTierInfo {
+  // 직속 부하의 구체적 역할(무관/호위대 vs 사제/복사/수사)에 맞춘 맞춤형 라벨 동적 보정
+  const getSubordinateDynamicLabel = (): string => {
+    const combinedRole = `${role} ${rawName} ${descStr}`;
+    const isMilitaryGuard = ['수호대', '경비대', '호위', '기사', '무관', '용병', '사병', '지휘관', '부대장'].some(k => combinedRole.includes(k));
+    if (isMilitaryGuard) {
+      return '🛡️ 직속 호위대 / 무관';
+    }
+    return subordinateName;
+  };
+
   // 1단계: AI가 명시적으로 출력한 5대 표준 위계 태그 최우선 판별
   if (descStr.includes('[적대]') || affStr.includes('숙적') || affStr.includes('라이벌')) {
     return { id: 'rival', label: '⚔️ 숙적 / 적대', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' };
@@ -714,7 +741,7 @@ export function determineRelationTier(
     return { id: 'patron', label: '📜 후원자 / 신도', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: '#0284c7' };
   }
   if (descStr.includes('[직속부하]') || descStr.includes('[가신]')) {
-    return { id: 'subordinate', label: subordinateName, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
+    return { id: 'subordinate', label: getSubordinateDynamicLabel(), color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
   }
   if (descStr.includes('[동료]')) {
     return { id: 'peer', label: '🤝 대등한 동료', color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)', border: '#10b981' };
@@ -750,7 +777,7 @@ export function determineRelationTier(
 
   // 2-5. 직속 부하 / 가신 / 복사 / 시종
   if (combined.includes('직속부하') || combined.includes('가신') || combined.includes('부관') || combined.includes('시종') || combined.includes('복사') || combined.includes('수련수사') || combined.includes('도제') || combined.includes('사병')) {
-    return { id: 'subordinate', label: subordinateName, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
+    return { id: 'subordinate', label: getSubordinateDynamicLabel(), color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
   }
 
   // 기본값: 대등한 동료
@@ -855,9 +882,7 @@ export function calculateTurnIncome(gameState: ParsedState): CKIncomeBreakdown {
     const parts = rel.split('|').map(p => p.trim());
     if (parts.length >= 4) {
       const rawName = parts[0];
-      const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
-      const name = roleMatch ? roleMatch[1].trim() : rawName;
-      const role = roleMatch ? roleMatch[2].trim() : '';
+      const { name, role } = parseNameAndRole(rawName);
       const trustStr = parts[1];
       const affStr = parts[2];
       const descStr = parts.slice(3).join(' ').replace('관계:', '').trim();

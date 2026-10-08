@@ -9,7 +9,7 @@ import {
   groupTraitsBySession, 
   TraitCategoryKey 
 } from '@/lib/traitUtils';
-import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins } from 'lucide-react';
+import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins, ChevronDown, ChevronUp } from 'lucide-react';
 import { checkStatusPromotion, PromotionTarget } from '@/lib/statusPromotion';
 
 interface Props {
@@ -22,6 +22,7 @@ interface Props {
 export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitionPromotion }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<'all' | TraitCategoryKey>('all');
   const [showEmptySessions, setShowEmptySessions] = useState(true);
+  const [showDetailedStats, setShowDetailedStats] = useState(false);
 
   if (!isOpen) return null;
 
@@ -629,6 +630,172 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
               <span>👑 위신 획득: <strong style={{ color: '#c084fc' }}>+{attributes.synergies.prestigeModifier}%</strong></span>
               <span>🕊️ 신앙 획득: <strong style={{ color: '#34d399' }}>+{attributes.synergies.pietyModifier}%</strong></span>
             </div>
+          </div>
+
+          {/* 세부 선천 및 후천 능력치 아코디언 패널 (13선천 / 19후천 능력치 및 성장치 상세) */}
+          <div style={{ marginTop: '12px' }}>
+            <button
+              onClick={() => setShowDetailedStats(prev => !prev)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 14px',
+                background: showDetailedStats ? 'rgba(212, 175, 55, 0.16)' : 'rgba(0, 0, 0, 0.35)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                borderRadius: showDetailedStats ? '8px 8px 0 0' : '8px',
+                color: 'var(--gold-hover)',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: 'bold',
+                transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award size={15} />
+                <span>세부 개인 능력치 및 스탯 성장 내역 (선천 13개 · 후천 숙련)</span>
+                {Object.values(gameState.stats?.innate || {}).concat(Object.values(gameState.stats?.acquired || {})).some(v => String(v).includes('(')) && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    background: 'rgba(74, 222, 128, 0.25)',
+                    color: '#86efac',
+                    border: '1px solid #22c55e',
+                    padding: '1px 6px',
+                    borderRadius: '4px'
+                  }}>
+                    ✨ 스탯 성장 반영됨
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                <span>{showDetailedStats ? '접기' : '상세 펼치기'}</span>
+                {showDetailedStats ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              </div>
+            </button>
+
+            {showDetailedStats && (
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.45)',
+                border: '1px solid rgba(212, 175, 55, 0.25)',
+                borderTop: 'none',
+                borderRadius: '0 0 8px 8px',
+                padding: '14px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+              }}>
+                {/* 선천 능력치 */}
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#93c5fd', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🧬 선천 능력치 (Innate Attributes - 13개)</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                    {['근력', '체력', '지구력', '민첩성', '반사 신경', '속도', '신체 조정력', '지각력', '지능', '기억력', '학습 능력', '의지력', '집중력'].map(statName => {
+                      const rawVal = String(gameState.stats?.innate?.[statName] || '50').trim();
+                      const bonusMatch = rawVal.match(/(\d+)\s*\(([+-]?\d+)\)/);
+                      const base = bonusMatch ? parseInt(bonusMatch[1], 10) : parseInt(rawVal.match(/\d+/)?.[0] || '50', 10);
+                      const bonus = bonusMatch ? parseInt(bonusMatch[2], 10) : 0;
+                      const effective = Math.max(1, base + bonus);
+
+                      return (
+                        <div key={statName} style={{
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: bonus > 0 ? '1px solid rgba(74, 222, 128, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
+                          borderRadius: '6px',
+                          padding: '6px 10px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{statName}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontSize: '0.86rem', fontWeight: 'bold', color: bonus > 0 ? '#4ade80' : 'var(--text-main)' }}>
+                                {effective}
+                              </span>
+                              {bonus !== 0 && (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 'bold',
+                                  color: bonus > 0 ? '#4ade80' : '#f87171',
+                                  background: bonus > 0 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                  padding: '1px 4px',
+                                  borderRadius: '3px'
+                                }}>
+                                  {bonus > 0 ? `+${bonus}` : `${bonus}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.min(100, effective)}%`, height: '100%', background: bonus > 0 ? '#4ade80' : '#38bdf8' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 후천 능력치 */}
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#fde047', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⚔️ 후천 능력치 및 전문 숙련 (Acquired Abilities)</span>
+                  </div>
+                  {Object.keys(gameState.stats?.acquired || {}).length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                      {Object.entries(gameState.stats?.acquired || {}).map(([statName, rawVal]) => {
+                        const rawStr = String(rawVal).trim();
+                        const bonusMatch = rawStr.match(/(\d+)\s*\(([+-]?\d+)\)/);
+                        const base = bonusMatch ? parseInt(bonusMatch[1], 10) : parseInt(rawStr.match(/\d+/)?.[0] || '50', 10);
+                        const bonus = bonusMatch ? parseInt(bonusMatch[2], 10) : 0;
+                        const effective = Math.max(1, base + bonus);
+
+                        return (
+                          <div key={statName} style={{
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: bonus > 0 ? '1px solid rgba(74, 222, 128, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{statName}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '0.86rem', fontWeight: 'bold', color: bonus > 0 ? '#4ade80' : 'var(--text-main)' }}>
+                                  {effective}
+                                </span>
+                                {bonus !== 0 && (
+                                  <span style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 'bold',
+                                    color: bonus > 0 ? '#4ade80' : '#f87171',
+                                    background: bonus > 0 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    padding: '1px 4px',
+                                    borderRadius: '3px'
+                                  }}>
+                                    {bonus > 0 ? `+${bonus}` : `${bonus}`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(100, effective)}%`, height: '100%', background: bonus > 0 ? '#4ade80' : '#fbbf24' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      아직 활성화된 후천 능력치가 없습니다.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

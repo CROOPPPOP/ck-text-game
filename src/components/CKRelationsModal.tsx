@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { getArchetypeDetails, determineRelationTier } from '@/lib/ckVisuals';
+import { getArchetypeDetails, determineRelationTier, parseNameAndRole } from '@/lib/ckVisuals';
 import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck } from 'lucide-react';
 
 interface Props {
@@ -70,9 +70,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
     const parts = rel.split('|').map(p => p.trim());
     if (parts.length >= 4) {
       const rawName = parts[0];
-      const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
-      const name = roleMatch ? roleMatch[1].trim() : rawName;
-      const role = roleMatch ? roleMatch[2].trim() : '';
+      const { name, role } = parseNameAndRole(rawName);
 
       const trustStr = parts[1];
       const affStr = parts[2];

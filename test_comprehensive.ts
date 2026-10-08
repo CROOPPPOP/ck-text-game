@@ -1,7 +1,7 @@
 // Comprehensive integration & output stability test suite
 import { parseLLMResponse } from './src/lib/parser';
 import { checkStatusPromotion, STATUS_LADDER } from './src/lib/statusPromotion';
-import { getMaxHoldingCapacity, getDomainLimitBreakdown, determineRelationTier, calculateTurnIncome } from './src/lib/ckVisuals';
+import { getMaxHoldingCapacity, getDomainLimitBreakdown, determineRelationTier, calculateTurnIncome, parseNameAndRole, extractNumericValue } from './src/lib/ckVisuals';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -515,6 +515,47 @@ const overIncome = calculateTurnIncome(overEstateGameState);
 const overPenalty = overIncome.expenseItems.find(i => i.id === 'overcapacity_penalty');
 assert(overPenalty !== undefined, "Overcapacity holding triggers overcrowding expense penalty");
 assert(overPenalty !== undefined && overPenalty.amount > 0, `Overcrowding penalty amount is positive (found: ${overPenalty?.amount})`);
+
+// ==========================================
+// TEST 11: Bernardo Classification & Military Subordinate Regression
+// ==========================================
+console.log("\n--- 11. Testing Bernardo Classification & Subordinate Military Distinction ---");
+const bernardoRaw = "[베르나르도 (성 미카엘 수호대장)]";
+const bernardoDesc = "[직속부하] 하사된 은화와 부대 20명 확충에 자부심을 품고 성당과 장원의 방위를 철통같이 수행함.";
+const parsedBernardo = parseNameAndRole(bernardoRaw);
+assert(parsedBernardo.name === '베르나르도', `Bernardo name is cleanly '베르나르도' without brackets (found: '${parsedBernardo.name}')`);
+assert(parsedBernardo.role === '성 미카엘 수호대장', `Bernardo role is '성 미카엘 수호대장' (found: '${parsedBernardo.role}')`);
+
+const bernardoTier = determineRelationTier(bernardoRaw, bernardoDesc, '우정도 38', parsedBernardo.role, '🛡️ 직속 보좌 / 복사 / 수사');
+assert(bernardoTier.id === 'subordinate', "Bernardo is classified as 'subordinate'");
+assert(bernardoTier.label === '🛡️ 직속 호위대 / 무관', `Bernardo military role gives '🛡️ 직속 호위대 / 무관' label (found: '${bernardoTier.label}')`);
+assert(!bernardoTier.label.includes('수사'), "Bernardo label DOES NOT include '수사' (monk)");
+
+// ==========================================
+// TEST 12: Stat Growth and Trait 5-Tier Verification
+// ==========================================
+console.log("\n--- 12. Testing Stat Growth and Trait 5-Tier System ---");
+assert(extractNumericValue("81(+1)") === 82, "extractNumericValue correctly adds bonus: 81(+1) -> 82");
+assert(extractNumericValue("60(+3)") === 63, "extractNumericValue correctly adds bonus: 60(+3) -> 63");
+assert(extractNumericValue("50(-2)") === 48, "extractNumericValue handles penalty: 50(-2) -> 48");
+
+const sampleLLMOutputWithGrowth = `
+【 개인 능력치 】
+[선천 능력치]
+근력: 81(+1) | 체력: 75 | 지능: 80
+[후천 능력치]
+통솔력: 65(+2) | 학문: 70
+
+【 특성 및 기술 】
+[전문특성] 검술 (반복 성향) : 검술 훈련을 거듭하고 있습니다.
+[신체특성] 강철 체력 (강한 특성) : 웬만한 부상에는 굴복하지 않습니다.
+`;
+const parsedGrowth = parseLLMResponse(sampleLLMOutputWithGrowth);
+assert(parsedGrowth.stats?.innate?.['근력'] === '81(+1)', "Innate stat preserves '81(+1)'");
+assert(parsedGrowth.stats?.acquired?.['통솔력'] === '65(+2)', "Acquired stat preserves '65(+2)'");
+assert(parsedGrowth.traits?.length === 2, "Parsed 2 traits with tiers");
+assert(parsedGrowth.traits?.[0].tier === '반복 성향', "Trait 1 tier parsed as '반복 성향'");
+assert(parsedGrowth.traits?.[1].tier === '강한 특성', "Trait 2 tier parsed as '강한 특성'");
 
 // ==========================================
 // Summary

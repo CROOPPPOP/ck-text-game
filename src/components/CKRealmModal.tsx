@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import RealmDashboard from './RealmDashboard';
 import { ParsedState } from '@/lib/parser';
-import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome } from '@/lib/ckVisuals';
+import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome, parseNameAndRole } from '@/lib/ckVisuals';
 import { QueueItem, BuildOption, turnsLeft, sameBuildingName } from '@/lib/construction';
 import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle, Coins, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -83,9 +83,12 @@ export default function CKRealmModal({
   }).map(rel => {
     const parts = rel.split('|').map(p => p.trim());
     const rawName = parts[0] || '';
-    const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
-    const name = roleMatch ? roleMatch[1].trim() : rawName;
-    const role = roleMatch ? roleMatch[2].trim() : (archetype === 'clergy' ? '보좌 수사' : archetype === 'company' ? '부대 간부' : archetype === 'wanderer' ? '동행 조력자' : '직속 가신');
+    const { name, role: parsedRole } = parseNameAndRole(rawName);
+    const descStr = parts.slice(3).join(' ') || '';
+    const fallbackRole = (descStr.includes('수호') || descStr.includes('경비') || descStr.includes('호위') || descStr.includes('무관') || descStr.includes('기사'))
+      ? '직속 호위대장'
+      : (archetype === 'clergy' ? '보좌 수사' : archetype === 'company' ? '부대 간부' : archetype === 'wanderer' ? '동행 조력자' : '직속 가신');
+    const role = parsedRole || fallbackRole;
     return { name, role };
   });
 
@@ -332,7 +335,7 @@ export default function CKRealmModal({
                         gap: '5px'
                       }}>
                         <span style={{ color: 'var(--gold-accent)' }}>
-                          {archetype === 'clergy' ? '🕊️' : archetype === 'company' ? '🛡️' : archetype === 'wanderer' ? '🗡️' : '👑'}
+                          {(v.role.includes('수호') || v.role.includes('경비') || v.role.includes('기사') || v.role.includes('호위') || v.role.includes('무관') || v.role.includes('군사')) ? '🛡️' : (archetype === 'clergy' ? '🕊️' : archetype === 'company' ? '🛡️' : archetype === 'wanderer' ? '🗡️' : '👑')}
                         </span>
                         <strong>{v.name}</strong>
                         <span style={{ color: '#7dd3fc', fontSize: '0.72rem' }}>({v.role})</span>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
-import { calculateCKAttributes } from '@/lib/ckVisuals';
+import { calculateCKAttributes, parseNameAndRole } from '@/lib/ckVisuals';
 import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
 import CKTopHud from '@/components/CKTopHud';
@@ -428,10 +428,37 @@ export default function Home() {
                (t: any) => t.name
             );
 
+            // 스탯(선천/후천) 성장 및 보너스 감지 (+1, +2 등)
+            const statIncreases: string[] = [];
+            const checkStatGrowth = (cat: 'innate' | 'acquired') => {
+              const oldCat = prevState.stats?.[cat] || {};
+              const newCat = data.parsed.stats?.[cat] || {};
+              for (const [sKey, sVal] of Object.entries(newCat)) {
+                const sValStr = String(sVal);
+                const bonusMatch = sValStr.match(/([+-]?\d+)\s*\(([+-]?\d+)\)/);
+                if (bonusMatch) {
+                  const bonus = parseInt(bonusMatch[2], 10);
+                  if (bonus > 0) {
+                    statIncreases.push(`${sKey} +${bonus}`);
+                  }
+                } else {
+                  const oldNum = parseInt(String(oldCat[sKey] || '0').match(/\d+/)?.[0] || '0', 10);
+                  const newNum = parseInt(sValStr.match(/\d+/)?.[0] || '0', 10);
+                  if (oldNum > 0 && newNum > oldNum) {
+                    statIncreases.push(`${sKey} +${newNum - oldNum}`);
+                  }
+                }
+              }
+            };
+            checkStatGrowth('innate');
+            checkStatGrowth('acquired');
+
             if (newlyAcquiredTraits.length > 0) {
               showQuickNotice(`✨ 새로운 특성 획득: [${newlyAcquiredTraits.join(', ')}]`);
             } else if (upgradedTraits.length > 0) {
               showQuickNotice(`🌟 특성 성장: [${upgradedTraits.join(', ')}]`);
+            } else if (statIncreases.length > 0) {
+              showQuickNotice(`💪 능력치 성장: [${statIncreases.join(', ')}]`);
             }
 
             const mergedPersonalRels = mergeArrayByKey(
@@ -573,9 +600,8 @@ export default function Home() {
   }).map(rel => {
     const parts = rel.split('|').map(p => p.trim());
     const rawName = parts[0] || '';
-    const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
-    const name = roleMatch ? roleMatch[1].trim() : rawName;
-    const role = roleMatch ? roleMatch[2].trim() : (parts.slice(3).join(' ').includes('가신') ? '가신' : '자문관');
+    const { name, role: parsedRole } = parseNameAndRole(rawName);
+    const role = parsedRole || (parts.slice(3).join(' ').includes('가신') ? '가신' : '자문관');
     return { name, role, raw: rel };
   });
 
