@@ -20,7 +20,8 @@ import {
   getCurrencyForArchetype,
   getPlayerWealthAmount
 } from './src/lib/estateEconomy';
-import { getUpgradeCandidates, mergeEstateBuildings } from './src/lib/estate';
+import { getUpgradeCandidates, mergeEstateBuildings, sanitizeEstateState } from './src/lib/estate';
+import { autoMigrateAndSanitizeStorage } from './src/lib/saveManager';
 import { buildSystemCommands } from './src/lib/construction';
 import {
   parsePopulationCount,
@@ -987,6 +988,157 @@ const queueItemToComplete = [
 const sysCmds = buildSystemCommands(queueItemToComplete, 1);
 assert(sysCmds.completedIds.includes('test-q-1'), "test-q-1 is in completedIds");
 assert(sysCmds.text.includes('장원 올리브 압착장 Lv.2'), "System command explicitly instructs AI to output Lv.2 (found: " + sysCmds.text + ")");
+
+// ==========================================
+// TEST 18: Character Profile Modal Ruler Office Extraction
+// ==========================================
+console.log("\n--- 18. Testing Character Profile Modal Ruler Office Extraction ---");
+const stateWithJikwi = {
+  personalInfo: {
+    이름: '루카',
+    신분: '사제',
+    직위: '주임 사제',
+    종교: '가톨릭',
+    문화: '북이탈리아'
+  }
+};
+const office1 = stateWithJikwi.personalInfo['직위'] || stateWithJikwi.personalInfo['신분'];
+assert(office1 === '주임 사제', "rulerOffice correctly resolves '직위' as '주임 사제'");
+
+const stateWithJikchaek = {
+  personalInfo: {
+    이름: '베르나르도',
+    신분: '사제',
+    직책: '우르비노 교구 사제',
+    종교: '가톨릭',
+    문화: '북이탈리아'
+  }
+};
+const office2 = (stateWithJikchaek.personalInfo as any)['직위'] || (stateWithJikchaek.personalInfo as any)['직책'] || stateWithJikchaek.personalInfo['신분'];
+assert(office2 === '우르비노 교구 사제', "rulerOffice correctly resolves '직책' as '우르비노 교구 사제'");
+
+const stateFallback = {
+  personalInfo: {
+    이름: '안토니오',
+    신분: '수도원장',
+    종교: '가톨릭',
+    문화: '북이탈리아'
+  }
+};
+const office3 = (stateFallback.personalInfo as any)['직위'] || (stateFallback.personalInfo as any)['직책'] || stateFallback.personalInfo['신분'];
+assert(office3 === '수도원장', "rulerOffice safely falls back to '신분' when specific office is omitted");
+
+// ==========================================
+// TEST 19: Vercel Local Save File Olive Press Lv.2 Self-Healing & Duplicate Removal
+// ==========================================
+console.log("\n--- 19. Testing Vercel Local Save File Olive Press Lv.2 Recovery & Duplicate Removal ---");
+
+// 19.1 Simulate corrupted legacy save file from Vercel local storage
+const legacyCorruptedSave = {
+  dateLocation: "1066년 10월 | 우르비노 교구 [턴 수: 12]",
+  personalInfo: {
+    이름: "루카",
+    직위: "주임 사제",
+    신분: "사제",
+    종교: "가톨릭"
+  },
+  estate: {
+    name: "성 마르코 수도원 장원",
+    level: 2,
+    buildings: [
+      {
+        name: "장원 올리브 압착장",
+        level: 1, // Corrupted / reset by AI text omission
+        desc: "신형 나선식 압착기 가동, 올리브유 생산량 2배 증대 및 상단 납품 수익 급증",
+        tags: ["수익", "산업", "생산"]
+      },
+      {
+        name: "지하 성당 기도실",
+        level: 2,
+        desc: "정결한 석조 기도 공간",
+        tags: ["신앙", "치안"]
+      }
+    ]
+  },
+  buildOptions: [
+    "장원 올리브 압착장 업그레이드 (Lv.1→2)", // Duplicate upgrade candidate that shouldn't exist!
+    "교구 양초 공방 증축 (Lv.1→2)"
+  ],
+  _constructionQueue: [
+    {
+      id: "dup-queue-1",
+      building: "장원 올리브 압착장 업그레이드 (Lv.1→2)",
+      targetLevel: 2
+    }
+  ]
+};
+
+// 19.2 Run Self-Healing Sanitize Engine
+const healedState = sanitizeEstateState(legacyCorruptedSave);
+const healedOlive = healedState.estate?.buildings?.find(b => b.name === '장원 올리브 압착장');
+
+assert(healedOlive !== undefined, "Olive press exists in healed state");
+assert(healedOlive?.level === 2, "Olive press is restored to Lv.2 from Lv.1 (found: " + healedOlive?.level + ")");
+assert(healedOlive?.name === '장원 올리브 압착장', "Olive press preserves canonical name");
+assert(Boolean(healedOlive?.desc?.includes('신형 나선식 압착기')), "Olive press preserves upgraded narrative description");
+
+// 19.3 Verify duplicate upgrade candidate removal from buildOptions
+assert(healedState.buildOptions.length === 1, "buildOptions count reduced by removing duplicate olive press upgrade (found: " + healedState.buildOptions.length + ")");
+assert(healedState.buildOptions[0] === "교구 양초 공방 증축 (Lv.1→2)", "Non-olive upgrade options are safely preserved");
+const hasDuplicateOliveOption = healedState.buildOptions.some(opt => opt.includes('올리브') && opt.includes('1→2'));
+assert(!hasDuplicateOliveOption, "Duplicate olive upgrade option (Lv.1→2) is completely purged from buildOptions");
+
+// 19.4 Verify duplicate queue item purged
+assert(healedState._constructionQueue.length === 0, "Duplicate olive queue item (targetLevel 2) is completely purged from _constructionQueue");
+
+// 19.5 Verify getUpgradeCandidates does NOT produce olive press candidate
+const candidatesForHealed = getUpgradeCandidates(2, healedState.estate.buildings, 'clergy', 10);
+const oliveCandidateInHealed = candidatesForHealed.find(c => c.buildingName.includes('올리브'));
+assert(oliveCandidateInHealed === undefined, "getUpgradeCandidates produces NO olive press candidate because it is already Lv.2");
+
+// 19.6 Mock browser localStorage & autoMigrateAndSanitizeStorage
+const mockStorage: Record<string, string> = {
+  "ck_slot_autosave": JSON.stringify({
+    id: "autosave",
+    title: "🔄 자동 저장",
+    turn: 12,
+    characterName: "루카",
+    gameState: legacyCorruptedSave
+  }),
+  "ck_slot_slot_1": JSON.stringify({
+    id: "slot_1",
+    title: "💾 세이브 슬롯 1",
+    turn: 12,
+    characterName: "루카",
+    gameState: legacyCorruptedSave
+  }),
+  "ck_auto_save": JSON.stringify(legacyCorruptedSave)
+};
+
+// Setup global mock for localStorage
+(global as any).window = {};
+(global as any).localStorage = {
+  getItem: (key: string) => mockStorage[key] || null,
+  setItem: (key: string, value: string) => { mockStorage[key] = value; },
+  removeItem: (key: string) => { delete mockStorage[key]; }
+};
+
+const migrationResult = autoMigrateAndSanitizeStorage();
+assert(migrationResult.migratedCount >= 3, "autoMigrateAndSanitizeStorage successfully migrated all corrupted save slots (count: " + migrationResult.migratedCount + ")");
+
+const updatedSlot1 = JSON.parse(mockStorage["ck_slot_slot_1"]);
+const updatedSlot1Olive = updatedSlot1.gameState.estate.buildings.find((b: any) => b.name === '장원 올리브 압착장');
+assert(updatedSlot1Olive.level === 2, "LocalStorage slot_1 olive press permanently healed to Lv.2 in storage");
+assert(!updatedSlot1.gameState.buildOptions.some((o: string) => o.includes('올리브') && o.includes('1→2')), "LocalStorage slot_1 has duplicate buildOptions permanently removed");
+
+const updatedLegacyAuto = JSON.parse(mockStorage["ck_auto_save"]);
+const updatedLegacyOlive = updatedLegacyAuto.estate.buildings.find((b: any) => b.name === '장원 올리브 압착장');
+assert(updatedLegacyOlive.level === 2, "LocalStorage ck_auto_save olive press permanently healed to Lv.2 in storage");
+
+// Cleanup mock
+delete (global as any).window;
+delete (global as any).localStorage;
+
 
 // ==========================================
 // Summary

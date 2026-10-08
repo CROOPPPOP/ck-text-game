@@ -237,10 +237,18 @@ export function mergeEstateBuildings(
       finalLevel = queuedTarget.targetLevel;
     }
 
+    // 3. '장원 올리브 압착장'의 경우 2레벨 서사(신형 나선식, 2배 등)가 있거나 이전 레벨이 2였으면 Lv.2 확정 보장
+    if (k.includes('올리브압착장') || k.includes('올리브')) {
+      const descText = `${newB.desc || ''} ${prevB?.desc || ''} ${queuedTarget?.desc || ''}`;
+      if (prevB?.level === 2 || /신형|나선식|2배|납품|압착기가동/.test(descText)) {
+        finalLevel = Math.max(finalLevel, 2);
+      }
+    }
+
     // 태그 보존 및 최신화
     const finalTags = (newB.tags && newB.tags.length > 0)
       ? newB.tags
-      : (prevB?.tags && prevB.tags.length > 0 ? prevB.tags : (queuedTarget?.tags || ['기타']));
+      : (prevB?.tags && prevB.tags.length > 0 ? prevB.tags : (queuedTarget?.tags || ['수익', '산업', '생산']));
 
     mergedList.push({
       name: newB.name,
@@ -257,7 +265,12 @@ export function mergeEstateBuildings(
     if (k && !visitedKeys.has(k)) {
       visitedKeys.add(k);
       const queuedTarget = targetLevelMap.get(k);
-      const finalLevel = queuedTarget && queuedTarget.targetLevel > prevB.level ? queuedTarget.targetLevel : prevB.level;
+      let finalLevel = queuedTarget && queuedTarget.targetLevel > prevB.level ? queuedTarget.targetLevel : prevB.level;
+      if (k.includes('올리브압착장') || k.includes('올리브')) {
+        if (prevB.level === 2 || /신형|나선식|2배|납품|압착기가동/.test(prevB.desc || '')) {
+          finalLevel = Math.max(finalLevel, 2);
+        }
+      }
       mergedList.push({
         ...prevB,
         level: finalLevel
@@ -272,10 +285,14 @@ export function mergeEstateBuildings(
     if (k && !visitedKeys.has(k)) {
       visitedKeys.add(k);
       const cleanName = q.building.replace(/\s*업그레이드.*$/i, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim() || q.building;
+      let finalLevel = q.targetLevel || 1;
+      if (k.includes('올리브압착장') || k.includes('올리브')) {
+        finalLevel = Math.max(finalLevel, 2);
+      }
       mergedList.push({
         name: cleanName,
         desc: q.desc || '완공된 시설',
-        level: q.targetLevel || 1,
+        level: finalLevel,
         tags: q.tags && q.tags.length > 0 ? q.tags : ['기타']
       });
     }
@@ -283,3 +300,74 @@ export function mergeEstateBuildings(
 
   return mergedList;
 }
+
+/**
+ * 게임 상태(세이브 파일 포함) 내 영지/건물 데이터를 검증 및 자가 치유(Self-Healing)합니다.
+ * 1) '장원 올리브 압착장'의 레벨을 2로 복구 (과거 1레벨로 롤백된 데이터 정상화)
+ * 2) 이미 2레벨로 완공되었으므로 중복 업그레이드 항목 (Lv.1→2)을 buildOptions 및 건설 큐에서 제거
+ */
+export function sanitizeEstateState<T extends Record<string, any>>(state: T): T {
+  if (!state) return state;
+
+  try {
+    const cloned = JSON.parse(JSON.stringify(state));
+
+    let olivePressRestoredToLv2 = false;
+
+    // 1. estate.buildings 점검 및 복구
+    if (cloned.estate && Array.isArray(cloned.estate.buildings)) {
+      cloned.estate.buildings = cloned.estate.buildings.map((b: any) => {
+        if (!b || !b.name) return b;
+        const cleanName = b.name.replace(/\s+/g, '');
+        if (cleanName.includes('올리브압착장') || cleanName.includes('올리브')) {
+          const desc = b.desc || '';
+          // 유저가 과거 업그레이드했거나 2레벨 서사가 포함된 올리브 압착장을 Lv.2로 복구
+          const hasLv2Evidence = b.level === 1 || b.level === 2 || /신형|나선식|2배|납품|압착기/.test(desc);
+          if (hasLv2Evidence) {
+            olivePressRestoredToLv2 = true;
+            return {
+              ...b,
+              name: b.name.includes('장원') ? b.name : `장원 ${b.name}`,
+              level: 2,
+              desc: desc || '신형 나선식 압착기 가동, 올리브유 생산량 2배 증대 및 상단 납품 수익 급증',
+              tags: (b.tags && b.tags.length > 0) ? b.tags : ['수익', '산업', '생산']
+            };
+          }
+        }
+        return b;
+      });
+    }
+
+    // 2. buildOptions 내 올리브 압착장 중복 업그레이드(Lv.1→2) 제거
+    if (Array.isArray(cloned.buildOptions)) {
+      cloned.buildOptions = cloned.buildOptions.filter((opt: any) => {
+        const text = typeof opt === 'string' ? opt : (opt.title || opt.name || opt.buildingName || '');
+        const isOlive = text.includes('올리브');
+        const isDuplicateUpgrade = text.includes('1→2') || text.includes('Lv.1') || text.includes('업그레이드');
+        if (isOlive && (olivePressRestoredToLv2 || isDuplicateUpgrade)) {
+          return false; // 이미 2레벨이므로 중복 업그레이드 옵션 제거
+        }
+        return true;
+      });
+    }
+
+    // 3. 건설 대기열(_constructionQueue) 내 중복 올리브 압착장(Lv.2 목표) 항목 제거 (이미 완공됨)
+    if (Array.isArray(cloned._constructionQueue)) {
+      cloned._constructionQueue = cloned._constructionQueue.filter((q: any) => {
+        const bName = q.building || '';
+        const isOlive = bName.includes('올리브');
+        const isLv2Target = q.targetLevel === 2 || bName.includes('1→2') || bName.includes('업그레이드');
+        if (isOlive && isLv2Target) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    return cloned;
+  } catch (err) {
+    console.error('sanitizeEstateState error:', err);
+    return state;
+  }
+}
+

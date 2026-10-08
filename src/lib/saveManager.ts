@@ -2,6 +2,7 @@
 
 import { ParsedState } from './parser';
 import { parseCKResources, detectPlayerArchetype } from './ckVisuals';
+import { sanitizeEstateState } from './estate';
 
 export interface SaveSlotData {
   id: string; // 'slot_1', 'slot_2', 'slot_3', 'slot_4', 'slot_5', 'autosave', 'quicksave'
@@ -85,6 +86,9 @@ export function listSaveSlots(): Array<{ id: string; defaultTitle: string; data:
       const raw = localStorage.getItem(`ck_slot_${slot.id}`);
       if (!raw) return { id: slot.id, defaultTitle: slot.defaultTitle, data: null };
       const parsed = JSON.parse(raw);
+      if (parsed && parsed.gameState) {
+        parsed.gameState = sanitizeEstateState(parsed.gameState);
+      }
       return { id: slot.id, defaultTitle: slot.defaultTitle, data: parsed as SaveSlotData };
     } catch {
       return { id: slot.id, defaultTitle: slot.defaultTitle, data: null };
@@ -102,8 +106,9 @@ export function saveToSlot(
 ): boolean {
   if (typeof window === 'undefined' || !gameState) return false;
   try {
+    const sanitizedState = sanitizeEstateState(gameState);
     const stateToSave = {
-      ...gameState,
+      ...sanitizedState,
       _constructionQueue: constructionQueue,
       _turn: turn
     };
@@ -122,7 +127,11 @@ export function loadFromSlot(slotId: string): SaveSlotData | null {
   try {
     const raw = localStorage.getItem(`ck_slot_${slotId}`);
     if (!raw) return null;
-    return JSON.parse(raw) as SaveSlotData;
+    const parsed = JSON.parse(raw) as SaveSlotData;
+    if (parsed && parsed.gameState) {
+      parsed.gameState = sanitizeEstateState(parsed.gameState);
+    }
+    return parsed;
   } catch (err) {
     console.error('Failed to load slot:', err);
     return null;
@@ -161,8 +170,9 @@ export function exportSaveToFile(
   constructionQueue: any[] = []
 ): void {
   if (typeof window === 'undefined' || !gameState) return;
+  const sanitizedState = sanitizeEstateState(gameState);
   const stateToSave = {
-    ...gameState,
+    ...sanitizedState,
     _constructionQueue: constructionQueue,
     _turn: turn
   };
@@ -172,7 +182,7 @@ export function exportSaveToFile(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const dateStr = new Date().toISOString().slice(0, 10);
-  const rulerName = gameState.personalInfo?.['이름'] || '군주';
+  const rulerName = sanitizedState.personalInfo?.['이름'] || '군주';
   a.href = url;
   a.download = `CHRONICLES_${rulerName}_Turn${turn}_${dateStr}.json`;
   a.click();
@@ -190,9 +200,11 @@ export function importSaveFromFile(file: File): Promise<SaveSlotData> {
         // 만약 예전 단순 gameState 형식 파일인 경우 호환성 래핑
         if (!parsed.gameState && (parsed.personalInfo || parsed.dateLocation)) {
           const t = parsed._turn || 1;
-          const wrapped = createSlotMetadata('imported', parsed, t, '가져온 세이브');
+          const sanitizedState = sanitizeEstateState(parsed);
+          const wrapped = createSlotMetadata('imported', sanitizedState, t, '가져온 세이브');
           resolve(wrapped);
         } else if (parsed.gameState) {
+          parsed.gameState = sanitizeEstateState(parsed.gameState);
           resolve(parsed as SaveSlotData);
         } else {
           reject(new Error('유효한 세이브 데이터 구조가 아닙니다.'));
@@ -214,8 +226,9 @@ export function pushUndoState(gameState: ParsedState, turn: number, construction
   try {
     const raw = localStorage.getItem(UNDO_STACK_KEY);
     const stack: any[] = raw ? JSON.parse(raw) : [];
+    const sanitizedState = sanitizeEstateState(gameState);
     const snapshot = {
-      gameState: { ...gameState, _constructionQueue: constructionQueue, _turn: turn },
+      gameState: { ...sanitizedState, _constructionQueue: constructionQueue, _turn: turn },
       turn,
       timestamp: Date.now()
     };
@@ -235,10 +248,85 @@ export function popUndoState(): { gameState: any; turn: number } | null {
     if (stack.length === 0) return null;
     const item = stack.pop();
     localStorage.setItem(UNDO_STACK_KEY, JSON.stringify(stack));
+    if (item && item.gameState) {
+      item.gameState = sanitizeEstateState(item.gameState);
+    }
     return item || null;
   } catch {
     return null;
   }
+}
+
+/**
+ * 브라우저 로컬 스토리지에 저장된 모든 세이브 슬롯 데이터(Vercel 로컬 저장 파일 포함)를 검사하여
+ * 장원 올리브 압착장의 레벨을 Lv.2로 복구하고 중복 업그레이드 항목을 영구 제거 및 저장(Self-Healing)합니다.
+ */
+export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
+  if (typeof window === 'undefined') return { migratedCount: 0 };
+  let count = 0;
+  try {
+    const slotKeys = [
+      'autosave', 'quicksave', 'slot_1', 'slot_2', 'slot_3', 'slot_4', 'slot_5'
+    ];
+
+    slotKeys.forEach(key => {
+      const storageKey = `ck_slot_${key}`;
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      try {
+        const slotData = JSON.parse(raw);
+        if (slotData && slotData.gameState) {
+          const originalStr = JSON.stringify(slotData.gameState);
+          slotData.gameState = sanitizeEstateState(slotData.gameState);
+          if (JSON.stringify(slotData.gameState) !== originalStr) {
+            localStorage.setItem(storageKey, JSON.stringify(slotData));
+            count++;
+          }
+        }
+      } catch {}
+    });
+
+    // 레거시 ck_auto_save도 마이그레이션
+    const legacyAuto = localStorage.getItem('ck_auto_save');
+    if (legacyAuto) {
+      try {
+        const parsed = JSON.parse(legacyAuto);
+        const originalStr = JSON.stringify(parsed);
+        const sanitized = sanitizeEstateState(parsed);
+        if (JSON.stringify(sanitized) !== originalStr) {
+          localStorage.setItem('ck_auto_save', JSON.stringify(sanitized));
+          count++;
+        }
+      } catch {}
+    }
+
+    // ck_turn_undo_stack도 마이그레이션
+    const undoRaw = localStorage.getItem(UNDO_STACK_KEY);
+    if (undoRaw) {
+      try {
+        const stack = JSON.parse(undoRaw);
+        if (Array.isArray(stack)) {
+          let stackChanged = false;
+          stack.forEach((item: any) => {
+            if (item && item.gameState) {
+              const orig = JSON.stringify(item.gameState);
+              item.gameState = sanitizeEstateState(item.gameState);
+              if (JSON.stringify(item.gameState) !== orig) {
+                stackChanged = true;
+              }
+            }
+          });
+          if (stackChanged) {
+            localStorage.setItem(UNDO_STACK_KEY, JSON.stringify(stack));
+            count++;
+          }
+        }
+      } catch {}
+    }
+  } catch (err) {
+    console.error('autoMigrateAndSanitizeStorage error:', err);
+  }
+  return { migratedCount: count };
 }
 
 export function hasUndoState(): boolean {

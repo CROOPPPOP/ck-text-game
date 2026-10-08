@@ -32,6 +32,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
   const rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '영주';
   const rulerAge = (gameState.personalInfo?.['나이'] || '-').replace(/세+$/, '').trim();
   const rulerStatus = gameState.personalInfo?.['신분'] || '귀족';
+  const rulerOffice = gameState.personalInfo?.['직위'] || gameState.personalInfo?.['직책'] || rulerStatus;
   const culture = gameState.personalInfo?.['문화'] || '미상';
   const religion = gameState.personalInfo?.['종교'] || '미상';
   const attributes = calculateCKAttributes(gameState);
@@ -179,6 +180,15 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                 color: 'var(--text-muted)'
               }}>
                 종교: <strong style={{ color: '#c084fc' }}>{religion}</strong>
+              </span>
+              <span style={{
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '3px 10px',
+                borderRadius: '4px',
+                color: 'var(--text-muted)'
+              }}>
+                직책: <strong style={{ color: '#34d399' }}>{rulerOffice}</strong>
               </span>
             </div>
           </div>

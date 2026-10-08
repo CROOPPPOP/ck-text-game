@@ -24,9 +24,11 @@ import {
   quickSave,
   quickLoad,
   loadUXSettings,
+  autoMigrateAndSanitizeStorage,
   UserUXSettings,
   SaveSlotData
 } from '@/lib/saveManager';
+import { sanitizeEstateState } from '@/lib/estate';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
   const [currentText, setCurrentText] = useState('');
@@ -221,6 +223,9 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // Vercel 로컬 스토리지 기존 세이브 자동 복구 (장원 올리브 압착장 Lv.2 복구 및 중복 제거)
+    autoMigrateAndSanitizeStorage();
+
     const configStr = localStorage.getItem("ck_startup_config");
     if (configStr) {
       localStorage.removeItem("ck_startup_config"); // 일회성 사용 후 삭제
@@ -242,7 +247,8 @@ export default function Home() {
 
   // 저장 데이터 복원 (건설 큐/턴 포함, 구버전 {building, turnsLeft} 호환)
   const restoreSave = (loaded: any) => {
-    const { _constructionQueue, _turn, ...rest } = loaded;
+    const sanitized = sanitizeEstateState(loaded);
+    const { _constructionQueue, _turn, ...rest } = sanitized;
     const t = parseTurnNumber(rest.dateLocation) ?? (typeof _turn === 'number' ? _turn : 0);
     setGameState(rest);
     setTurn(t);
