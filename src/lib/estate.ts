@@ -115,33 +115,53 @@ export function checkPromotion(
   };
 }
 
+import { PlayerArchetype } from './ckVisuals';
+import { 
+  calculateBuildingUpgradeCost, 
+  calculateEstatePromotionCost,
+  BuildingCostEstimate,
+  EstatePromotionCostEstimate 
+} from './estateEconomy';
+
+export interface UpgradeCandidate {
+  buildingName: string;
+  currentLevel: number;
+  targetLevel: number;
+  cost: number;
+  currency: string;
+  formattedCost: string;
+  turns: number;
+  discountPercent: number;
+  category: string;
+}
+
 /**
- * 업그레이드 가능한 건물 목록을 생성합니다.
+ * 업그레이드 가능한 건물 목록을 생성합니다. (SSOT estateEconomy 공식 연동)
  */
 export function getUpgradeCandidates(
   currentEstateLevel: number,
   buildings: Building[],
-  baseCost: number = 100, // AI가 제시한 원가 기준을 알 수 없으므로 기본값 사용. 실제로는 UI나 다른 로직에서 처리 필요.
-  baseTurns: number = 3
-) {
+  archetype: PlayerArchetype = 'noble',
+  stewardshipScore: number = 10
+): UpgradeCandidate[] {
   const maxBuildingLevel = ESTATE_LEVELS[currentEstateLevel as keyof typeof ESTATE_LEVELS]?.maxBuildingLevel || 1;
   
   return buildings
     .filter(b => b.level < maxBuildingLevel)
     .map(b => {
       const targetLevel = b.level + 1;
-      // 비용: 최초 건설비 × 1.6^(현재 Lv) - 대략적인 계산
-      const costMultiplier = Math.pow(1.6, b.level);
-      const cost = Math.floor(baseCost * costMultiplier);
-      // 소요 턴: 기본 턴 + 현재 Lv (최대 12턴)
-      const turns = Math.min(baseTurns + b.level, 12);
+      const estimate = calculateBuildingUpgradeCost(b, currentEstateLevel, archetype, stewardshipScore);
       
       return {
         buildingName: b.name,
         currentLevel: b.level,
         targetLevel,
-        cost,
-        turns
+        cost: estimate.amount,
+        currency: estimate.currency,
+        formattedCost: estimate.formattedCost,
+        turns: estimate.turns,
+        discountPercent: estimate.discountPercent,
+        category: estimate.category
       };
     });
 }

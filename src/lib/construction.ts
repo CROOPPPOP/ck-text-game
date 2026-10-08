@@ -137,7 +137,10 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
     queue.forEach((q) => {
     if (!q.commandSent) {
       const turns = Math.max(1, q.completeTurn - q.startTurn);
-      const costText = q.cost ? q.cost : '명시된 비용 없음';
+      let costText = q.cost ? q.cost : '명시된 비용 없음';
+      if (costText.includes('단위') || costText.includes('기준가')) {
+        costText = costText.replace(/단위/g, '닢').replace(/\(기준가.*?\)/g, '정규 승격 비용');
+      }
       if (q.kind === 'promote') {
         lines.push(
           `[시스템 명령] 거점 승격 착수: ${q.building} (비용: ${costText}, ${turns}턴 소요). ` +

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
+import { calculateEstatePromotionCost } from '@/lib/estateEconomy';
 import { calculateCKAttributes, detectPlayerArchetype } from '@/lib/ckVisuals';
 import { getCouncilVassals, sanitizeNameAndRole } from '@/lib/characterRelations';
 import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
@@ -592,8 +593,11 @@ export default function Home() {
   const domainLimit = ckAttr.synergies.domainLimit;
   const maxSlots = getMaxSlots(gameState?.estate, ckAttr.synergies.constructionSlotsBonus);
 
+  const playerArchetype = gameState ? detectPlayerArchetype(gameState) : 'noble';
+  const stewScore = ckAttr.stewardship.value;
+
   // 거점 상주 자문관 및 가신 추출 (SSOT getCouncilVassals 적용)
-  const councilVassals = getCouncilVassals(gameState?.relationships?.personal, gameState ? detectPlayerArchetype(gameState) : 'noble');
+  const councilVassals = getCouncilVassals(gameState?.relationships?.personal, playerArchetype);
 
   let promotionOption: any = null;
   let derivedUpgradeOptions: any[] = [];
@@ -604,22 +608,31 @@ export default function Home() {
 
     const promoCheck = checkPromotion(estateLevel, gameState.estate.buildings, gameState.factionState, !!gameState.factionState);
     if (promoCheck.canPromote) {
+      const promoEst = calculateEstatePromotionCost(estateLevel, playerArchetype, stewScore);
       promotionOption = {
-        name: `거점 승격 공사 (Lv.${estateLevel} → Lv.${estateLevel + 1})`,
-        cost: `(기준가 × ${estateLevel})`,
-        turns: estateLevel + 2,
-        desc: '거점의 규모를 다음 단계로 승격시킵니다. 건설 슬롯과 건물 레벨 상한이 늘어납니다.',
+        name: promoEst.name,
+        cost: promoEst.formattedCost,
+        costAmount: promoEst.amount,
+        currency: promoEst.currency,
+        turns: promoEst.turns,
+        desc: promoEst.discountPercent > 0
+          ? `거점의 규모를 다음 단계로 승격시킵니다. 건설 슬롯과 건물 레벨 상한이 늘어납니다. (관리력 ${promoEst.discountPercent}% 할인)`
+          : '거점의 규모를 다음 단계로 승격시킵니다. 건설 슬롯과 건물 레벨 상한이 늘어납니다.',
         kind: 'promote',
         targetLevel: estateLevel + 1
       };
     }
 
-    const upgradeCandidates = getUpgradeCandidates(estateLevel, gameState.estate.buildings);
+    const upgradeCandidates = getUpgradeCandidates(estateLevel, gameState.estate.buildings, playerArchetype, stewScore);
     derivedUpgradeOptions = upgradeCandidates.map(c => ({
       name: `${c.buildingName} 업그레이드 (Lv.${c.currentLevel}→${c.targetLevel})`,
-      cost: `약 ${c.cost} 단위`,
+      cost: c.formattedCost,
+      costAmount: c.cost,
+      currency: c.currency,
       turns: c.turns,
-      desc: '해당 건물의 기능을 강화합니다.',
+      desc: c.discountPercent > 0
+        ? `해당 건물의 기능을 강화합니다. (관리력 ${c.discountPercent}% 할인 적용)`
+        : '해당 건물의 기능을 강화합니다.',
       kind: 'upgrade',
       targetLevel: c.targetLevel
     }));

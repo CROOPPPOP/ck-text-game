@@ -6,6 +6,7 @@ import { ParsedState } from '@/lib/parser';
 import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome } from '@/lib/ckVisuals';
 import { getCouncilVassals } from '@/lib/characterRelations';
 import { QueueItem, BuildOption, turnsLeft, sameBuildingName } from '@/lib/construction';
+import { getPlayerWealthAmount } from '@/lib/estateEconomy';
 import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle, Coins, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface Props {
@@ -65,6 +66,8 @@ export default function CKRealmModal({
 
   // 거점 상주 자문관 및 직속 부하/가신 추출 (SSOT getCouncilVassals 적용)
   const councilVassals = getCouncilVassals(gameState?.relationships?.personal, archetype);
+  const playerCurrency = archetype === 'clergy' ? '은화' : archetype === 'wanderer' ? '동화' : '금화';
+  const currentWealth = gameState ? getPlayerWealthAmount(gameState, playerCurrency) : 999;
 
   const getTagStyle = (t: string) => {
     if (t.includes('군사')) return { bg: 'rgba(239,68,68,0.2)', color: '#fca5a5', icon: '⚔️' };
@@ -506,40 +509,59 @@ export default function CKRealmModal({
                 🏗️ 건설 가능 시설 및 승격 공사
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {promotionOption && (
-                  <div style={{ background: 'rgba(212,175,55,0.1)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong style={{ color: 'var(--gold-accent)', fontSize: '0.98rem' }}>⭐ {promotionOption.name}</strong>
-                      <button 
-                        style={{ padding: '5px 12px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid var(--gold-accent)', background: 'var(--gold-accent)', color: '#000', cursor: loading || constructionQueue.length >= maxSlots ? 'not-allowed' : 'pointer', opacity: loading || constructionQueue.length >= maxSlots ? 0.5 : 1 }} 
-                        disabled={loading || constructionQueue.length >= maxSlots} 
-                        onClick={() => onOrderBuild && onOrderBuild(promotionOption)}
-                      >
-                        승격 착수
-                      </button>
+                {promotionOption && (() => {
+                  const promoCostNum = (promotionOption as any).costAmount || parseInt((promotionOption.cost || '').replace(/[^\d]/g, ''), 10) || 0;
+                  const canAffordPromo = currentWealth === 0 || promoCostNum === 0 || currentWealth >= promoCostNum;
+                  const promoDisabled = loading || constructionQueue.length >= maxSlots || !canAffordPromo;
+                  return (
+                    <div style={{ background: 'rgba(212,175,55,0.1)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ color: 'var(--gold-accent)', fontSize: '0.98rem' }}>⭐ {promotionOption.name}</strong>
+                        <button 
+                          style={{ padding: '5px 12px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid var(--gold-accent)', background: promoDisabled ? 'rgba(212,175,55,0.2)' : 'var(--gold-accent)', color: promoDisabled ? 'var(--text-muted)' : '#000', cursor: promoDisabled ? 'not-allowed' : 'pointer', opacity: promoDisabled ? 0.6 : 1 }} 
+                          disabled={promoDisabled} 
+                          onClick={() => onOrderBuild && onOrderBuild(promotionOption)}
+                        >
+                          {!canAffordPromo ? '자금 부족' : '승격 착수'}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span>⏱️ 소요: {promotionOption.turns}턴</span>
+                        <span>•</span>
+                        <span style={{ color: !canAffordPromo ? '#f87171' : 'var(--gold-accent)', fontWeight: 'bold' }}>
+                          💰 비용: {promotionOption.cost} {!canAffordPromo && `(보유: ${currentWealth}${playerCurrency})`}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{promotionOption.desc}</div>
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>소요: {promotionOption.turns}턴 | 비용: {promotionOption.cost}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{promotionOption.desc}</div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {derivedUpgradeOptions.map((opt, idx) => {
                   const already = constructionQueue.some(q => sameBuildingName(q.building, opt.name));
                   const full = constructionQueue.length >= maxSlots;
-                  const disabled = loading || already || full;
+                  const upgCostNum = (opt as any).costAmount || parseInt((opt.cost || '').replace(/[^\d]/g, ''), 10) || 0;
+                  const canAffordUpg = currentWealth === 0 || upgCostNum === 0 || currentWealth >= upgCostNum;
+                  const disabled = loading || already || full || !canAffordUpg;
                   return (
                     <div key={'upg-'+idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <strong style={{ color: '#38bdf8', fontSize: '0.95rem' }}>⬆ {opt.name}</strong>
                         <button 
-                          style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid rgba(56,189,248,0.4)', background: 'rgba(56,189,248,0.2)', color: '#7dd3fc', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1 }} 
+                          style={{ padding: '5px 12px', fontSize: '0.82rem', fontWeight: 'bold', borderRadius: '4px', border: '1px solid rgba(56,189,248,0.4)', background: disabled ? 'rgba(0,0,0,0.3)' : 'rgba(56,189,248,0.2)', color: disabled ? 'var(--text-muted)' : '#7dd3fc', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }} 
                           disabled={disabled} 
                           onClick={() => onOrderBuild && onOrderBuild(opt)}
                         >
-                          {already ? '대기 중' : '강화 착수'}
+                          {already ? '대기 중' : !canAffordUpg ? '자금 부족' : '강화 착수'}
                         </button>
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>소요: {opt.turns}턴 | 비용: {opt.cost}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span>⏱️ 소요: {opt.turns}턴</span>
+                        <span>•</span>
+                        <span style={{ color: !canAffordUpg ? '#f87171' : 'var(--gold-accent)', fontWeight: 'bold' }}>
+                          💰 비용: {opt.cost} {!canAffordUpg && `(보유: ${currentWealth}${playerCurrency})`}
+                        </span>
+                      </div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{opt.desc}</div>
                     </div>
                   );

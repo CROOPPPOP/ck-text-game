@@ -10,6 +10,14 @@ import {
   getSuperiorApprovalTrust, 
   getCouncilVassals 
 } from './src/lib/characterRelations';
+import {
+  calculateBuildingUpgradeCost,
+  calculateEstatePromotionCost,
+  getBuildingTypeMultiplier,
+  getCurrencyForArchetype,
+  getPlayerWealthAmount
+} from './src/lib/estateEconomy';
+import { getUpgradeCandidates } from './src/lib/estate';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -617,6 +625,85 @@ const council = getCouncilVassals(mixedRelationships, 'clergy');
 assert(council.length === 1, `Exactly 1 council subordinate found (found: ${council.length})`);
 assert(council[0].name === '베르나르도', `Council subordinate is Bernardo (found: '${council[0].name}')`);
 assert(council.every(c => c.name !== '마르코 대주교' && c.name !== '마테오'), "Council DOES NOT contain Bishop Marco or Merchant Mateo");
+
+// ==========================================
+// TEST 14: Estate & Building Upgrade Economy Standards
+// ==========================================
+console.log("\n--- 14. Testing Estate & Building Upgrade Economy Standards ---");
+
+// 14.1 Archetype currency standards
+assert(getCurrencyForArchetype('clergy') === '은화', "Clergy currency is 은화 (Silver)");
+assert(getCurrencyForArchetype('noble') === '금화', "Noble currency is 금화 (Gold)");
+assert(getCurrencyForArchetype('company') === '금화', "Company currency is 금화 (Gold)");
+assert(getCurrencyForArchetype('wanderer') === '동화', "Wanderer currency is 동화 (Copper)");
+
+// 14.2 Building type multipliers
+const pressMult = getBuildingTypeMultiplier({ name: '장원 올리브 압착장', tags: ['생산', '재정'] });
+assert(pressMult.category === 'production', "Olive press classified as 'production'");
+assert(pressMult.multiplier === 1.2, "Production building has 1.2x cost multiplier");
+
+const churchMult = getBuildingTypeMultiplier({ name: '본당 예배당', tags: ['신앙'] });
+assert(churchMult.category === 'faith_military', "Chapel classified as 'faith_military'");
+assert(churchMult.multiplier === 1.0, "Faith building has 1.0x cost multiplier");
+
+const granaryMult = getBuildingTypeMultiplier({ name: '성당 식료창고', tags: ['민생', '보급'] });
+assert(granaryMult.category === 'public_supplies', "Granary classified as 'public_supplies'");
+assert(granaryMult.multiplier === 0.8, "Supplies building has 0.8x cost multiplier");
+
+const scriptMult = getBuildingTypeMultiplier({ name: '사제관 및 서재', tags: ['행정', '학문'] });
+assert(scriptMult.category === 'admin', "Study classified as 'admin'");
+assert(scriptMult.multiplier === 0.9, "Admin building has 0.9x cost multiplier");
+
+// 14.3 Building upgrade cost calculation & turns (Clergy test case from user image)
+const testOlivePress = { name: '장원 올리브 압착장', desc: '고품질 성유 생산', level: 1, tags: ['생산', '재정'] };
+const oliveEstimate = calculateBuildingUpgradeCost(testOlivePress, 2, 'clergy', 0); // stewScore 0
+assert(oliveEstimate.currency === '은화', "Olive press cost currency is 은화");
+assert(oliveEstimate.amount === 30, `Olive press Lv.1->2 base amount is 30 은화 (found: ${oliveEstimate.amount})`);
+assert(oliveEstimate.turns === 2, `Olive press Lv.1->2 requires 2 turns (found: ${oliveEstimate.turns})`);
+assert(oliveEstimate.formattedCost === '은화 30닢', `Formatted cost is '은화 30닢' (found: '${oliveEstimate.formattedCost}')`);
+
+// 14.4 Stewardship discount
+const discountedOlive = calculateBuildingUpgradeCost(testOlivePress, 2, 'clergy', 15); // stewScore 15 -> 18% discount
+assert(discountedOlive.discountPercent === 18, `Stewardship 15 gives 18% discount (found: ${discountedOlive.discountPercent})`);
+assert(discountedOlive.amount === 25, `Discounted amount is 25 은화 (found: ${discountedOlive.amount})`);
+
+// 14.5 Full candidates generation for holding (Image regression defense)
+const mockEstateBuildings = [
+  { name: '본당 예배당', desc: '미사 집전', level: 1, tags: ['신앙'] },
+  { name: '석조 종탑 및 회랑', desc: '종탑', level: 1, tags: ['신앙', '치안'] },
+  { name: '성물 안치실', desc: '성물 보관', level: 1, tags: ['신앙', '문화'] },
+  { name: '사제관 및 서재', desc: '행정 처리', level: 1, tags: ['행정', '학문'] },
+  { name: '장원 올리브 압착장', desc: '성유 생산', level: 1, tags: ['생산', '재정'] },
+  { name: '성당 식료창고', desc: '식량 보급', level: 1, tags: ['민생', '보급'] }
+];
+const upgCandidates = getUpgradeCandidates(2, mockEstateBuildings, 'clergy', 10);
+assert(upgCandidates.length === 6, "All 6 Lv.1 buildings generated as candidates for Lv.2 holding");
+assert(upgCandidates.every(c => !c.formattedCost.includes('단위')), "NO candidates contain placeholder '단위'");
+assert(upgCandidates.every(c => c.currency === '은화'), "All candidates use 은화 currency");
+assert(upgCandidates.every(c => c.turns === 2), "All Lv.1->2 candidates take exactly 2 turns");
+assert(upgCandidates.some(c => c.cost < 30), "Supplies/Admin buildings cost less than 30 은화");
+
+// 14.6 Estate Promotion Cost standards
+const clergyPromoLv1to2 = calculateEstatePromotionCost(1, 'clergy', 0);
+assert(clergyPromoLv1to2.amount === 60, `Lv.1->2 Clergy promotion costs 60 은화 (found: ${clergyPromoLv1to2.amount})`);
+assert(clergyPromoLv1to2.turns === 3, `Lv.1->2 promotion takes 3 turns (found: ${clergyPromoLv1to2.turns})`);
+assert(clergyPromoLv1to2.formattedCost === '은화 60닢', "Formatted cost has '은화 60닢'");
+
+const clergyPromoLv2to3 = calculateEstatePromotionCost(2, 'clergy', 0);
+assert(clergyPromoLv2to3.amount === 120, `Lv.2->3 Clergy promotion costs 120 은화 (found: ${clergyPromoLv2to3.amount})`);
+assert(clergyPromoLv2to3.turns === 4, `Lv.2->3 promotion takes 4 turns (found: ${clergyPromoLv2to3.turns})`);
+
+const noblePromoLv2to3 = calculateEstatePromotionCost(2, 'noble', 0);
+assert(noblePromoLv2to3.amount === 80, `Lv.2->3 Noble promotion costs 80 금화 (found: ${noblePromoLv2to3.amount})`);
+assert(noblePromoLv2to3.currency === '금화', "Noble promotion uses 금화");
+
+// 14.7 Wealth parsing and affordability
+const testGameStateWealth: any = {
+  factionState: { '세력 재정': '은화 145닢' },
+  inventory: { wealth: ['은화 145닢'] }
+};
+const parsedWealth = getPlayerWealthAmount(testGameStateWealth, '은화');
+assert(parsedWealth === 145, `Player wealth parsed as 145 은화 (found: ${parsedWealth})`);
 
 // ==========================================
 // Summary
