@@ -48,14 +48,14 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
     },
     noble: {
       title: '🏰 궁정 인물 & 외교 관계망',
-      desc: '군주와 궁정 신하, 봉신 및 주변 제후들과의 호감도와 외교 상태',
+      desc: '군주와 궁정 신하, 봉신 및 주변 제후들과의 우정도/애정도, 신뢰도 및 외교 상태',
       icon: '🏰',
       section: '궁정 신하 및 가신단',
       subordinateName: '🛡️ 직속 가신 (Vassal)'
     }
   }[archetype] || {
     title: '대인 관계 & 외교 관계망',
-    desc: '인물들과의 호감도, 신뢰도 및 세력 간 외교 상태',
+    desc: '인물들과의 우정도/애정도, 신뢰도 및 세력 간 외교 상태',
     icon: '🤝',
     section: '대인 관계망',
     subordinateName: '직속 가신 / 보좌'
@@ -63,17 +63,19 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
 
   // SSOT 단일 진실 공급원 파서(characterRelations.ts)를 통한 인물 목록 일원화
   const parsedCharacters = parseAllPersonalRelations(personalRels, archetype).map(p => {
-    const isObsessive = p.raw.includes('집착') || p.raw.includes('광애');
-    const isSwornFriend = p.raw.includes('맹우');
+    const isObsessive = p.raw.includes('집착') || p.raw.includes('광애') || p.affStage === '집착' || p.affStage === '광애';
+    const isSwornFriend = p.raw.includes('맹우') || p.affStage === '맹우';
     return {
       raw: p.raw,
       name: p.name,
       role: p.role,
-      trustStr: `신뢰도 ${p.trust}`,
-      affStr: `호감도 ${p.affection}`,
-      descStr: p.descStr,
+      trustStr: `신뢰도 ${p.trust}%`,
       trustVal: p.trust,
+      trustStage: p.trustStage,
+      affLabel: p.affLabel,
       affVal: p.affection,
+      affStage: p.affStage,
+      descStr: p.descStr,
       tier: {
         id: p.tierId,
         label: p.tierLabel,
@@ -85,6 +87,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
       vocationLabel: p.vocationLabel,
       vocationIcon: p.vocationIcon,
       isRomance: p.isRomance,
+      isFriendship: p.isFriendship,
       isRival: p.isRival,
       isObsessive,
       isSwornFriend
@@ -324,13 +327,27 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                     </div>
 
                     {/* Opinion Gauges */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '8px 10px', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.25)', padding: '9px 11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)' }}>
                       {/* Trust Gauge */}
                       <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#7dd3fc', marginBottom: '2px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Handshake size={12} />
-                            <span>{c.trustStr.replace(/\d+/, '').replace('-', '').trim() || '신뢰도'}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#7dd3fc', marginBottom: '3px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Handshake size={13} />
+                            <span style={{ fontWeight: 600 }}>신뢰도</span>
+                            {c.trustStage && (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                background: 'rgba(56, 189, 248, 0.18)',
+                                border: '1px solid rgba(56, 189, 248, 0.4)',
+                                color: '#bae6fd',
+                                fontWeight: 600,
+                                lineHeight: '1.2'
+                              }}>
+                                {c.trustStage}
+                              </span>
+                            )}
                           </span>
                           <span style={{ fontWeight: 'bold' }}>{c.trustVal}%</span>
                         </div>
@@ -339,12 +356,26 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                         </div>
                       </div>
 
-                      {/* Affection Gauge */}
+                      {/* Affection / Friendship Gauge */}
                       <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: c.isRival ? '#fca5a5' : c.isRomance ? '#fda4af' : '#fef08a', marginBottom: '2px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Heart size={12} />
-                            <span>{c.affStr.replace(/\d+/, '').replace('-', '').trim() || (c.isRival ? '적대도' : c.isRomance ? '애정도' : '우정도')}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: c.isRival ? '#fca5a5' : c.isRomance ? '#fda4af' : '#fef08a', marginBottom: '3px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Heart size={13} />
+                            <span style={{ fontWeight: 600 }}>{c.isRival ? '적대도' : c.affLabel}</span>
+                            {c.affStage && (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                background: c.isRival ? 'rgba(239, 68, 68, 0.18)' : c.isRomance ? 'rgba(244, 63, 94, 0.18)' : 'rgba(251, 191, 36, 0.18)',
+                                border: `1px solid ${c.isRival ? 'rgba(239, 68, 68, 0.4)' : c.isRomance ? 'rgba(244, 63, 94, 0.4)' : 'rgba(251, 191, 36, 0.4)'}`,
+                                color: c.isRival ? '#fca5a5' : c.isRomance ? '#fecdd3' : '#fef08a',
+                                fontWeight: 600,
+                                lineHeight: '1.2'
+                              }}>
+                                {c.affStage}
+                              </span>
+                            )}
                           </span>
                           <span style={{ fontWeight: 'bold' }}>{c.affVal}%</span>
                         </div>

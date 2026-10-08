@@ -12,7 +12,10 @@ export interface ParsedCharacterRelation {
   role: string;             // 순수 직책/직위
   fullName: string;         // '이름 (직책)' 형태의 표준 표기
   trust: number;            // 신뢰도 (0 ~ 100)
-  affection: number;        // 호감도 / 애정도 (0 ~ 100)
+  affection: number;        // 애정도 또는 우정도 수치 (0 ~ 100)
+  trustStage: string;       // 신뢰도 단계 ('친밀', '신뢰', '동반' 등)
+  affLabel: '애정도' | '우정도'; // 2차 감정 축 명칭 ('애정도' 또는 '우정도')
+  affStage: string;         // 애정도/우정도 단계 ('사랑', '애정', '친우', '붕우' 등)
   descStr: string;          // 위계 태그가 제거/정제된 순수 설명문
   rawDescStr: string;       // 위계 태그 포함 원본 설명문
 
@@ -35,6 +38,39 @@ export interface ParsedCharacterRelation {
   isPeer: boolean;          // 대등한 동료 여부
   isRival: boolean;         // 숙적/적대 여부
   isRomance: boolean;       // 연인/밀회/배우자 여부
+  isFriendship: boolean;    // 동성/비로맨스 우정도 여부
+}
+
+// 신뢰도 단계 룰: 0-12 경계, 13-24 어색함, 25-37 관심, 38-49 호기심, 50-62 우호, 63-74 친밀, 75-89 신뢰, 90-100 동반
+export function getTrustStage(val: number): string {
+  if (val <= 12) return '경계';
+  if (val <= 24) return '어색함';
+  if (val <= 37) return '관심';
+  if (val <= 49) return '호기심';
+  if (val <= 62) return '우호';
+  if (val <= 74) return '친밀';
+  if (val <= 89) return '신뢰';
+  return '동반';
+}
+
+// 우정도 단계 룰: 0-19 타인, 20-39 지인, 40-59 친우, 60-79 붕우, 80-100 맹우
+export function getFriendshipStage(val: number): string {
+  if (val <= 19) return '타인';
+  if (val <= 39) return '지인';
+  if (val <= 59) return '친우';
+  if (val <= 79) return '붕우';
+  return '맹우';
+}
+
+// 애정도 단계 룰: 0-19 타인, 20-34 관심, 35-49 호감, 50-64 동경, 65-79 애정, 80-94 사랑, 95-100 극애
+export function getAffectionStage(val: number): string {
+  if (val <= 19) return '타인';
+  if (val <= 34) return '관심';
+  if (val <= 49) return '호감';
+  if (val <= 64) return '동경';
+  if (val <= 79) return '애정';
+  if (val <= 94) return '사랑';
+  return '극애';
 }
 
 // 1. 이름 및 직책 문자열 정규화 (예: "[베르나르도 (성 미카엘 수호대장)]" -> { name: "베르나르도", role: "성 미카엘 수호대장" })
@@ -147,15 +183,16 @@ export function parsePersonalRelation(
     let firstPart = rawRel.substring(0, colonIdx).trim();
     const restPart = rawRel.substring(colonIdx + 1).trim();
 
-    // 신뢰도/호감도 추출
+    // 신뢰도/호감도/우정도/애정도 추출
     const trustMatch = rawRel.match(/신뢰(?:도)?\s*[:\s\[\(]?\s*(\d+)/);
-    const affMatch = rawRel.match(/(?:호감|우정)(?:도)?\s*[:\s\[\(]?\s*(\d+)/);
+    const affMatch = rawRel.match(/(?:호감|우정|애정)(?:도)?\s*[:\s\[\(]?\s*(\d+)/);
 
     // firstPart에 (신뢰 ... 호감 ...)이 포함되어 있다면 제거하여 순수 이름/직책만 남김
     firstPart = firstPart.replace(/\s*\([^\)]*신뢰[^\)]*\)/, '').trim();
 
     const tStr = trustMatch ? `신뢰도 [${trustMatch[1]}]` : '';
-    const aStr = affMatch ? `호감도 [${affMatch[1]}]` : '';
+    const aLabel = rawRel.includes('애정') ? '애정도' : (rawRel.includes('우정') ? '우정도' : '우정도');
+    const aStr = affMatch ? `${aLabel} [${affMatch[1]}]` : '';
     parts = [firstPart, tStr, aStr, restPart];
   } else {
     parts = [rawRel];
@@ -168,7 +205,7 @@ export function parsePersonalRelation(
   const affStr = parts[2] || '';
   const rawDescStr = parts.slice(3).join(' | ').replace(/^관계:\s*/, '').trim();
 
-  // 신뢰도 & 호감도 숫자 파싱
+  // 신뢰도 & 우정도/애정도 숫자 파싱
   const trustMatch = trustStr.match(/(\d+)/);
   const affMatch = affStr.match(/(\d+)/);
   const trust = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1], 10))) : 50;
@@ -194,8 +231,48 @@ export function parsePersonalRelation(
 
   const combined = `${rawName} ${role} ${rawDescStr} ${affStr}`;
 
-  // 특수 상태 플래그
-  const isRomance = affStr.includes('애정도') || rawDescStr.includes('연인') || rawDescStr.includes('배우자') || rawDescStr.includes('밀회');
+  // 1. 신뢰도 단계 추출 또는 자동 산정 (대시, 콜론, 괄호 뒤의 단계명 파싱 지원)
+  const trustStageMatch = trustStr.match(/(?:[-\u2013\u2014:]|\()\s*\[?([가-힣]+)\]?/) || trustStr.match(/\[([가-힣]+)\]/);
+  const trustStage = trustStageMatch ? trustStageMatch[1].trim() : getTrustStage(trust);
+
+  // 2. 특수 상태 및 로맨스/우정도 플래그
+  // 주의: '첩', '처' 같은 단일 글자는 '첩자'(간첩), '상처' 등과 오매칭되므로 명확한 복합 명사로 지정
+  const romanceKeywords = [
+    '연인', '정인', '배우자', '밀회', '은밀한 연인', '연정', '로맨스', 
+    '후궁', '첩실', '측실', '소실', '미망인', '아내', '본처', '정실', '약혼', '정혼', '애인'
+  ];
+  const hasRomanceKeyword = romanceKeywords.some(kw => combined.includes(kw)) || 
+    (combined.includes('부인') && !combined.includes('부인하'));
+  const isExplicitAff = affStr.includes('애정');
+  const isExplicitFriend = affStr.includes('우정');
+
+  // '우정도'가 명시되어 있고 로맨스 키워드가 없으면 엄격히 우정도
+  const isRomance = (isExplicitAff || hasRomanceKeyword) && !isExplicitFriend;
+  const isFriendship = !isRomance;
+  const affLabel: '애정도' | '우정도' = isRomance ? '애정도' : '우정도';
+
+  // 3. 우정도 / 애정도 단계 추출 또는 자동 산정
+  const affStageMatch = affStr.match(/(?:[-\u2013\u2014:]|\()\s*\[?([가-힣]+)\]?/) || affStr.match(/\[([가-힣]+)\]/);
+  let affStage = '';
+  if (affStageMatch) {
+    affStage = affStageMatch[1].trim();
+  } else if (isRomance) {
+    if (combined.includes('광애')) {
+      affStage = '광애';
+    } else if (combined.includes('집착')) {
+      affStage = '집착';
+    } else {
+      affStage = getAffectionStage(affection);
+    }
+  } else {
+    if (combined.includes('맹우') || combined.includes('[맹우]')) {
+      affStage = '맹우';
+    } else if (combined.includes('숙적') || combined.includes('라이벌')) {
+      affStage = '숙적';
+    } else {
+      affStage = getFriendshipStage(affection);
+    }
+  }
 
   // 1단계: 적대 관계 판별
   const isExplicitRival = explicitTag.includes('적대') || rawDescStr.includes('[적대]') || affStr.includes('숙적') || affStr.includes('라이벌');
@@ -209,6 +286,9 @@ export function parsePersonalRelation(
       fullName,
       trust,
       affection,
+      trustStage,
+      affLabel,
+      affStage: isExplicitRival || isKeywordRival ? (combined.includes('라이벌') ? '라이벌' : '숙적') : affStage,
       descStr,
       rawDescStr,
       tierId: 'rival',
@@ -224,7 +304,8 @@ export function parsePersonalRelation(
       isPatron: false,
       isPeer: false,
       isRival: true,
-      isRomance
+      isRomance,
+      isFriendship
     };
   }
 
@@ -252,6 +333,9 @@ export function parsePersonalRelation(
       fullName,
       trust,
       affection,
+      trustStage,
+      affLabel,
+      affStage,
       descStr,
       rawDescStr,
       tierId: 'superior',
@@ -267,7 +351,8 @@ export function parsePersonalRelation(
       isPatron: false,
       isPeer: false,
       isRival: false,
-      isRomance
+      isRomance,
+      isFriendship
     };
   }
 
@@ -284,6 +369,9 @@ export function parsePersonalRelation(
       fullName,
       trust,
       affection,
+      trustStage,
+      affLabel,
+      affStage,
       descStr,
       rawDescStr,
       tierId: 'patron',
@@ -299,7 +387,8 @@ export function parsePersonalRelation(
       isPatron: true,
       isPeer: false,
       isRival: false,
-      isRomance
+      isRomance,
+      isFriendship
     };
   }
 
@@ -332,6 +421,9 @@ export function parsePersonalRelation(
       fullName,
       trust,
       affection,
+      trustStage,
+      affLabel,
+      affStage,
       descStr,
       rawDescStr,
       tierId: 'subordinate',
@@ -347,7 +439,8 @@ export function parsePersonalRelation(
       isPatron: false,
       isPeer: false,
       isRival: false,
-      isRomance
+      isRomance,
+      isFriendship
     };
   }
 
@@ -360,6 +453,9 @@ export function parsePersonalRelation(
     fullName,
     trust,
     affection,
+    trustStage,
+    affLabel,
+    affStage,
     descStr,
     rawDescStr,
     tierId: 'peer',
@@ -375,7 +471,8 @@ export function parsePersonalRelation(
     isPatron: false,
     isPeer: true,
     isRival: false,
-    isRomance
+    isRomance,
+    isFriendship
   };
 }
 

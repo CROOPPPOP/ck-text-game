@@ -8,7 +8,10 @@ import {
   detectVocation, 
   sanitizeNameAndRole, 
   getSuperiorApprovalTrust, 
-  getCouncilVassals 
+  getCouncilVassals,
+  getTrustStage,
+  getFriendshipStage,
+  getAffectionStage
 } from './src/lib/characterRelations';
 import {
   calculateBuildingUpgradeCost,
@@ -815,6 +818,93 @@ const mercGrowth = calculatePopulationGrowth(mercenaryMock, 25);
 assert(mercGrowth.currentPopulation === 30, "Mercenary count parsed as 30");
 assert(mercGrowth.delta === 5, "Mercenary delta is +5 (30 - 25)");
 assert(mercGrowth.recentDeltaLabel === '▲ +5명', "Mercenary recent delta label is '▲ +5명'");
+
+// ==========================================
+// TEST 16: Trust & Friendship / Affection Stages and SSOT Rule Regression
+// ==========================================
+console.log("\n--- 16. Testing Trust & Friendship / Affection Stages & Screen Regression ---");
+
+// 16.1 Test Trust Stage Thresholds
+assert(getTrustStage(10) === '경계', "Trust 10 is '경계'");
+assert(getTrustStage(20) === '어색함', "Trust 20 is '어색함'");
+assert(getTrustStage(30) === '관심', "Trust 30 is '관심'");
+assert(getTrustStage(40) === '호기심', "Trust 40 is '호기심'");
+assert(getTrustStage(55) === '우호', "Trust 55 is '우호'");
+assert(getTrustStage(68) === '친밀', "Trust 68 is '친밀'");
+assert(getTrustStage(80) === '신뢰', "Trust 80 is '신뢰'");
+assert(getTrustStage(95) === '동반', "Trust 95 is '동반'");
+
+// 16.2 Test Friendship Stage Thresholds (Same-gender / Non-romance)
+assert(getFriendshipStage(10) === '타인', "Friendship 10 is '타인'");
+assert(getFriendshipStage(30) === '지인', "Friendship 30 is '지인'");
+assert(getFriendshipStage(42) === '친우', "Friendship 42 is '친우'");
+assert(getFriendshipStage(70) === '붕우', "Friendship 70 is '붕우'");
+assert(getFriendshipStage(90) === '맹우', "Friendship 90 is '맹우'");
+
+// 16.3 Test Affection Stage Thresholds (Opposite-gender / Romance)
+assert(getAffectionStage(10) === '타인', "Affection 10 is '타인'");
+assert(getAffectionStage(25) === '관심', "Affection 25 is '관심'");
+assert(getAffectionStage(40) === '호감', "Affection 40 is '호감'");
+assert(getAffectionStage(60) === '동경', "Affection 60 is '동경'");
+assert(getAffectionStage(75) === '애정', "Affection 75 is '애정'");
+assert(getAffectionStage(90) === '사랑', "Affection 90 is '사랑'");
+assert(getAffectionStage(98) === '극애', "Affection 98 is '극애'");
+
+// 16.4 User Screenshot 5-Character Exact Regression Test
+// Character 1: 오도 주교 (우르비노 교구장) | 신뢰도 68% | 호감도 42%
+const odoRelScreen = "[우르비노 교구장] 오도 주교 | 신뢰도 68% | 호감도 42% | 바쳐진 강론과 사본의 높은 학식에 완전히 매료되어 성탄 대축일 참사회원 세임을 공식 확약하고 주교관 회랑을 개방함.";
+const parsedOdoScreen = parsePersonalRelation(odoRelScreen, 'clergy');
+assert(parsedOdoScreen.name === '오도 주교', "Odo name parsed correctly");
+assert(parsedOdoScreen.trust === 68, "Odo trust is 68");
+assert(parsedOdoScreen.trustStage === '친밀', "Odo trust stage is '친밀'");
+assert(parsedOdoScreen.affLabel === '우정도', "Odo relation label is strictly '우정도' (NOT '호감도')");
+assert(parsedOdoScreen.affection === 42, "Odo affection/friendship is 42");
+assert(parsedOdoScreen.affStage === '친우', "Odo friendship stage is '친우'");
+
+// Character 2: 토마소 장로 (마을 자치 촌장) | 신뢰도 60% | 호감도 44%
+const tomasoRelScreen = "[마을 자치 촌장] 토마소 장로 | 신뢰도 60% | 호감도 44% | 사제가 주교좌의 거물이 되어 영지를 지켜줄 것이라 굳게 믿고 후방 행정에 헌신.";
+const parsedTomasoScreen = parsePersonalRelation(tomasoRelScreen, 'clergy');
+assert(parsedTomasoScreen.name === '토마소 장로', "Tomaso name parsed correctly");
+assert(parsedTomasoScreen.trust === 60, "Tomaso trust is 60");
+assert(parsedTomasoScreen.trustStage === '우호', "Tomaso trust stage is '우호'");
+assert(parsedTomasoScreen.affLabel === '우정도', "Tomaso relation label is strictly '우정도'");
+assert(parsedTomasoScreen.affStage === '친우', "Tomaso friendship stage is '친우'");
+
+// Character 3: 베아트리체 (토착 장원 미망인) | 신뢰도 88% | 호감도 90% (로맨스/은밀한 연인)
+const beatriceRelScreen = "[토착 장원 미망인] 베아트리체 | 신뢰도 88% | 호감도 90% | {특수: 은밀한 연인} 사제를 영지 섭정으로 세우고 뱃속의 아이를 온전히 맡기며 영혼과 육신을 헌신함.";
+const parsedBeatriceScreen = parsePersonalRelation(beatriceRelScreen, 'clergy');
+assert(parsedBeatriceScreen.name === '베아트리체', "Beatrice name parsed correctly");
+assert(parsedBeatriceScreen.trust === 88, "Beatrice trust is 88");
+assert(parsedBeatriceScreen.trustStage === '신뢰', "Beatrice trust stage is '신뢰'");
+assert(parsedBeatriceScreen.affLabel === '애정도', "Beatrice relation label is strictly '애정도' (Romance)");
+assert(parsedBeatriceScreen.affection === 90, "Beatrice affection is 90");
+assert(parsedBeatriceScreen.affStage === '사랑', "Beatrice affection stage is '사랑'");
+assert(parsedBeatriceScreen.isRomance === true, "Beatrice isRomance is true");
+
+// Character 4: 베르나르도 (성 미카엘 수호대장) | 신뢰도 74% | 호감도 42%
+const bernardoRelScreen = "[성 미카엘 수호대장] 베르나르도 | 신뢰도 74% | 호감도 42% | 장원 방어와 호위대 인솔, 첩자 후보들을 단련할 음지의 교관 물색 명령을 철저히 수행 중.";
+const parsedBernardoScreen = parsePersonalRelation(bernardoRelScreen, 'clergy');
+assert(parsedBernardoScreen.name === '베르나르도', "Bernardo name parsed correctly");
+assert(parsedBernardoScreen.trust === 74, "Bernardo trust is 74");
+assert(parsedBernardoScreen.trustStage === '친밀', "Bernardo trust stage is '친밀'");
+assert(parsedBernardoScreen.affLabel === '우정도', "Bernardo relation label is strictly '우정도'");
+assert(parsedBernardoScreen.affStage === '친우', "Bernardo friendship stage is '친우'");
+
+// Character 5: 마테오 (우르비노 주교좌 상단 행수) | 신뢰도 52% | 호감도 35%
+const mateoRelScreen = "[우르비노 주교좌 상단 행수] 마테오 | 신뢰도 52% | 호감도 35% | 상경길을 동행하며 도시 내 유력자들의 치부와 정세를 넘겨주고 사제와의 유착을 더욱 강화함.";
+const parsedMateoScreen = parsePersonalRelation(mateoRelScreen, 'clergy');
+assert(parsedMateoScreen.name === '마테오', "Mateo name parsed correctly");
+assert(parsedMateoScreen.trust === 52, "Mateo trust is 52");
+assert(parsedMateoScreen.trustStage === '우호', "Mateo trust stage is '우호'");
+assert(parsedMateoScreen.affLabel === '우정도', "Mateo relation label is strictly '우정도'");
+assert(parsedMateoScreen.affStage === '지인', "Mateo friendship stage is '지인'");
+
+// 16.5 Explicit dash stage format test (e.g., '신뢰도 88 — [신뢰] | 애정도 90 — [사랑]')
+const explicitStageRel = "엘레나 | 신뢰도 88 — [신뢰] | 애정도 90 — [사랑] | 관계: 비밀 연인";
+const parsedExplicit = parsePersonalRelation(explicitStageRel, 'clergy');
+assert(parsedExplicit.trustStage === '신뢰', "Explicit stage parses '신뢰'");
+assert(parsedExplicit.affLabel === '애정도', "Explicit stage has '애정도'");
+assert(parsedExplicit.affStage === '사랑', "Explicit stage parses '사랑'");
 
 // ==========================================
 // Summary
