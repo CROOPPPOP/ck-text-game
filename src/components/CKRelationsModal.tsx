@@ -1,8 +1,9 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { Users, Heart, Shield, Swords, Handshake, X } from 'lucide-react';
+import { getArchetypeDetails } from '@/lib/ckVisuals';
+import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -11,10 +12,130 @@ interface Props {
 }
 
 export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) {
+  const [activeTierFilter, setActiveTierFilter] = useState<'all' | 'superior' | 'patron' | 'peer' | 'subordinate' | 'rival'>('all');
+
   if (!isOpen) return null;
 
   const personalRels = gameState.relationships?.personal || [];
   const factionRels = gameState.relationships?.faction || [];
+
+  const archetypeDetails = getArchetypeDetails(gameState);
+  const archetype = archetypeDetails.archetype;
+
+  // 아키타입별 맥락 맞춤형 명칭
+  const config = {
+    clergy: {
+      title: '⛪ 교구 인물 & 신앙 관계망',
+      desc: '교단 상급자, 동료 사제, 본당 후원자 및 교구 신도들과의 유대와 신뢰',
+      icon: '⛪',
+      section: '교단 성직자 및 교구 신도',
+      subordinateName: '🛡️ 직속 보좌 / 복사 / 수사'
+    },
+    wanderer: {
+      title: '🗡️ 방랑 인맥 & 대인 관계망',
+      desc: '여정을 함께하는 동행자, 의뢰인, 은인 및 현지 인맥과의 신뢰',
+      icon: '🗡️',
+      section: '여정 동행자 및 현지 인맥',
+      subordinateName: '🛡️ 동행 제자 / 조력자'
+    },
+    company: {
+      title: '👥 소속 단원 & 대외 계약망',
+      desc: '부대 간부, 소속 단원, 고용주 영주 및 상인들과의 계약과 신뢰',
+      icon: '👥',
+      section: '부대 단원 및 대외 협력자',
+      subordinateName: '🛡️ 직속 부관 / 단원'
+    },
+    noble: {
+      title: '🏰 궁정 인물 & 외교 관계망',
+      desc: '군주와 궁정 신하, 봉신 및 주변 제후들과의 호감도와 외교 상태',
+      icon: '🏰',
+      section: '궁정 신하 및 가신단',
+      subordinateName: '🛡️ 직속 가신 (Vassal)'
+    }
+  }[archetype] || {
+    title: '대인 관계 & 외교 관계망',
+    desc: '인물들과의 호감도, 신뢰도 및 세력 간 외교 상태',
+    icon: '🤝',
+    section: '대인 관계망',
+    subordinateName: '직속 가신 / 보좌'
+  };
+
+  // 5대 관계 위계(Tier) 판별 함수
+  const getRelationTier = (rawName: string, descStr: string, affStr: string) => {
+    const combined = `${rawName} ${descStr} ${affStr}`;
+    if (combined.includes('숙적') || combined.includes('라이벌') || combined.includes('[적대]') || combined.includes('적대') || combined.includes('원한')) {
+      return { id: 'rival' as const, label: '⚔️ 숙적 / 적대', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' };
+    }
+    if (combined.includes('[상급자]') || combined.includes('상급자') || combined.includes('교구장') || combined.includes('주교') || combined.includes('대주교') || combined.includes('교황') || combined.includes('주군') || combined.includes('국왕') || combined.includes('황제') || combined.includes('스승') || combined.includes('종정')) {
+      return { id: 'superior' as const, label: '👑 상급자 / 주군', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)', border: '#f59e0b' };
+    }
+    if (combined.includes('[후원자]') || combined.includes('후원자') || combined.includes('신도') || combined.includes('미망인') || combined.includes('고용주') || combined.includes('의뢰인') || combined.includes('후원') || combined.includes('영부인')) {
+      return { id: 'patron' as const, label: '📜 후원자 / 신도', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: '#0284c7' };
+    }
+    if (combined.includes('[직속부하]') || combined.includes('직속부하') || combined.includes('가신') || combined.includes('부관') || combined.includes('시종') || combined.includes('복사') || combined.includes('수련수사') || combined.includes('도제') || combined.includes('사병')) {
+      return { id: 'subordinate' as const, label: config.subordinateName, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
+    }
+    return { id: 'peer' as const, label: '🤝 대등한 동료', color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)', border: '#10b981' };
+  };
+
+  // 파싱 및 위계 분류된 인물 목록
+  const parsedCharacters = personalRels.map(rel => {
+    const parts = rel.split('|').map(p => p.trim());
+    if (parts.length >= 4) {
+      const rawName = parts[0];
+      const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+      const name = roleMatch ? roleMatch[1].trim() : rawName;
+      const role = roleMatch ? roleMatch[2].trim() : '';
+
+      const trustStr = parts[1];
+      const affStr = parts[2];
+      const descStr = parts.slice(3).join(' | ').replace('관계:', '').trim();
+
+      const trustMatch = trustStr.match(/(\d+)/);
+      const affMatch = affStr.match(/(\d+)/);
+
+      const trustVal = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1], 10))) : 50;
+      const affVal = affMatch ? Math.min(100, Math.max(0, parseInt(affMatch[1], 10))) : 50;
+
+      const tier = getRelationTier(rawName, descStr, affStr);
+
+      const isRomance = affStr.includes('애정도') || descStr.includes('연인') || descStr.includes('배우자');
+      const isRival = tier.id === 'rival';
+      const isObsessive = affStr.includes('집착') || affStr.includes('광애');
+      const isSwornFriend = affStr.includes('맹우') || trustStr.includes('맹우');
+
+      return {
+        raw: rel,
+        name,
+        role,
+        trustStr,
+        affStr,
+        descStr,
+        trustVal,
+        affVal,
+        tier,
+        isRomance,
+        isRival,
+        isObsessive,
+        isSwornFriend
+      };
+    }
+    return null;
+  }).filter(Boolean);
+
+  // 위계별 인원수 계산
+  const tierCounts = {
+    all: parsedCharacters.length,
+    superior: parsedCharacters.filter(c => c?.tier.id === 'superior').length,
+    patron: parsedCharacters.filter(c => c?.tier.id === 'patron').length,
+    peer: parsedCharacters.filter(c => c?.tier.id === 'peer').length,
+    subordinate: parsedCharacters.filter(c => c?.tier.id === 'subordinate').length,
+    rival: parsedCharacters.filter(c => c?.tier.id === 'rival').length
+  };
+
+  const filteredCharacters = activeTierFilter === 'all' 
+    ? parsedCharacters 
+    : parsedCharacters.filter(c => c?.tier.id === activeTierFilter);
 
   return (
     <div 
@@ -45,7 +166,9 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
           border: '2px solid rgba(212, 175, 55, 0.45)',
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(212, 175, 55, 0.2)',
           padding: '28px',
-          position: 'relative'
+          position: 'relative',
+          fontFamily: 'var(--font-sans, "Pretendard", sans-serif)',
+          WebkitFontSmoothing: 'antialiased'
         }} 
         onClick={e => e.stopPropagation()}
       >
@@ -74,176 +197,197 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
             width: '56px',
             height: '56px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(244, 63, 94, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            border: '2px solid #f43f5e',
+            background: 'radial-gradient(circle, rgba(212, 175, 55, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%)',
+            border: '2px solid var(--gold-accent)',
             fontSize: '1.8rem',
             marginBottom: '10px'
           }}>
-            🤝
+            {config.icon}
           </div>
           <h2 style={{ color: 'var(--gold-accent)', fontSize: '1.7rem', fontWeight: 'bold', margin: '0 0 4px 0', letterSpacing: '1px' }}>
-            궁정 인물 & 외교 관계망
+            {config.title}
           </h2>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            군주와의 호감도, 신뢰도, 비밀 음모 및 주변 세력 간 외교 상태
+            {config.desc}
           </div>
         </div>
 
-        {/* 1. Personal Court & Characters */}
+        {/* 1. Personal Relationships & Hierarchy Filtering */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{
             display: 'flex',
+            justifyContent: 'space-between',
             alignItems: 'center',
-            gap: '8px',
-            color: 'var(--gold-accent)',
-            fontSize: '1.1rem',
-            fontWeight: 'bold',
+            flexWrap: 'wrap',
+            gap: '10px',
             marginBottom: '14px',
             borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
             paddingBottom: '8px'
           }}>
-            <Users size={18} />
-            <span>궁정 인물 및 인간관계 ({personalRels.length}명)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--gold-accent)', fontSize: '1.1rem', fontWeight: 'bold' }}>
+              <Users size={18} />
+              <span>{config.section} ({personalRels.length}명)</span>
+            </div>
+
+            {/* 5-Tier Filter Tabs */}
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {[
+                { id: 'all', label: `전체 (${tierCounts.all})` },
+                { id: 'superior', label: `👑 상급자 (${tierCounts.superior})` },
+                { id: 'patron', label: `📜 후원자·신도 (${tierCounts.patron})` },
+                { id: 'peer', label: `🤝 동료 (${tierCounts.peer})` },
+                { id: 'subordinate', label: `🛡️ 직속 (${tierCounts.subordinate})` },
+                { id: 'rival', label: `⚔️ 적대 (${tierCounts.rival})` },
+              ].map(tab => {
+                const isActive = activeTierFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTierFilter(tab.id as any)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: isActive ? 'bold' : 'normal',
+                      border: isActive ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
+                      background: isActive ? 'rgba(212, 175, 55, 0.2)' : 'rgba(0,0,0,0.3)',
+                      color: isActive ? 'var(--gold-hover)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {personalRels.length > 0 ? (
+          {filteredCharacters.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '14px' }}>
-              {personalRels.map((rel, idx) => {
-                const parts = rel.split('|').map(p => p.trim());
-                if (parts.length >= 4) {
-                  const rawName = parts[0];
-                  const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
-                  const name = roleMatch ? roleMatch[1].trim() : rawName;
-                  const role = roleMatch ? roleMatch[2].trim() : '';
+              {filteredCharacters.map((c, idx) => {
+                if (!c) return null;
+                const borderColor = c.isRival ? '#ef4444' : c.isObsessive ? '#c084fc' : c.isSwornFriend ? '#fbbf24' : 'rgba(255, 255, 255, 0.1)';
 
-                  const trustStr = parts[1];
-                  const affStr = parts[2];
-                  const descStr = parts.slice(3).join(' | ').replace('관계:', '').trim();
-
-                  const trustMatch = trustStr.match(/(\d+)/);
-                  const affMatch = affStr.match(/(\d+)/);
-
-                  const trustVal = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1], 10))) : 50;
-                  const affVal = affMatch ? Math.min(100, Math.max(0, parseInt(affMatch[1], 10))) : 50;
-
-                  const isRomance = affStr.includes('애정도') || descStr.includes('연인') || descStr.includes('배우자');
-                  const isRival = affStr.includes('숙적') || affStr.includes('라이벌') || descStr.includes('숙적') || descStr.includes('라이벌') || (trustStr.includes('경계') && trustVal <= 15);
-                  const isObsessive = affStr.includes('집착') || affStr.includes('광애');
-                  const isSwornFriend = affStr.includes('맹우') || trustStr.includes('맹우');
-
-                  const borderColor = isRival ? '#ef4444' : isObsessive ? '#c084fc' : isSwornFriend ? '#fbbf24' : 'rgba(255, 255, 255, 0.1)';
-
-                  return (
-                    <div 
-                      key={idx} 
-                      style={{
-                        background: 'rgba(0, 0, 0, 0.4)',
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: '10px',
-                        padding: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '10px',
-                        boxShadow: isRival ? '0 0 12px rgba(239, 68, 68, 0.25)' : isObsessive ? '0 0 15px rgba(192, 132, 252, 0.2)' : 'none'
-                      }}
-                    >
-                      {/* Character Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '50%',
-                            background: isRival ? 'rgba(239, 68, 68, 0.2)' : isRomance ? 'rgba(244, 63, 94, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                            border: `1px solid ${isRival ? '#ef4444' : isRomance ? '#f43f5e' : '#38bdf8'}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '1.2rem'
-                          }}>
-                            {isRival ? '⚔️' : isRomance ? '❤️' : isSwornFriend ? '🛡️' : '👤'}
-                          </div>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: 'bold', color: isRival ? '#fca5a5' : 'var(--gold-accent)', fontSize: '1.05rem' }}>
-                                {name}
-                              </span>
-                              {role && (
-                                <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.15)', color: '#7dd3fc', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
-                                  {role}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: isRival ? '#fca5a5' : 'var(--text-muted)' }}>
-                              {descStr}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Special Badges */}
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          {isRival && (
-                            <span style={{ fontSize: '0.75rem', color: '#fca5a5', background: 'rgba(239, 68, 68, 0.2)', padding: '2px 8px', borderRadius: '4px', border: '1px solid #ef4444', fontWeight: 'bold' }}>
-                              숙적 / 라이벌
-                            </span>
-                          )}
-                          {isObsessive && (
-                            <span style={{ fontSize: '0.75rem', color: '#c084fc', background: 'rgba(192, 132, 252, 0.2)', padding: '2px 8px', borderRadius: '4px', border: '1px solid #c084fc' }}>
-                              광애 / 집착
-                            </span>
-                          )}
-                          {isSwornFriend && (
-                            <span style={{ fontSize: '0.75rem', color: '#fbbf24', background: 'rgba(251, 191, 36, 0.2)', padding: '2px 8px', borderRadius: '4px', border: '1px solid #fbbf24' }}>
-                              맹우
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Opinion Gauges */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '8px 10px', borderRadius: '6px' }}>
-                        {/* Trust Gauge */}
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#7dd3fc', marginBottom: '2px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Handshake size={12} />
-                              <span>{trustStr.replace(/\d+/, '').replace('-', '').trim() || '신뢰도'}</span>
-                            </span>
-                            <span style={{ fontWeight: 'bold' }}>{trustVal}%</span>
-                          </div>
-                          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ width: `${trustVal}%`, height: '100%', background: 'linear-gradient(90deg, #0284c7, #38bdf8)' }} />
-                          </div>
-                        </div>
-
-                        {/* Affection Gauge */}
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: isRival ? '#fca5a5' : isRomance ? '#fda4af' : '#fef08a', marginBottom: '2px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Heart size={12} />
-                              <span>{affStr.replace(/\d+/, '').replace('-', '').trim() || (isRival ? '적대도' : isRomance ? '애정도' : '우정도')}</span>
-                            </span>
-                            <span style={{ fontWeight: 'bold' }}>{affVal}%</span>
-                          </div>
-                          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ width: `${affVal}%`, height: '100%', background: isRival ? 'linear-gradient(90deg, #7f1d1d, #dc2626)' : isRomance ? 'linear-gradient(90deg, #e11d48, #f43f5e)' : 'linear-gradient(90deg, #d97706, #fbbf24)' }} />
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  );
-                }
                 return (
-                  <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 14px', borderRadius: '8px', color: 'var(--text-main)' }}>
-                    {rel}
+                  <div 
+                    key={idx} 
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: `1px solid ${borderColor}`,
+                      borderRadius: '10px',
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      boxShadow: c.isRival ? '0 0 12px rgba(239, 68, 68, 0.25)' : c.isObsessive ? '0 0 15px rgba(192, 132, 252, 0.2)' : 'none'
+                    }}
+                  >
+                    {/* Character Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '50%',
+                          background: c.isRival ? 'rgba(239, 68, 68, 0.2)' : c.isRomance ? 'rgba(244, 63, 94, 0.2)' : c.tier.bg,
+                          border: `1px solid ${c.isRival ? '#ef4444' : c.isRomance ? '#f43f5e' : c.tier.border}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.2rem',
+                          flexShrink: 0
+                        }}>
+                          {c.isRival ? '⚔️' : c.isRomance ? '❤️' : c.tier.id === 'superior' ? '👑' : c.tier.id === 'patron' ? '📜' : c.isSwornFriend ? '🛡️' : '👤'}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 'bold', color: c.isRival ? '#fca5a5' : 'var(--gold-accent)', fontSize: '1.05rem' }}>
+                              {c.name}
+                            </span>
+                            {c.role && (
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.15)', color: '#7dd3fc', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                                {c.role}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: c.isRival ? '#fca5a5' : 'var(--text-muted)', marginTop: '2px' }}>
+                            {c.descStr}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Badges: Relation Tier & Status */}
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          color: c.tier.color,
+                          background: c.tier.bg,
+                          border: `1px solid ${c.tier.border}`,
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          fontWeight: 'bold',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {c.tier.label}
+                        </span>
+
+                        {c.isRomance && (
+                          <span style={{ fontSize: '0.72rem', color: '#fda4af', background: 'rgba(244, 63, 94, 0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #f43f5e', whiteSpace: 'nowrap' }}>
+                            연인 / 정
+                          </span>
+                        )}
+                        {c.isObsessive && (
+                          <span style={{ fontSize: '0.72rem', color: '#c084fc', background: 'rgba(192, 132, 252, 0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #c084fc', whiteSpace: 'nowrap' }}>
+                            광애 / 집착
+                          </span>
+                        )}
+                        {c.isSwornFriend && (
+                          <span style={{ fontSize: '0.72rem', color: '#fbbf24', background: 'rgba(251, 191, 36, 0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #fbbf24', whiteSpace: 'nowrap' }}>
+                            맹우
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Opinion Gauges */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '8px 10px', borderRadius: '6px' }}>
+                      {/* Trust Gauge */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#7dd3fc', marginBottom: '2px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Handshake size={12} />
+                            <span>{c.trustStr.replace(/\d+/, '').replace('-', '').trim() || '신뢰도'}</span>
+                          </span>
+                          <span style={{ fontWeight: 'bold' }}>{c.trustVal}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${c.trustVal}%`, height: '100%', background: 'linear-gradient(90deg, #0284c7, #38bdf8)' }} />
+                        </div>
+                      </div>
+
+                      {/* Affection Gauge */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: c.isRival ? '#fca5a5' : c.isRomance ? '#fda4af' : '#fef08a', marginBottom: '2px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Heart size={12} />
+                            <span>{c.affStr.replace(/\d+/, '').replace('-', '').trim() || (c.isRival ? '적대도' : c.isRomance ? '애정도' : '우정도')}</span>
+                          </span>
+                          <span style={{ fontWeight: 'bold' }}>{c.affVal}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${c.affVal}%`, height: '100%', background: c.isRival ? 'linear-gradient(90deg, #7f1d1d, #dc2626)' : c.isRomance ? 'linear-gradient(90deg, #e11d48, #f43f5e)' : 'linear-gradient(90deg, #d97706, #fbbf24)' }} />
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 );
               })}
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
-              현재 기록된 주요 궁정 인물이 없습니다.
+              해당 분류에 속한 인물이 없습니다.
             </div>
           )}
         </div>

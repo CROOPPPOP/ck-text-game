@@ -54,23 +54,31 @@ export default function CKRealmModal({
 
   const currentFaction = factionState || gameState?.factionState;
   const archetypeDetails = gameState ? getArchetypeDetails(gameState) : null;
+  const archetype = archetypeDetails?.archetype || 'noble';
   const modalIcon = archetypeDetails ? archetypeDetails.icon : '🏰';
   const modalTitle = archetypeDetails
     ? `${archetypeDetails.num} ${archetypeDetails.title} 대시보드`
     : '영지 및 세력 통치 대시보드';
 
-  // 거점 상주 자문관 및 가신 추출
+  // 거점 상주 자문관 및 직속 부하/가신 추출 (상급자 및 외부 후원자 엄격 제외)
   const councilVassals = (gameState?.relationships?.personal || []).filter(rel => {
     const rawName = rel.split('|')[0] || '';
     const descStr = rel.split('|').slice(3).join(' ') || '';
-    const keywords = ['가신', '기사', '집사장', '원수', '첩보', '사제', '부대장', '부원장', '관리인', '서기관', '참모', '조언', '시종'];
-    return keywords.some(k => rawName.includes(k) || descStr.includes(k));
+    const combined = `${rawName} ${descStr}`;
+
+    // 제외 대상: 상급자, 후원자, 외부 유력자, 적대자
+    const excludeKeywords = ['상급자', '교구장', '주교', '대주교', '교황', '주군', '영주', '국왕', '황제', '스승', '종정', '후원자', '미망인', '영부인', '고용주', '의뢰인', '적대', '숙적', '라이벌'];
+    if (excludeKeywords.some(k => combined.includes(k))) return false;
+
+    // 포함 대상: 직속 부하/가신/보좌/단원
+    const subordinateKeywords = ['직속부하', '가신', '기사', '집사장', '원수', '첩보장', '부대장', '부원장', '관리인', '서기관', '참모', '시종', '복사', '수련수사', '도제', '조력자', '부관'];
+    return subordinateKeywords.some(k => combined.includes(k));
   }).map(rel => {
     const parts = rel.split('|').map(p => p.trim());
     const rawName = parts[0] || '';
     const roleMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
     const name = roleMatch ? roleMatch[1].trim() : rawName;
-    const role = roleMatch ? roleMatch[2].trim() : (parts.slice(3).join(' ').includes('가신') ? '가신' : '자문관');
+    const role = roleMatch ? roleMatch[2].trim() : (archetype === 'clergy' ? '보좌 수사' : archetype === 'company' ? '부대 간부' : archetype === 'wanderer' ? '동행 조력자' : '직속 가신');
     return { name, role };
   });
 
@@ -267,11 +275,23 @@ export default function CKRealmModal({
                 </div>
               </div>
 
-              {/* 거점 상주 가신 및 자문관 */}
+              {/* 거점 상주 직속 부하 / 가신 / 보좌 */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold' }}>👥 거점 상주 가신 & 자문관 ({councilVassals.length}명)</span>
-                  {councilVassals.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>인간관계의 주요 인물이 거점 직책을 맡습니다</span>}
+                  <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                    {archetype === 'clergy' ? '⛪ 직속 교구 보좌 및 수도사' :
+                     archetype === 'wanderer' ? '🗡️ 동행 동료 및 조력자' :
+                     archetype === 'company' ? '👥 부대 간부 및 직속 단원' :
+                     '👑 거점 상주 가신 & 자문관'} ({councilVassals.length}명)
+                  </span>
+                  {councilVassals.length === 0 && (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                      {archetype === 'clergy' ? '인간관계에서 수도사/복사 등용 시 연동' :
+                       archetype === 'wanderer' ? '인간관계에서 동료 등용 시 연동' :
+                       archetype === 'company' ? '인간관계에서 부관/간부 등용 시 연동' :
+                       '인간관계에서 가신/기사 등용 시 연동'}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {councilVassals.length > 0 ? (
@@ -287,14 +307,19 @@ export default function CKRealmModal({
                         alignItems: 'center',
                         gap: '5px'
                       }}>
-                        <span style={{ color: 'var(--gold-accent)' }}>👑</span>
+                        <span style={{ color: 'var(--gold-accent)' }}>
+                          {archetype === 'clergy' ? '🕊️' : archetype === 'company' ? '🛡️' : archetype === 'wanderer' ? '🗡️' : '👑'}
+                        </span>
                         <strong>{v.name}</strong>
                         <span style={{ color: '#7dd3fc', fontSize: '0.72rem' }}>({v.role})</span>
                       </span>
                     ))
                   ) : (
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                      아직 임명된 직속 가신이 없습니다. (인간관계에서 기사/집사장/사제 등 등용 시 연동)
+                      {archetype === 'clergy' ? '아직 임명된 직속 보좌 수사나 복사가 없습니다.' :
+                       archetype === 'wanderer' ? '아직 함께하는 동행 조력자가 없습니다.' :
+                       archetype === 'company' ? '아직 임명된 부대 간부가 없습니다.' :
+                       '아직 임명된 직속 가신이 없습니다.'}
                     </span>
                   )}
                 </div>
@@ -315,28 +340,37 @@ export default function CKRealmModal({
               </h3>
               {gameState?.estate?.buildings && gameState.estate.buildings.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px' }}>
-                  {gameState.estate.buildings.map((b, idx) => (
-                    <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                        <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                          🏛️ {b.name} <span style={{fontSize: '0.8rem', color: '#60a5fa', fontWeight: 'bold'}}>Lv.{b.level}</span>
-                        </span>
-                        {b.tags && b.tags.length > 0 && (
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            {b.tags.map((t, ti) => {
-                              const st = getTagStyle(t);
-                              return (
-                                <span key={ti} style={{ fontSize: '0.72rem', background: st.bg, color: st.color, border: `1px solid ${st.color}33`, padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                  <span>{st.icon}</span> {t}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
+                  {gameState.estate.buildings.map((b, idx) => {
+                    const cleanName = (b.name || '')
+                      .replace(/^[\[\{]+|[\]\}]+$/g, '')
+                      .replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '')
+                      .trim() || '거점 시설';
+
+                    return (
+                      <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                          <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                            🏛️ {cleanName} <span style={{fontSize: '0.8rem', color: '#60a5fa', fontWeight: 'bold'}}>Lv.{b.level}</span>
+                          </span>
+                          {b.tags && b.tags.length > 0 && (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              {b.tags.map((t, ti) => {
+                                const cleanTag = (t || '').replace(/[\[\]\{\}]/g, '').trim();
+                                if (!cleanTag) return null;
+                                const st = getTagStyle(cleanTag);
+                                return (
+                                  <span key={ti} style={{ fontSize: '0.72rem', background: st.bg, color: st.color, border: `1px solid ${st.color}33`, padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    <span>{st.icon}</span> {cleanTag}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        {b.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{b.desc}</span>}
                       </div>
-                      {b.desc && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{b.desc}</span>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '14px' }}>

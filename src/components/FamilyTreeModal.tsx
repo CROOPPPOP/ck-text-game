@@ -194,16 +194,20 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
                 border: '2px solid var(--gold-accent)',
                 borderRadius: '12px',
                 boxShadow: '0 0 20px rgba(212, 175, 55, 0.2)',
-                position: 'relative'
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
               }}>
-                <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'var(--gold-accent)', color: '#111', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px' }}>
-                  {labels.rulerCardLabel}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
-                  <div style={{ fontSize: '2.4rem' }}>{archetypeDetails.icon}</div>
-                  <div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--gold-accent)' }}>{rulerName}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{rulerTitle} &bull; {rulerAge}세</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '2.4rem', flexShrink: 0 }}>{archetypeDetails.icon}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--gold-accent)', wordBreak: 'break-word' }}>{rulerName}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{rulerTitle} &bull; {rulerAge}세</div>
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--gold-accent)', color: '#111', fontSize: '0.75rem', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                    {labels.rulerCardLabel}
                   </div>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px' }}>
@@ -218,20 +222,24 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
                 background: 'rgba(0, 0, 0, 0.35)',
                 border: '1px solid rgba(244, 63, 94, 0.3)',
                 borderRadius: '12px',
-                position: 'relative'
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
               }}>
-                <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(244, 63, 94, 0.2)', color: '#f43f5e', border: '1px solid #f43f5e', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px' }}>
-                  {labels.spouseLabel}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
-                  <div style={{ fontSize: '2.4rem' }}>{archetype === 'clergy' ? '🕊️' : '💍'}</div>
-                  <div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: '#f43f5e' }}>{spouse}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      {archetype === 'clergy'
-                        ? '독신 및 금욕 규율 준수'
-                        : spouse === '없음' ? '미혼 (인연 형성 필요)' : '정실 / 동반자'}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '2.4rem', flexShrink: 0 }}>{archetype === 'clergy' ? '🕊️' : '💍'}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: '#f43f5e', wordBreak: 'break-word' }}>{spouse}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {archetype === 'clergy'
+                          ? '독신 및 금욕 규율 준수'
+                          : spouse === '없음' ? '미혼 (인연 형성 필요)' : '정실 / 동반자'}
+                      </div>
                     </div>
+                  </div>
+                  <div style={{ background: 'rgba(244, 63, 94, 0.2)', color: '#f43f5e', border: '1px solid #f43f5e', fontSize: '0.75rem', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                    {labels.spouseLabel}
                   </div>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: '6px', lineHeight: '1.5' }}>

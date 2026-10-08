@@ -65,7 +65,9 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
           border: '2px solid rgba(212, 175, 55, 0.45)',
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(212, 175, 55, 0.2)',
           padding: '28px',
-          position: 'relative'
+          position: 'relative',
+          fontFamily: 'var(--font-sans, "Pretendard", sans-serif)',
+          WebkitFontSmoothing: 'antialiased'
         }} 
         onClick={e => e.stopPropagation()}
       >

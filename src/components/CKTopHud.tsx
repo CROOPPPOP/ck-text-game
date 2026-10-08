@@ -56,7 +56,7 @@ export default function CKTopHud({
       padding: '8px 16px',
       position: 'relative',
       zIndex: 50,
-      fontFamily: 'var(--font-serif, "Noto Serif KR", serif)'
+      fontFamily: 'var(--font-sans, "Pretendard", sans-serif)'
     }}>
       {/* Top Main Row */}
       <div style={{
@@ -235,21 +235,21 @@ export default function CKTopHud({
               cursor: 'help'
             }}
           >
-            <Flame size={16} style={{ color: stress.color }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: stress.color, fontWeight: 'bold' }}>
+            <Flame size={16} style={{ color: stress.color, flexShrink: 0 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '85px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: stress.color, fontWeight: 'bold' }}>
                 <span>스트레스 {stress.tier > 0 ? `Lv.${stress.tier}` : '안정'}</span>
-                <span>{stress.value}/100</span>
+                <span>({stress.value}/100)</span>
               </div>
               <div style={{
-                width: '64px',
+                width: '100%',
                 height: '6px',
                 background: 'rgba(255,255,255,0.1)',
                 borderRadius: '3px',
                 overflow: 'hidden'
               }}>
                 <div style={{
-                  width: `${stress.value}%`,
+                  width: `${Math.min(100, stress.value)}%`,
                   height: '100%',
                   background: stress.color,
                   boxShadow: `0 0 6px ${stress.color}`

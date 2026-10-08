@@ -325,25 +325,55 @@ export function parseLLMResponse(text: string): ParsedState {
       if (cleanLine.startsWith('[거점 형태]:')) result.estate!.type = cleanLine.replace('[거점 형태]:', '').trim();
       else if (cleanLine.startsWith('[거점 규모]:')) result.estate!.level = cleanLine.replace('[거점 규모]:', '').trim();
       else if (/^[▶▷○•\-]/.test(cleanLine)) {
-         const buildingMatch = cleanLine.match(/^[▶▷○•\-]\s*(.*?)(?:\[(.*?)\])?:\s*(.*)/);
-         if (buildingMatch) {
-             const nameWithLv = buildingMatch[1].trim();
-             const rawTags = buildingMatch[2] ? buildingMatch[2].trim() : '';
-             const desc = buildingMatch[3].trim();
+         const stripped = cleanLine.replace(/^[▶▷○•\-]\s*/, '').trim();
+         const colonIdx = stripped.indexOf(':');
+         if (colonIdx > 0) {
+             const headerPart = stripped.substring(0, colonIdx).trim();
+             const desc = stripped.substring(colonIdx + 1).trim();
 
-             const lvMatch = nameWithLv.match(/Lv\.?\s*(\d+)/i);
+             // headerPart 내의 모든 [...] 블록 추출
+             const bracketMatches = Array.from(headerPart.matchAll(/\[(.*?)\]/g)).map(m => m[1].trim());
+
+             let nameWithLv = headerPart;
+             let rawTags = '';
+
+             if (bracketMatches.length >= 2) {
+                 nameWithLv = bracketMatches[0];
+                 rawTags = bracketMatches[1];
+             } else if (bracketMatches.length === 1) {
+                 const outside = headerPart.replace(/\[.*?\]/, '').trim();
+                 if (outside.length > 0) {
+                     nameWithLv = outside;
+                     rawTags = bracketMatches[0];
+                 } else {
+                     nameWithLv = bracketMatches[0];
+                 }
+             }
+
+             // 레벨 추출
+             const lvMatch = nameWithLv.match(/(?:Lv\.?|레벨)\s*(\d+)/i) || headerPart.match(/(?:Lv\.?|레벨)\s*(\d+)/i);
              const level = lvMatch ? parseInt(lvMatch[1], 10) : 1;
 
-             const tags = rawTags ? rawTags.split(/[·,\s]+/).filter(Boolean) : ['기타'];
+             // 시설 이름 정제: 괄호 및 레벨 표기 제거
+             let cleanName = nameWithLv
+               .replace(/^[\[\{]+|[\]\}]+$/g, '')
+               .replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '')
+               .trim();
+             if (!cleanName) cleanName = '거점 시설';
+
+             // 태그 정제: 특수괄호 제거 및 분할
+             const tags = rawTags 
+               ? rawTags.replace(/[\[\]\{\}]/g, '').split(/[·,\s]+/).map(t => t.trim()).filter(Boolean)
+               : ['기타'];
 
              result.estate!.buildings.push({ 
-               name: nameWithLv, 
+               name: cleanName, 
                desc: desc,
                level: level,
-               tags: tags
+               tags: tags.length > 0 ? tags : ['기타']
              });
          } else {
-             const fallbackName = cleanLine.replace(/^[▶▷○•\-]/, '').trim();
+             const fallbackName = cleanLine.replace(/^[▶▷○•\-]/, '').replace(/[\[\]]/g, '').trim();
              result.estate!.buildings.push({ name: fallbackName, desc: '', level: 1, tags: ['기타'] });
          }
       }
@@ -380,31 +410,51 @@ export function parseLLMResponse(text: string): ParsedState {
       if (parts.length < 2) return;
       
       const rawNameAndTags = parts[0];
-      const tagsMatch = rawNameAndTags.match(/\[(.*?)\]/);
-      const rawTags = tagsMatch ? tagsMatch[1] : '';
-      const nameMatchRaw = rawNameAndTags.replace(/\[.*?\]/, '').trim();
-      const name = nameMatchRaw.replace(/^\[|\]$/g, '').trim();
+      const brackets = Array.from(rawNameAndTags.matchAll(/\[(.*?)\]/g)).map(m => m[1].trim());
 
-      if (!name || /^(없음|건설 불가)/.test(name)) return;
-      let cost = '';
-      let desc = '';
-      let turns = 3;
-      let kind: 'new' | 'upgrade' | 'promote' = 'new';
+      let rawName = '';
+      let rawTags = '';
       let targetLevel = 1;
+      let kind: 'new' | 'upgrade' | 'promote' = 'new';
 
-      const upgradeMatch = name.match(/Lv\.?(\d+)\s*→\s*(\d+)/i) || name.match(/→\s*Lv\.?(\d+)/i);
+      const upgradeMatch = rawNameAndTags.match(/Lv\.?(\d+)\s*→\s*(\d+)/i) || rawNameAndTags.match(/→\s*Lv\.?(\d+)/i);
       if (upgradeMatch) {
         kind = 'upgrade';
-        if (upgradeMatch.length === 3) {
-          targetLevel = parseInt(upgradeMatch[2], 10);
-        } else {
-          targetLevel = parseInt(upgradeMatch[1], 10);
-        }
-      } else if (name.includes('승격')) {
+        targetLevel = upgradeMatch.length === 3 ? parseInt(upgradeMatch[2], 10) : parseInt(upgradeMatch[1], 10);
+      } else if (rawNameAndTags.includes('승격')) {
         kind = 'promote';
       }
 
-      const tags = rawTags ? rawTags.split(/[·,\s]+/).filter(Boolean) : [];
+      if (brackets.length >= 2) {
+        // e.g. [목조 종탑] Lv.1→2 [치안·신앙]
+        rawName = brackets[0];
+        rawTags = brackets[1];
+      } else if (brackets.length === 1) {
+        const outside = rawNameAndTags.replace(/\[.*?\]/, '').trim();
+        if (outside.length > 0 && !upgradeMatch) {
+          rawName = outside;
+          rawTags = brackets[0];
+        } else {
+          rawName = brackets[0];
+        }
+      } else {
+        rawName = rawNameAndTags.replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim();
+      }
+
+      let cleanName = rawName.replace(/^[\[\{]+|[\]\}]+$/g, '').trim();
+      if (upgradeMatch) {
+        cleanName = `${cleanName} (${upgradeMatch[0].trim()})`;
+      }
+
+      if (!cleanName || /^(없음|건설 불가)/.test(cleanName)) return;
+
+      const tags = rawTags 
+        ? rawTags.replace(/[\[\]\{\}]/g, '').split(/[·,\s]+/).map(t => t.trim()).filter(Boolean) 
+        : [];
+
+      let cost = '';
+      let desc = '';
+      let turns = 3;
 
       parts.slice(1).forEach(p => {
         const costM = p.match(/^비용\s*[:：]?\s*(.*)$/);
@@ -422,7 +472,7 @@ export function parseLLMResponse(text: string): ParsedState {
           desc = p;
         }
       });
-      options.push({ name, cost, turns, desc, kind, targetLevel, tags: tags.length > 0 ? tags : undefined });
+      options.push({ name: cleanName, cost, turns, desc, kind, targetLevel, tags: tags.length > 0 ? tags : undefined });
     });
     result.buildOptions = options;
     if (rejected.length > 0) result.constructionRejected = rejected;
