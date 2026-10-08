@@ -248,7 +248,7 @@ export function getArchetypeDetails(gameState: ParsedState): ArchetypeDetails {
 }
 
 // 텍스트에서 숫자 추출 (예: "15 (+2)" -> 17, "보통 (65%)" -> 65)
-function extractNumericValue(raw: string | undefined): number {
+export function extractNumericValue(raw: string | undefined): number {
   if (!raw) return 10;
   
   // (15 (+2)) 포맷

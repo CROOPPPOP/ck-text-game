@@ -341,10 +341,27 @@ export default function CKRealmModal({
               {gameState?.estate?.buildings && gameState.estate.buildings.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px' }}>
                   {gameState.estate.buildings.map((b, idx) => {
-                    const cleanName = (b.name || '')
+                    let cleanName = (b.name || '')
                       .replace(/^[\[\{]+|[\]\}]+$/g, '')
                       .replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '')
                       .trim() || '거점 시설';
+
+                    // 이전 파서 결함으로 시설명이 태그로 쪼개져 저장된 경우 복원
+                    const VALID_TAG_KEYWORD = /군사|생산|치안|행정|신앙|문화|민생|경제|특수|외교|방어|학문|종교/;
+                    if ((cleanName === '거점 시설' || !cleanName) && b.tags && b.tags.some(t => !VALID_TAG_KEYWORD.test(t))) {
+                      const reconstructed = b.tags
+                        .filter(t => !VALID_TAG_KEYWORD.test(t))
+                        .join(' ')
+                        .replace(/[\[\]\{\}]/g, '')
+                        .replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '')
+                        .trim();
+                      if (reconstructed) cleanName = reconstructed;
+                    }
+
+                    // 오직 유효한 기능 태그만 필터링하여 출력 (단어 쪼개짐 오염 완벽 차단)
+                    const validTags = (b.tags || [])
+                      .map(t => (t || '').replace(/[\[\]\{\}]/g, '').trim())
+                      .filter(t => VALID_TAG_KEYWORD.test(t));
 
                     return (
                       <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -352,11 +369,9 @@ export default function CKRealmModal({
                           <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>
                             🏛️ {cleanName} <span style={{fontSize: '0.8rem', color: '#60a5fa', fontWeight: 'bold'}}>Lv.{b.level}</span>
                           </span>
-                          {b.tags && b.tags.length > 0 && (
+                          {validTags.length > 0 && (
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                              {b.tags.map((t, ti) => {
-                                const cleanTag = (t || '').replace(/[\[\]\{\}]/g, '').trim();
-                                if (!cleanTag) return null;
+                              {validTags.map((cleanTag, ti) => {
                                 const st = getTagStyle(cleanTag);
                                 return (
                                   <span key={ti} style={{ fontSize: '0.72rem', background: st.bg, color: st.color, border: `1px solid ${st.color}33`, padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -452,10 +467,20 @@ export default function CKRealmModal({
                   const already = constructionQueue.some(q => sameBuildingName(q.building, opt.name));
                   const full = constructionQueue.length >= maxSlots;
                   const disabled = loading || already || full;
+
+                  // 불완전 문자열 방어: 닫히지 않은 [태그] 닫기 및 정제
+                  let displayOptName = opt.name || '신규 시설';
+                  if (displayOptName.includes('[') && !displayOptName.includes(']')) {
+                    displayOptName = `${displayOptName}]`;
+                  }
+                  if (/^Lv\.?\d+\s*→\s*\d+/i.test(displayOptName)) {
+                    displayOptName = `거점 시설 강화 (${displayOptName})`;
+                  }
+
                   return (
                     <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{opt.name}</span>
+                        <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{displayOptName}</span>
                         <span style={{ color: '#38bdf8', fontSize: '0.82rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>⏱ {opt.turns}턴</span>
                       </div>
                       {opt.cost && <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)' }}>💰 {opt.cost}</span>}

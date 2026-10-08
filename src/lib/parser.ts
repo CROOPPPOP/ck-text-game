@@ -6,6 +6,17 @@ export interface ChronicleItem {
   summary?: string;
 }
 
+export interface BloodlineIntrigue {
+  childName: string;
+  motherName: string;
+  officialFather: string;
+  realFather: string;
+  claimTitle: string;
+  stage: 'secret' | 'heir_puppet' | 'ruler_puppet' | 'legitimized';
+  exposureRisk: number;
+  desc: string;
+}
+
 export interface ParsedState {
   estate?: { 
     type: string; 
@@ -34,7 +45,14 @@ export interface ParsedState {
   factionState?: Record<string, string>;
   relationships?: { personal: string[], faction: string[] };
   objective?: { ultimateGoal: string; currentGoal: string; currentProgress: string; totalProgress: string; status: string; summary: string };
-  familyState?: { spouse: string; children: string; heir: string; successionLaw: string };
+  familyState?: { 
+    spouse: string; 
+    children: string; 
+    heir: string; 
+    successionLaw: string;
+    secretChildren?: string;
+    intrigues?: BloodlineIntrigue[];
+  };
   historicalTag?: string;
   choices?: Array<{ id: string; type: string; text: string; probability: string; groupType?: string }>;
   ending?: string;
@@ -113,6 +131,10 @@ export function parseLLMResponse(text: string): ParsedState {
         if (key === '신분' || key === '직위') {
           const cleanVal = value.split('/')[0].split('(')[0].trim();
           info[key] = cleanVal || value;
+        } else if (key === '나이') {
+          // '23세', '23 살' 등에서 '세' 중복 방지를 위해 숫자만 추출
+          const cleanAge = value.replace(/[^0-9]/g, '');
+          info[key] = cleanAge || value.replace(/세.*$/, '').trim();
         } else {
           info[key] = value;
         }
@@ -253,10 +275,21 @@ export function parseLLMResponse(text: string): ParsedState {
     let currentCat = '';
     const lines = relationshipsMatch.split('\n');
     lines.forEach(line => {
-      if (line.includes('<인간 관계>')) currentCat = 'personal';
-      else if (line.includes('<세력 관계>')) currentCat = 'faction';
-      else if (line.trim() !== '') {
-        const rel = line.replace('▶', '').trim();
+      const cleanLine = line.trim();
+      if (cleanLine.includes('<인간 관계>')) {
+        currentCat = 'personal';
+        const item = cleanLine.replace(/^[▶▷○•\-]?\s*<인간\s*관계>:?/, '').trim();
+        if (item && item.includes('|')) {
+          result.relationships!.personal.push(item);
+        }
+      } else if (cleanLine.includes('<세력 관계>')) {
+        currentCat = 'faction';
+        const item = cleanLine.replace(/^[▶▷○•\-]?\s*<세력\s*관계>:?/, '').trim();
+        if (item && item.includes('|')) {
+          result.relationships!.faction.push(item);
+        }
+      } else if (cleanLine !== '') {
+        const rel = cleanLine.replace(/^[▶▷○•\-]\s*/, '').trim();
         if (currentCat === 'personal') result.relationships!.personal.push(rel);
         if (currentCat === 'faction') result.relationships!.faction.push(rel);
       }
@@ -334,20 +367,27 @@ export function parseLLMResponse(text: string): ParsedState {
              // headerPart 내의 모든 [...] 블록 추출
              const bracketMatches = Array.from(headerPart.matchAll(/\[(.*?)\]/g)).map(m => m[1].trim());
 
+             const VALID_TAG_KEYWORD = /군사|생산|치안|행정|신앙|문화|민생|경제|특수|외교|방어|학문|종교/;
+
              let nameWithLv = headerPart;
              let rawTags = '';
 
-             if (bracketMatches.length >= 2) {
-                 nameWithLv = bracketMatches[0];
-                 rawTags = bracketMatches[1];
-             } else if (bracketMatches.length === 1) {
-                 const outside = headerPart.replace(/\[.*?\]/, '').trim();
-                 if (outside.length > 0) {
-                     nameWithLv = outside;
-                     rawTags = bracketMatches[0];
-                 } else {
-                     nameWithLv = bracketMatches[0];
-                 }
+             // 유효 태그 브래킷과 시설명 브래킷 명확히 분리
+             const tagBracketIdx = bracketMatches.findIndex(b => VALID_TAG_KEYWORD.test(b));
+             if (tagBracketIdx !== -1) {
+               rawTags = bracketMatches[tagBracketIdx];
+             }
+
+             const nameBrackets = bracketMatches.filter((_, idx) => idx !== tagBracketIdx && !/^(?:Lv\.?|레벨)/i.test(_));
+             if (nameBrackets.length > 0) {
+               nameWithLv = nameBrackets[0];
+             } else {
+               let outside = headerPart;
+               bracketMatches.forEach(b => {
+                 outside = outside.replace(`[${b}]`, '');
+               });
+               outside = outside.trim();
+               nameWithLv = outside || (bracketMatches[0] && !VALID_TAG_KEYWORD.test(bracketMatches[0]) ? bracketMatches[0] : '거점 시설');
              }
 
              // 레벨 추출
@@ -361,10 +401,10 @@ export function parseLLMResponse(text: string): ParsedState {
                .trim();
              if (!cleanName) cleanName = '거점 시설';
 
-             // 태그 정제: 특수괄호 제거 및 분할
+             // 태그 정제: 유효 태그만 화이트리스트 필터링 (시설 이름 조각이 태그로 오염되는 것 차단)
              const tags = rawTags 
-               ? rawTags.replace(/[\[\]\{\}]/g, '').split(/[·,\s]+/).map(t => t.trim()).filter(Boolean)
-               : ['기타'];
+               ? rawTags.replace(/[\[\]\{\}]/g, '').split(/[·,\s]+/).map(t => t.trim()).filter(t => VALID_TAG_KEYWORD.test(t))
+               : [];
 
              result.estate!.buildings.push({ 
                name: cleanName, 
@@ -396,6 +436,8 @@ export function parseLLMResponse(text: string): ParsedState {
       tags?: string[]; 
     }[] = [];
     const rejected: string[] = [];
+    const VALID_TAG_KEYWORD = /군사|생산|치안|행정|신앙|문화|민생|경제|특수|외교|방어|학문|종교/;
+
     buildSection.split('\n').forEach(raw => {
       const line = raw.replace(/[*_]/g, '').trim();
       if (!line) return;
@@ -425,31 +467,35 @@ export function parseLLMResponse(text: string): ParsedState {
         kind = 'promote';
       }
 
-      if (brackets.length >= 2) {
-        // e.g. [목조 종탑] Lv.1→2 [치안·신앙]
-        rawName = brackets[0];
-        rawTags = brackets[1];
-      } else if (brackets.length === 1) {
-        const outside = rawNameAndTags.replace(/\[.*?\]/, '').trim();
-        if (outside.length > 0 && !upgradeMatch) {
-          rawName = outside;
-          rawTags = brackets[0];
-        } else {
-          rawName = brackets[0];
-        }
+      // 태그 브래킷 찾기
+      const tagBracketIdx = brackets.findIndex(b => VALID_TAG_KEYWORD.test(b));
+      if (tagBracketIdx !== -1) {
+        rawTags = brackets[tagBracketIdx];
+      }
+
+      // 이름 브래킷 또는 본문에서 시설명 추출
+      const nameBrackets = brackets.filter((_, idx) => idx !== tagBracketIdx && !/^(?:Lv\.?|레벨)/i.test(_));
+      if (nameBrackets.length > 0) {
+        rawName = nameBrackets[0];
       } else {
-        rawName = rawNameAndTags.replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim();
+        let outside = rawNameAndTags;
+        brackets.forEach(b => {
+          outside = outside.replace(`[${b}]`, '');
+        });
+        outside = outside.replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim();
+        rawName = outside || (brackets[0] && !VALID_TAG_KEYWORD.test(brackets[0]) ? brackets[0] : '거점 시설');
       }
 
       let cleanName = rawName.replace(/^[\[\{]+|[\]\}]+$/g, '').trim();
       if (upgradeMatch) {
+        cleanName = cleanName.replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim();
         cleanName = `${cleanName} (${upgradeMatch[0].trim()})`;
       }
 
       if (!cleanName || /^(없음|건설 불가)/.test(cleanName)) return;
 
       const tags = rawTags 
-        ? rawTags.replace(/[\[\]\{\}]/g, '').split(/[·,\s]+/).map(t => t.trim()).filter(Boolean) 
+        ? rawTags.replace(/[\[\]\{\}]/g, '').split(/[·,\s]+/).map(t => t.trim()).filter(t => VALID_TAG_KEYWORD.test(t)) 
         : [];
 
       let cost = '';
@@ -478,15 +524,73 @@ export function parseLLMResponse(text: string): ParsedState {
     if (rejected.length > 0) result.constructionRejected = rejected;
   }
 
-  // 10. 가문 및 계승 현황 파싱
+  // 10. 가문 및 계승 현황 파싱 (혈통 음모 및 은밀한 자손 지원)
   const familyMatch = extractSection('가문 및 계승 현황');
   if (familyMatch) {
-    result.familyState = { spouse: '없음', children: '없음', heir: '없음', successionLaw: '미정' };
+    result.familyState = { 
+      spouse: '없음', 
+      children: '없음', 
+      heir: '없음', 
+      successionLaw: '미정',
+      secretChildren: '없음',
+      intrigues: []
+    };
     familyMatch.split('\n').forEach(line => {
-      if (line.startsWith('[배우자]:')) result.familyState!.spouse = line.replace('[배우자]:', '').trim();
-      else if (line.startsWith('[자녀]:')) result.familyState!.children = line.replace('[자녀]:', '').trim();
-      else if (line.startsWith('[지정 후계자]:')) result.familyState!.heir = line.replace('[지정 후계자]:', '').trim();
-      else if (line.startsWith('[계승법]:')) result.familyState!.successionLaw = line.replace('[계승법]:', '').trim();
+      const trimmed = line.trim();
+      if (trimmed.startsWith('[배우자]:')) result.familyState!.spouse = trimmed.replace('[배우자]:', '').trim();
+      else if (trimmed.startsWith('[자녀]:')) result.familyState!.children = trimmed.replace('[자녀]:', '').trim();
+      else if (trimmed.startsWith('[지정 후계자]:')) result.familyState!.heir = trimmed.replace('[지정 후계자]:', '').trim();
+      else if (trimmed.startsWith('[계승법]:')) result.familyState!.successionLaw = trimmed.replace('[계승법]:', '').trim();
+      else if (trimmed.startsWith('[은밀한 혈통]:') || trimmed.startsWith('▶ [은밀한 혈통]') || trimmed.startsWith('○ [은밀한 혈통]')) {
+        const secretContent = trimmed.replace(/^[▶○•\-]?\s*\[은밀한 혈통\]:?/, '').trim();
+        result.familyState!.secretChildren = secretContent;
+      }
+      
+      // 개별 은밀한 혈통 항목 파싱
+      // 예: ▶ [줄리아노] | 생모: 베아트리체 부인 | 공식 부친: 토스카나 백작 | 상속 명분: 토스카나 백작령 | 상태: 괴뢰 후계자 | 위험도: 35% | 요약: 남편 백작을 속이고 제1계승자로 등록됨
+      if (/^[▶▷○•\-]/.test(trimmed) && (trimmed.includes('생모:') || trimmed.includes('명분:') || trimmed.includes('공식 부친:'))) {
+        const parts = trimmed.replace(/^[▶▷○•\-]\s*/, '').split('|').map(s => s.trim());
+        const childNameMatch = parts[0]?.match(/\[(.*?)\]/) || parts[0]?.match(/^(.*?)$/);
+        const childName = childNameMatch ? childNameMatch[1].trim() : (parts[0] || '은밀한 아이');
+
+        let motherName = '미상';
+        let officialFather = '없음 (사생아)';
+        let claimTitle = '영지 명분';
+        let stage: 'secret' | 'heir_puppet' | 'ruler_puppet' | 'legitimized' = 'secret';
+        let exposureRisk = 20;
+        let desc = '';
+
+        parts.slice(1).forEach(p => {
+          if (p.startsWith('생모:')) motherName = p.replace('생모:', '').trim();
+          else if (p.startsWith('공식 부친:')) officialFather = p.replace('공식 부친:', '').trim();
+          else if (p.startsWith('명분 영지:') || p.startsWith('상속 명분:')) claimTitle = p.replace(/^(명분 영지|상속 명분):/, '').trim();
+          else if (p.startsWith('상태:') || p.startsWith('단계:')) {
+            const rawStage = p.replace(/^(상태|단계):/, '').trim();
+            if (rawStage.includes('괴뢰 영주') || rawStage.includes('섭정')) stage = 'ruler_puppet';
+            else if (rawStage.includes('괴뢰 후계자') || rawStage.includes('탁란') || rawStage.includes('후계자')) stage = 'heir_puppet';
+            else if (rawStage.includes('적자')) stage = 'legitimized';
+            else stage = 'secret';
+          } else if (p.startsWith('위험도:')) {
+            const riskMatch = p.match(/(\d+)/);
+            if (riskMatch) exposureRisk = parseInt(riskMatch[1], 10);
+          } else if (p.startsWith('요약:') || p.startsWith('상세:')) {
+            desc = p.replace(/^(요약|상세):/, '').trim();
+          } else if (!desc) {
+            desc = p;
+          }
+        });
+
+        result.familyState!.intrigues!.push({
+          childName,
+          motherName,
+          officialFather,
+          realFather: result.personalInfo?.['이름'] || '플레이어',
+          claimTitle,
+          stage,
+          exposureRisk,
+          desc
+        });
+      }
     });
   }
 

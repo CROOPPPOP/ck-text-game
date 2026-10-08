@@ -14,15 +14,18 @@ interface Props {
 export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccession }: Props) {
   if (!isOpen) return null;
 
+  const [activeTab, setActiveTab] = React.useState<'lineage' | 'intrigue'>('lineage');
+
   const rulerName = gameState.personalInfo?.['이름'] || '군주';
   const rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '영주';
-  const rulerAge = gameState.personalInfo?.['나이'] || '-';
+  const rulerAge = (gameState.personalInfo?.['나이'] || '-').replace(/세+$/, '').trim();
   const rulerStatus = gameState.personalInfo?.['신분'] || '귀족';
   const familyState = gameState.familyState;
   const spouse = familyState?.spouse || '없음';
   const heir = familyState?.heir || '미정';
   const children = familyState?.children || '없음';
   const successionLaw = familyState?.successionLaw || '분할 상속제';
+  const intrigues = familyState?.intrigues || [];
 
   const archetype = detectPlayerArchetype(gameState);
   const archetypeDetails = getArchetypeDetails(gameState);
@@ -132,7 +135,57 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
           </div>
         </div>
 
-        {/* Tree Layout */}
+        {/* Tab Navigation */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+          <button
+            onClick={() => setActiveTab('lineage')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: activeTab === 'lineage' ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
+              background: activeTab === 'lineage' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(0,0,0,0.3)',
+              color: activeTab === 'lineage' ? 'var(--gold-accent)' : 'var(--text-muted)',
+              fontWeight: 'bold',
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>📜</span>
+            <span>공식 가계 & 후계 계보</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('intrigue')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: activeTab === 'intrigue' ? '1px solid #f43f5e' : '1px solid rgba(255,255,255,0.1)',
+              background: activeTab === 'intrigue' ? 'rgba(244, 63, 94, 0.2)' : 'rgba(0,0,0,0.3)',
+              color: activeTab === 'intrigue' ? '#fda4af' : 'var(--text-muted)',
+              fontWeight: 'bold',
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>🤫</span>
+            <span>막후 혈통 & 은밀한 자손</span>
+            {intrigues.length > 0 && (
+              <span style={{ background: '#e11d48', color: '#fff', fontSize: '0.72rem', padding: '1px 6px', borderRadius: '10px' }}>
+                {intrigues.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Tab 1: Official Dynasty & Lineage */}
+        {activeTab === 'lineage' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
           {/* 1. Ancestors / Past Generations */}
@@ -203,7 +256,7 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
                     <div style={{ fontSize: '2.4rem', flexShrink: 0 }}>{archetypeDetails.icon}</div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--gold-accent)', wordBreak: 'break-word' }}>{rulerName}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{rulerTitle} &bull; {rulerAge}세</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{rulerTitle} &bull; {rulerAge !== '-' ? `${rulerAge}세` : '-'}</div>
                     </div>
                   </div>
                   <div style={{ background: 'var(--gold-accent)', color: '#111', fontSize: '0.75rem', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
@@ -361,6 +414,144 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
           )}
 
         </div>
+        )}
+
+        {/* Tab 2: Bloodline Intrigue & Clandestine Lineage */}
+        {activeTab === 'intrigue' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ background: 'rgba(244, 63, 94, 0.08)', border: '1px solid rgba(244, 63, 94, 0.25)', padding: '14px 18px', borderRadius: '10px' }}>
+              <div style={{ color: '#fda4af', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span>🤫 막후 혈통 공작 및 은밀한 자손 (Bloodline Intrigue)</span>
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '1.45' }}>
+                타 가문의 여인들과의 은밀한 관계나 탁란(Cuckoo)을 통해 낳은 핏줄로 상위 영지의 계승권을 쥐고 배후에서 섭정으로 군림합니다.
+              </div>
+              {familyState?.secretChildren && familyState.secretChildren !== '없음' && (
+                <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontSize: '0.85rem', color: '#fecdd3' }}>
+                  <strong>현재 혈통 상황:</strong> {familyState.secretChildren}
+                </div>
+              )}
+            </div>
+
+            {intrigues.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {intrigues.map((item, idx) => {
+                  const stageBadge = 
+                    item.stage === 'ruler_puppet' ? { text: '👑 괴뢰 영주 (막후 섭정 지배)', bg: 'rgba(212, 175, 55, 0.2)', border: 'var(--gold-accent)', color: 'var(--gold-accent)' } :
+                    item.stage === 'heir_puppet' ? { text: '🎭 괴뢰 후계자 (탁란 상속권자)', bg: 'rgba(56, 189, 248, 0.2)', border: '#38bdf8', color: '#7dd3fc' } :
+                    item.stage === 'legitimized' ? { text: '📜 교황청/군주 공인 적자', bg: 'rgba(16, 185, 129, 0.2)', border: '#10b981', color: '#6ee7b7' } :
+                    { text: '🤫 은밀한 핏줄 (비밀 보존 중)', bg: 'rgba(244, 63, 94, 0.2)', border: '#f43f5e', color: '#fda4af' };
+
+                  const riskColor = item.exposureRisk >= 70 ? '#ef4444' : item.exposureRisk >= 40 ? '#f59e0b' : '#10b981';
+
+                  return (
+                    <div key={idx} style={{ background: 'rgba(0, 0, 0, 0.4)', border: `1px solid ${stageBadge.border}55`, borderRadius: '12px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '1.8rem' }}>👶</span>
+                          <div>
+                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{item.childName}</span>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '8px' }}>목표: <strong style={{ color: '#38bdf8' }}>{item.claimTitle}</strong></span>
+                          </div>
+                        </div>
+                        <span style={{ padding: '3px 10px', borderRadius: '4px', background: stageBadge.bg, border: `1px solid ${stageBadge.border}`, color: stageBadge.color, fontSize: '0.78rem', fontWeight: 'bold' }}>
+                          {stageBadge.text}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.83rem' }}>
+                        <div><span style={{ color: 'var(--text-muted)' }}>실질 친부:</span> <strong style={{ color: 'var(--gold-accent)' }}>{item.realFather || rulerName} (본인)</strong></div>
+                        <div><span style={{ color: 'var(--text-muted)' }}>명목상 부친:</span> <strong style={{ color: 'var(--text-main)' }}>{item.officialFather}</strong></div>
+                        <div><span style={{ color: 'var(--text-muted)' }}>생모:</span> <strong style={{ color: '#fda4af' }}>{item.motherName}</strong></div>
+                        <div><span style={{ color: 'var(--text-muted)' }}>상속 명분:</span> <strong style={{ color: '#60a5fa' }}>{item.claimTitle}</strong></div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>⚠️ 발각 및 추문 위험도</span>
+                          <span style={{ color: riskColor, fontWeight: 'bold' }}>{item.exposureRisk}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(100, item.exposureRisk)}%`, height: '100%', background: riskColor }} />
+                        </div>
+                      </div>
+
+                      {item.desc && (
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '6px', lineHeight: '1.4' }}>
+                          {item.desc}
+                        </div>
+                      )}
+
+                      {(item.stage === 'ruler_puppet' || item.stage === 'heir_puppet') && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`막후에서 조종 중인 자손 [${item.childName}]을(를) 정식 군주로 옹립하고 막후 섭정 세대로 승계하시겠습니까?`)) {
+                              onClose();
+                              onSuccession();
+                            }
+                          }}
+                          style={{
+                            marginTop: '4px',
+                            background: 'linear-gradient(45deg, #e11d48, #be123c)',
+                            color: '#fff',
+                            border: '1px solid #f43f5e',
+                            padding: '10px',
+                            borderRadius: '6px',
+                            fontWeight: 'bold',
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 15px rgba(225, 29, 72, 0.3)'
+                          }}
+                        >
+                          👑 막후 섭정으로서 세대 교체 (Claim Realm via Secret Bloodline)
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+                  현재 기록된 은밀한 자손이나 혈통 공작이 없습니다.
+                </div>
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold-accent)' }}>
+                    💡 현재 신분({rulerStatus}) 맞춤 혈통 장악 가이드:
+                  </div>
+                  <div style={{ fontSize: '0.84rem', color: 'var(--text-main)', lineHeight: '1.6', background: 'rgba(0,0,0,0.3)', padding: '14px', borderRadius: '8px' }}>
+                    {archetype === 'clergy' ? (
+                      <>
+                        <strong>⛪ 성직자의 고해성사 밀회 & 뻐꾸기 탁란 전략:</strong><br />
+                        1. 영지 내 귀족 미망인이나 영주 부인과 신뢰/애정도를 쌓아 은밀한 밀회 관계를 맺으십시오.<br />
+                        2. 아이가 태어나면 남편 영주의 적장자로 속여 입적(탁란)시키거나, 교황청 인맥으로 적자 공인을 획득하십시오.<br />
+                        3. 기존 영주 유고 시 아이를 영주로 옹립하고, 플레이어는 '영지 섭정(Regent) 및 대교구 총대리'로 취임하여 교권과 세속 권력을 한 손에 쥡니다.
+                      </>
+                    ) : archetype === 'wanderer' ? (
+                      <>
+                        <strong>🗡️ 방랑자의 로맨스 유혹 & 데릴사위(가주 찬탈) 전략:</strong><br />
+                        1. 유력 귀족 가문의 상속녀나 과부의 영지에 무용과 매력으로 접근하십시오.<br />
+                        2. 비밀리에 아이를 잉태시키거나 데릴사위로 혼인하여, 후계가 끊긴 가문의 영주권을 흡수하고 정규 봉건 영주로 신분을 수직 상승시킬 수 있습니다.
+                      </>
+                    ) : archetype === 'company' ? (
+                      <>
+                        <strong>👥 상단/용병단의 부채 담보 혈통 매수 전략:</strong><br />
+                        1. 재정난에 처한 귀족 가문에 거액의 대출을 제공하거나 군사적 보호를 대가로 혈통 계약을 맺으십시오.<br />
+                        2. 자신의 아이를 막대한 지참금과 함께 귀족 가문의 차기 가주로 입양시켜 영지 전체를 상단의 사유 재산으로 흡수할 수 있습니다.
+                      </>
+                    ) : (
+                      <>
+                        <strong>🏰 봉건 귀족의 정략혼 & 계승권 독점 공작 전략:</strong><br />
+                        1. 이웃 대영주의 상속녀를 유혹하거나 정략혼을 맺어 태어난 자식에게 양 가문의 상속 명분을 몰아주십시오.<br />
+                        2. 본가의 경쟁 계승자들을 암살/추방하여 내 자식을 단독 제1계승자로 만들고 두 영지를 평화적으로 합병하십시오.
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

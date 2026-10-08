@@ -3,6 +3,7 @@
 import React from 'react';
 import { ParsedState } from '@/lib/parser';
 import { parseCKResources, parseCKStress, getHeraldryEmblem } from '@/lib/ckVisuals';
+import { checkStatusPromotion } from '@/lib/statusPromotion';
 import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap } from 'lucide-react';
 
 interface Props {
@@ -44,6 +45,7 @@ export default function CKTopHud({
   const resources = parseCKResources(gameState);
   const stress = parseCKStress(gameState);
   const emblem = getHeraldryEmblem(rulerName, culture, resources.archetype);
+  const promoReport = checkStatusPromotion(gameState);
 
   const rawDate = gameState.dateLocation || '';
   const cleanDate = rawDate.replace(/\[턴 수:.*\]/, '').trim() || '서기 1066년';
@@ -132,6 +134,19 @@ export default function CKTopHud({
               }}>
                 {resources.archetypeTitle}
               </span>
+              {promoReport.overallCanPromote && (
+                <span style={{
+                  fontSize: '0.68rem',
+                  padding: '1px 6px',
+                  borderRadius: '3px',
+                  background: 'rgba(16, 185, 129, 0.25)',
+                  border: '1px solid #10b981',
+                  color: '#6ee7b7',
+                  fontWeight: 'bold'
+                }}>
+                  ✨ 승격 가능
+                </span>
+              )}
             </div>
             <div style={{
               fontSize: '1.05rem',
@@ -511,7 +526,12 @@ export default function CKTopHud({
           }}
         >
           <Heart size={15} />
-          <span>🤝 궁정 외교 (Court & Relations)</span>
+          <span>{
+            resources.archetype === 'clergy' ? '⛪ 교구 인맥 (Relations)' :
+            resources.archetype === 'wanderer' ? '🗡️ 방랑 인맥 (Relations)' :
+            resources.archetype === 'company' ? '👥 대외 인맥 (Relations)' :
+            '🤝 궁정 외교 (Court & Relations)'
+          }</span>
         </button>
 
         <button

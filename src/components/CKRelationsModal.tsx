@@ -337,6 +337,11 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                             연인 / 정
                           </span>
                         )}
+                        {(c.descStr.includes('밀회') || c.descStr.includes('은밀한 연인') || c.descStr.includes('내통') || c.descStr.includes('사생아') || c.descStr.includes('혈통')) && (
+                          <span style={{ fontSize: '0.72rem', color: '#f43f5e', background: 'rgba(244, 63, 94, 0.25)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #f43f5e', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                            🤫 밀회 / 혈통 공모
+                          </span>
+                        )}
                         {c.isObsessive && (
                           <span style={{ fontSize: '0.72rem', color: '#c084fc', background: 'rgba(192, 132, 252, 0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #c084fc', whiteSpace: 'nowrap' }}>
                             광애 / 집착

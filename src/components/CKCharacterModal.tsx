@@ -10,22 +10,26 @@ import {
   TraitCategoryKey 
 } from '@/lib/traitUtils';
 import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins } from 'lucide-react';
+import { checkStatusPromotion, PromotionTarget } from '@/lib/statusPromotion';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   gameState: ParsedState;
+  onPetitionPromotion?: (target: PromotionTarget) => void;
 }
 
-export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) {
+export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitionPromotion }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<'all' | TraitCategoryKey>('all');
   const [showEmptySessions, setShowEmptySessions] = useState(true);
 
   if (!isOpen) return null;
 
+  const promotionReport = checkStatusPromotion(gameState);
+
   const rulerName = gameState.personalInfo?.['이름'] || '군주';
   const rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '영주';
-  const rulerAge = gameState.personalInfo?.['나이'] || '-';
+  const rulerAge = (gameState.personalInfo?.['나이'] || '-').replace(/세+$/, '').trim();
   const rulerStatus = gameState.personalInfo?.['신분'] || '귀족';
   const culture = gameState.personalInfo?.['문화'] || '미상';
   const religion = gameState.personalInfo?.['종교'] || '미상';
@@ -155,7 +159,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
                 borderRadius: '4px',
                 color: 'var(--text-muted)'
               }}>
-                나이: <strong style={{ color: 'var(--text-main)' }}>{rulerAge}세</strong>
+                나이: <strong style={{ color: 'var(--text-main)' }}>{rulerAge !== '-' ? `${rulerAge}세` : '-'}</strong>
               </span>
               <span style={{
                 background: 'rgba(0, 0, 0, 0.4)',
@@ -280,6 +284,117 @@ export default function CKCharacterModal({ isOpen, onClose, gameState }: Props) 
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 1.8 Status Promotion & Investiture (신분 승격 및 서임 사다리) */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9))',
+          border: '1px solid rgba(212, 175, 55, 0.35)',
+          borderRadius: '12px',
+          padding: '18px 20px',
+          marginBottom: '26px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={18} style={{ color: 'var(--gold-accent)' }} />
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--gold-accent)', margin: 0 }}>
+                신분 승격 및 서임 사다리 (Status Promotion)
+              </h2>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              현재 신분: <strong style={{ color: 'var(--gold-hover)' }}>{promotionReport.currentRank}</strong> (Tier {promotionReport.currentTier})
+            </div>
+          </div>
+
+          {promotionReport.possibleTargets.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+              {promotionReport.possibleTargets.map((target, tIdx) => (
+                <div key={tIdx} style={{
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  border: target.canPromote ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '10px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  boxShadow: target.canPromote ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.15)', color: '#7dd3fc', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '1px 6px', borderRadius: '4px', marginRight: '6px' }}>
+                        {target.ceremonyName}
+                      </span>
+                      <strong style={{ fontSize: '1.05rem', color: target.canPromote ? '#6ee7b7' : 'var(--text-main)' }}>
+                        목표: {target.targetRank}
+                      </strong>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: target.canPromote ? '#10b981' : 'var(--text-muted)' }}>
+                      달성도 {target.progressPercent}%
+                    </span>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${target.progressPercent}%`, height: '100%', background: target.canPromote ? '#10b981' : 'linear-gradient(90deg, #d97706, #fbbf24)' }} />
+                  </div>
+
+                  {/* Requirements List */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem' }}>
+                    {target.requirements.map(req => (
+                      <div key={req.id} style={{ background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', border: `1px solid ${req.met ? '#10b98144' : 'rgba(255,255,255,0.05)'}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{req.label}</span>
+                          <span>{req.met ? '✅' : '❌'}</span>
+                        </div>
+                        <div style={{ color: req.met ? '#6ee7b7' : 'var(--text-main)', fontWeight: 'bold', marginTop: '2px' }}>
+                          {req.current} / {req.target}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '6px', lineHeight: '1.4' }}>
+                    {target.historicalLore}
+                  </div>
+
+                  {target.canPromote ? (
+                    <button
+                      onClick={() => {
+                        if (confirm(`'${target.ceremonyName}' 의식을 거행하고 정식 '${target.targetRank}'(으)로 승격을 공식 청원하시겠습니까?`)) {
+                          onClose();
+                          onPetitionPromotion?.(target);
+                        }
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #059669, #10b981)',
+                        border: '1px solid #34d399',
+                        color: '#fff',
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      ✨ {target.ceremonyName} 공식 청원 및 서임식 거행하기
+                    </button>
+                  ) : (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                      요건을 모두 충족하면 승격 청원 및 서임식이 개방됩니다.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '14px', fontSize: '0.88rem' }}>
+              👑 현재 분야의 최고위 정점에 도달했습니다. 위엄과 패권을 수호하십시오.
+            </div>
+          )}
         </div>
 
         {/* 2. Crusader Kings 3 Core Attributes (5대 핵심 능력치 + 기량) */}
