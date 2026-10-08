@@ -333,7 +333,17 @@ export function calculateCKAttributes(gameState: ParsedState): CKAttributes {
   const prowScore = toCKScore(prowRaw);
 
   // 일관성 있는 영지/거점 및 범용 자원 연동 시너지 수치 계산
+  const rawStatus = gameState.personalInfo?.['신분'] || gameState.personalInfo?.['직위'] || '평민';
+  const cleanStatus = rawStatus.split('/')[0].split('(')[0].trim();
+  let tierBonus = 0;
+  if (['황제', '교황'].some(k => cleanStatus.includes(k))) tierBonus = 4;
+  else if (['대주교', '공작'].some(k => cleanStatus.includes(k))) tierBonus = 3;
+  else if (['주교', '수도원장', '백작', '후작', '상단주', '길드마스터'].some(k => cleanStatus.includes(k))) tierBonus = 2;
+  else if (['사제', '남작', '자작', '용병대장', '장원 관리인', '촌장'].some(k => cleanStatus.includes(k))) tierBonus = 1;
+  else tierBonus = 0;
+
   const domainBonus = Math.floor(stewScore / 6);
+  const totalDomainLimit = 1 + tierBonus + domainBonus;
   const constructionSlotsBonus = stewScore >= 18 ? 1 : 0;
   const goldIncomeModifier = Math.round(stewScore * 2);
   const levyModifier = Math.round(marScore * 2.5);
@@ -373,7 +383,7 @@ export function calculateCKAttributes(gameState: ParsedState): CKAttributes {
       keyStats: ['행정력', '기술 숙련도', '장인 기술'],
       bonusValue: domainBonus,
       effects: [
-        `직할 영지/거점 보유 한계 +${domainBonus}개`,
+        `직할 영지/거점 보유 한계: ${totalDomainLimit}개소 (기본 1 + 품계 +${tierBonus} + 관리력 +${domainBonus})`,
         `영지 세금 및 국고 수입 +${goldIncomeModifier}%`,
         `거점 시설 건설 비용 절감 -${Math.min(25, Math.floor(stewScore * 1.2))}%`,
         constructionSlotsBonus > 0 ? '동시 건설 슬롯 +1 추가 개방' : '안정적 시설 공정 관리'
@@ -416,7 +426,7 @@ export function calculateCKAttributes(gameState: ParsedState): CKAttributes {
       ]
     },
     synergies: {
-      domainLimit: 2 + domainBonus,
+      domainLimit: totalDomainLimit,
       constructionSlotsBonus,
       goldIncomeModifier,
       levyModifier,
@@ -424,6 +434,79 @@ export function calculateCKAttributes(gameState: ParsedState): CKAttributes {
       pietyModifier,
       stressResistance
     }
+  };
+}
+
+/** 거점 규모(Lv.1~Lv.5)에 따른 최대 수용 가능한 시설(건물) 상한 수 (단위: 동) */
+export function getMaxHoldingCapacity(estateLevelOrStr: number | string | undefined): number {
+  let lv = 1;
+  if (typeof estateLevelOrStr === 'number') {
+    lv = estateLevelOrStr;
+  } else if (typeof estateLevelOrStr === 'string') {
+    const m = estateLevelOrStr.match(/(?:Lv\.?|레벨)\s*(\d+)/i);
+    if (m) lv = parseInt(m[1], 10);
+  }
+  
+  if (lv >= 5) return 12;
+  if (lv === 4) return 9;
+  if (lv === 3) return 7;
+  if (lv === 2) return 5;
+  return 3;
+}
+
+export interface DomainLimitBreakdown {
+  total: number;
+  base: number;
+  tierBonus: number;
+  stewBonus: number;
+  vassalBonus: number;
+  heldCount: number;
+  maxBuildingCapacity: number;
+  currentBuildingsCount: number;
+  isOverCapacity: boolean;
+}
+
+/** 직할 영지 한계 및 거점 시설 수용량의 정밀 명세 산출 */
+export function getDomainLimitBreakdown(gameState: ParsedState): DomainLimitBreakdown {
+  const rawStatus = gameState?.personalInfo?.['신분'] || gameState?.personalInfo?.['직위'] || '평민';
+  const cleanStatus = rawStatus.split('/')[0].split('(')[0].trim();
+  
+  const attr = calculateCKAttributes(gameState || {});
+  const stewScore = attr.stewardship.value;
+  const stewBonus = Math.floor(stewScore / 6);
+  
+  let tierBonus = 0;
+  if (['황제', '교황'].some(k => cleanStatus.includes(k))) tierBonus = 4;
+  else if (['대주교', '공작'].some(k => cleanStatus.includes(k))) tierBonus = 3;
+  else if (['주교', '수도원장', '백작', '후작', '상단주', '길드마스터'].some(k => cleanStatus.includes(k))) tierBonus = 2;
+  else if (['사제', '남작', '자작', '용병대장', '장원 관리인', '촌장'].some(k => cleanStatus.includes(k))) tierBonus = 1;
+  else tierBonus = 0;
+
+  let vassalBonus = 0;
+  if (gameState?.relationships?.personal) {
+    const hasSteward = gameState.relationships.personal.some(r => 
+      (r.includes('집사장') || r.includes('행정') || r.includes('서기관') || r.includes('관리인')) && r.includes('신뢰도')
+    );
+    if (hasSteward) vassalBonus = 1;
+  }
+
+  const base = 1;
+  const total = base + tierBonus + stewBonus + vassalBonus;
+  const heldCount = (gameState?.estate?.type && gameState.estate.type !== '거점 없음') ? 1 : 0;
+  const currentBuildingsCount = gameState?.estate?.buildings?.length || 0;
+  const maxBuildingCapacity = getMaxHoldingCapacity(gameState?.estate?.level);
+  const isOverCapacity = currentBuildingsCount > maxBuildingCapacity;
+
+  return {
+    total,
+    base,
+    tierBonus,
+    stewBonus,
+    vassalBonus,
+    heldCount,
+    maxBuildingCapacity,
+    currentBuildingsCount,
+    isOverCapacity
   };
 }
 

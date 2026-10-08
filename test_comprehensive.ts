@@ -1,6 +1,7 @@
 // Comprehensive integration & output stability test suite
 import { parseLLMResponse } from './src/lib/parser';
 import { checkStatusPromotion, STATUS_LADDER } from './src/lib/statusPromotion';
+import { getMaxHoldingCapacity, getDomainLimitBreakdown } from './src/lib/ckVisuals';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -303,6 +304,40 @@ const parsedEmpty = parseLLMResponse(emptyBloodlineText);
 assert(parsedEmpty.familyState !== undefined, "Empty familyState parsed");
 assert(parsedEmpty.familyState?.secretChildren === '없음', "secretChildren is cleanly '없음'");
 assert(parsedEmpty.familyState?.intrigues?.length === 0, "intrigues array is empty (length 0)");
+
+// ==========================================
+// TEST 8: Domain Limit & Holding Capacity Standards
+// ==========================================
+console.log("\n--- 8. Testing Domain Limit & Holding Capacity Standards ---");
+
+// 8.1 Holding capacities across levels
+assert(getMaxHoldingCapacity(1) === 3, "Lv.1 Holding capacity is exactly 3 buildings");
+assert(getMaxHoldingCapacity(2) === 5, "Lv.2 Holding capacity is exactly 5 buildings");
+assert(getMaxHoldingCapacity(3) === 7, "Lv.3 Holding capacity is exactly 7 buildings");
+assert(getMaxHoldingCapacity(4) === 9, "Lv.4 Holding capacity is exactly 9 buildings");
+assert(getMaxHoldingCapacity(5) === 12, "Lv.5 Holding capacity is exactly 12 buildings");
+
+// 8.2 Domain limit breakdown by tier
+const priestMock: any = {
+  personalInfo: { '이름': '토마스', '신분': '사제' },
+  estate: { level: 'Lv.2 교구 본당', type: '교구 본당', buildings: [{ name: '1' }, { name: '2' }, { name: '3' }, { name: '4' }, { name: '5' }] }
+};
+const priestBreakdown = getDomainLimitBreakdown(priestMock);
+assert(priestBreakdown.tierBonus === 1, "Priest gets +1 Domain Limit tier bonus");
+assert(priestBreakdown.base === 1, "Priest base domain limit is 1");
+assert(priestBreakdown.total >= 2, `Priest total domain limit is at least 2 (found: ${priestBreakdown.total})`);
+assert(priestBreakdown.maxBuildingCapacity === 5, "Lv.2 Parish Church max capacity is 5 buildings");
+assert(priestBreakdown.currentBuildingsCount === 5, "Priest currently has 5 buildings");
+assert(priestBreakdown.isOverCapacity === false, "5 buildings in Lv.2 parish is NOT over capacity (5 / 5)");
+
+// 8.3 Over-capacity detection (5 buildings on Lv.1 holding)
+const overMock: any = {
+  personalInfo: { '이름': '가난한 수사', '신분': '수사' },
+  estate: { level: 'Lv.1 작은 예배당', type: '작은 예배당', buildings: [{ name: '1' }, { name: '2' }, { name: '3' }, { name: '4' }, { name: '5' }] }
+};
+const overBreakdown = getDomainLimitBreakdown(overMock);
+assert(overBreakdown.maxBuildingCapacity === 3, "Lv.1 Chapel max capacity is 3");
+assert(overBreakdown.isOverCapacity === true, "5 buildings in Lv.1 chapel correctly flagged as over-capacity");
 
 // ==========================================
 // Summary

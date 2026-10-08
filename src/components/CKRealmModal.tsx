@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import RealmDashboard from './RealmDashboard';
 import { ParsedState } from '@/lib/parser';
-import { getArchetypeDetails } from '@/lib/ckVisuals';
+import { getArchetypeDetails, getDomainLimitBreakdown } from '@/lib/ckVisuals';
 import { QueueItem, BuildOption, turnsLeft, sameBuildingName } from '@/lib/construction';
 import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle } from 'lucide-react';
 
@@ -53,6 +53,7 @@ export default function CKRealmModal({
   if (!isOpen) return null;
 
   const currentFaction = factionState || gameState?.factionState;
+  const domainBreakdown = getDomainLimitBreakdown(gameState || {});
   const archetypeDetails = gameState ? getArchetypeDetails(gameState) : null;
   const archetype = archetypeDetails?.archetype || 'noble';
   const modalIcon = archetypeDetails ? archetypeDetails.icon : '🏰';
@@ -243,7 +244,7 @@ export default function CKRealmModal({
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{
                     fontSize: '0.82rem',
                     padding: '4px 10px',
@@ -255,9 +256,26 @@ export default function CKRealmModal({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px'
-                  }}>
-                    🔨 건설 슬롯: {constructionQueue.length} / {maxSlots}
+                  }} title="현재 거점에서 동시에 진행 가능한 신규/증축 건설 작업 슬롯입니다.">
+                    🔨 공사 슬롯: {constructionQueue.length} / {maxSlots}
                   </span>
+
+                  <span style={{
+                    fontSize: '0.82rem',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    background: domainBreakdown.isOverCapacity ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.15)',
+                    color: domainBreakdown.isOverCapacity ? '#f87171' : '#6ee7b7',
+                    border: `1px solid ${domainBreakdown.isOverCapacity ? '#ef4444' : '#10b981'}`,
+                    fontWeight: 'bold',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }} title={`현재 거점 규모(${gameState?.estate?.level || 'Lv.1'})의 최대 시설 수용 상한입니다. (한도 초과 시 거점 승격 공사가 필요합니다)`}>
+                    🏛️ 거점 시설: {domainBreakdown.currentBuildingsCount} / {domainBreakdown.maxBuildingCapacity}동
+                    {domainBreakdown.isOverCapacity && <span style={{ fontSize: '0.72rem', color: '#fca5a5', marginLeft: '2px' }}>(과밀)</span>}
+                  </span>
+
                   <span style={{
                     fontSize: '0.82rem',
                     padding: '4px 10px',
@@ -269,8 +287,8 @@ export default function CKRealmModal({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px'
-                  }}>
-                    📜 직할령 한계: {gameState?.estate?.buildings?.length || 0} / {domainLimit || 3}동
+                  }} title={`군주가 직접 통치 가능한 직할 봉토/거점의 한계치입니다. (산출: 기본 ${domainBreakdown.base} + 품계 보너스 ${domainBreakdown.tierBonus} + 관리력 ${domainBreakdown.stewBonus}${domainBreakdown.vassalBonus > 0 ? ` + 가신 보좌 ${domainBreakdown.vassalBonus}` : ''} = 총 ${domainBreakdown.total}개소)`}>
+                    📜 직할 영지 한계: {domainBreakdown.heldCount} / {domainBreakdown.total}개소
                   </span>
                 </div>
               </div>

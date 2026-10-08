@@ -623,7 +623,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
               <span>능력치 ⮂ 거점/영지/자원 일관성 연동 현황</span>
             </div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: '#e2e8f0' }}>
-              <span>🏰 직할령 한계: <strong style={{ color: '#38bdf8' }}>{attributes.synergies.domainLimit}개</strong></span>
+              <span>🏰 직할 영지 한계: <strong style={{ color: '#38bdf8' }}>{attributes.synergies.domainLimit}개소</strong></span>
               <span>🪙 재정 수입: <strong style={{ color: '#fbbf24' }}>+{attributes.synergies.goldIncomeModifier}%</strong></span>
               <span>⚔️ 징집 병력: <strong style={{ color: '#ef4444' }}>+{attributes.synergies.levyModifier}%</strong></span>
               <span>👑 위신 획득: <strong style={{ color: '#c084fc' }}>+{attributes.synergies.prestigeModifier}%</strong></span>
