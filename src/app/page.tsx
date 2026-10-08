@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
-import { calculateCKAttributes, parseNameAndRole } from '@/lib/ckVisuals';
+import { calculateCKAttributes, detectPlayerArchetype } from '@/lib/ckVisuals';
+import { getCouncilVassals, sanitizeNameAndRole } from '@/lib/characterRelations';
 import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
 import CKTopHud from '@/components/CKTopHud';
@@ -464,7 +465,7 @@ export default function Home() {
             const mergedPersonalRels = mergeArrayByKey(
                prevState.relationships?.personal || [],
                data.parsed.relationships?.personal || [],
-               (r: string) => r.split('|')[0].replace(/\(.*?\)/g, '').trim()
+               (r: string) => sanitizeNameAndRole(r.split('|')[0] || '').name
             );
 
             const mergedFactionRels = mergeArrayByKey(
@@ -591,19 +592,8 @@ export default function Home() {
   const domainLimit = ckAttr.synergies.domainLimit;
   const maxSlots = getMaxSlots(gameState?.estate, ckAttr.synergies.constructionSlotsBonus);
 
-  // 거점 상주 자문관 및 가신 추출
-  const councilVassals = (gameState?.relationships?.personal || []).filter(rel => {
-    const rawName = rel.split('|')[0] || '';
-    const descStr = rel.split('|').slice(3).join(' ') || '';
-    const keywords = ['가신', '기사', '집사장', '원수', '첩보', '사제', '부대장', '부원장', '관리인', '서기관', '참모', '조언', '시종'];
-    return keywords.some(k => rawName.includes(k) || descStr.includes(k));
-  }).map(rel => {
-    const parts = rel.split('|').map(p => p.trim());
-    const rawName = parts[0] || '';
-    const { name, role: parsedRole } = parseNameAndRole(rawName);
-    const role = parsedRole || (parts.slice(3).join(' ').includes('가신') ? '가신' : '자문관');
-    return { name, role, raw: rel };
-  });
+  // 거점 상주 자문관 및 가신 추출 (SSOT getCouncilVassals 적용)
+  const councilVassals = getCouncilVassals(gameState?.relationships?.personal, gameState ? detectPlayerArchetype(gameState) : 'noble');
 
   let promotionOption: any = null;
   let derivedUpgradeOptions: any[] = [];

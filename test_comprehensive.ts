@@ -2,6 +2,14 @@
 import { parseLLMResponse } from './src/lib/parser';
 import { checkStatusPromotion, STATUS_LADDER } from './src/lib/statusPromotion';
 import { getMaxHoldingCapacity, getDomainLimitBreakdown, determineRelationTier, calculateTurnIncome, parseNameAndRole, extractNumericValue } from './src/lib/ckVisuals';
+import { 
+  parsePersonalRelation, 
+  parseAllPersonalRelations, 
+  detectVocation, 
+  sanitizeNameAndRole, 
+  getSuperiorApprovalTrust, 
+  getCouncilVassals 
+} from './src/lib/characterRelations';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -556,6 +564,59 @@ assert(parsedGrowth.stats?.acquired?.['통솔력'] === '65(+2)', "Acquired stat 
 assert(parsedGrowth.traits?.length === 2, "Parsed 2 traits with tiers");
 assert(parsedGrowth.traits?.[0].tier === '반복 성향', "Trait 1 tier parsed as '반복 성향'");
 assert(parsedGrowth.traits?.[1].tier === '강한 특성', "Trait 2 tier parsed as '강한 특성'");
+
+// ==========================================
+// TEST 13: SSOT 2D-Matrix & Character Relations Pipeline (Bernardo & Mateo Permanent Fix)
+// ==========================================
+console.log("\n--- 13. Testing SSOT Character Relations Pipeline & Guardrails ---");
+
+// 13.1 Bernardo Guard Captain under Clergy Archetype
+const bernardoFullRel = "[베르나르도 (성 미카엘 수호대장)] | 신뢰도 [68] - 친밀 | 우정도 [38] | [직속부하] 하사된 은화와 부대 20명 확충에 자부심을 품고 성당과 장원의 방위를 철통같이 수행함.";
+const pBernardo = parsePersonalRelation(bernardoFullRel, 'clergy');
+assert(pBernardo.name === '베르나르도', `SSOT extracts clean name '베르나르도' (found: '${pBernardo.name}')`);
+assert(pBernardo.role === '성 미카엘 수호대장', `SSOT extracts clean role '성 미카엘 수호대장' (found: '${pBernardo.role}')`);
+assert(pBernardo.vocation === 'military', "Bernardo vocation is 'military' (무관·경비)");
+assert(pBernardo.tierId === 'subordinate', "Bernardo tier is 'subordinate'");
+assert(pBernardo.tierLabel === '🛡️ 직속 호위대 / 무관', `Bernardo tierLabel is '🛡️ 직속 호위대 / 무관' (found: '${pBernardo.tierLabel}')`);
+assert(pBernardo.vocationIcon === '⚔️', "Bernardo vocation icon is '⚔️'");
+assert(pBernardo.isSubordinate === true, "Bernardo is marked as subordinate");
+assert(pBernardo.isSuperior === false, "Bernardo is NOT superior");
+
+// 13.2 Mateo Merchant Peer with Cathedral Affiliation
+const mateoFullRel = "[마테오 (주교좌 성당 납품 상단 행수)] | 신뢰도 [90] - 동반 | 우정도 [75] | [동료] 주교좌 성당에 성물과 포도주를 독점 납품하는 베로나 상단의 대행수.";
+const pMateo = parsePersonalRelation(mateoFullRel, 'clergy');
+assert(pMateo.name === '마테오', `SSOT extracts clean name '마테오' (found: '${pMateo.name}')`);
+assert(pMateo.vocation === 'merchant', "Mateo vocation is 'merchant' (상인·경제)");
+assert(pMateo.isSuperior === false, "Mateo is strictly NOT superior despite '주교좌' in role");
+assert(pMateo.tierId === 'peer', "Mateo tier is 'peer'");
+
+// 13.3 Superior Blocker: Even if AI mistakenly outputs [상급자] for a merchant
+const corruptedMateo = "[마테오 (주교좌 성당 납품 상단 행수)] | 신뢰도 [90] - 동반 | 우정도 [75] | [상급자] 주교좌 성당에 성물을 납품함.";
+const pCorruptedMateo = parsePersonalRelation(corruptedMateo, 'clergy');
+assert(pCorruptedMateo.isSuperior === false, "Superior Blocker kicks in: merchant CANNOT be superior");
+assert(pCorruptedMateo.tierId !== 'superior', "Merchant tier is blocked from 'superior'");
+
+// 13.4 True Bishop Superior
+const bishopRelText = "[마르코 대주교 (피렌체 관구장)] | 신뢰도 [75] - 신뢰 | 호감도 [40] | [상급자] 피렌체 관구장 대주교이자 영적 지도자.";
+const pBishop = parsePersonalRelation(bishopRelText, 'clergy');
+assert(pBishop.name === '마르코 대주교', "Bishop name extracted");
+assert(pBishop.vocation === 'clergy', "Bishop vocation is 'clergy'");
+assert(pBishop.isSuperior === true, "Bishop is true superior");
+assert(pBishop.tierId === 'superior', "Bishop tier is 'superior'");
+assert(pBishop.tierLabel === '👑 상급자 / 주군', "Bishop label is '👑 상급자 / 주군'");
+
+// 13.5 Promotion Superior Trust check: Bishop vs Mateo
+const mixedRelationships = [mateoFullRel, bishopRelText, bernardoFullRel];
+const supApproval = getSuperiorApprovalTrust(mixedRelationships, 'clergy');
+assert(supApproval.hasSuperior === true, "Superior approval detects superior");
+assert(supApproval.superiorName === '마르코 대주교', `Superior is Bishop Marco, NOT Merchant Mateo (found: '${supApproval.superiorName}')`);
+assert(supApproval.maxTrust === 75, `Superior trust is Bishop's 75, NOT Mateo's 90 (found: ${supApproval.maxTrust})`);
+
+// 13.6 Council Vassals extraction
+const council = getCouncilVassals(mixedRelationships, 'clergy');
+assert(council.length === 1, `Exactly 1 council subordinate found (found: ${council.length})`);
+assert(council[0].name === '베르나르도', `Council subordinate is Bernardo (found: '${council[0].name}')`);
+assert(council.every(c => c.name !== '마르코 대주교' && c.name !== '마테오'), "Council DOES NOT contain Bishop Marco or Merchant Mateo");
 
 // ==========================================
 // Summary

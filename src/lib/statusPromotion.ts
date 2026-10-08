@@ -1,5 +1,6 @@
 import { ParsedState } from './parser';
 import { parseCKResources, calculateCKAttributes, extractNumericValue } from './ckVisuals';
+import { getSuperiorApprovalTrust } from './characterRelations';
 
 export interface PromotionRequirement {
   id: string;
@@ -330,31 +331,9 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
     if (lvMatch) estateLevel = parseInt(lvMatch[1], 10);
   }
 
-  // 상급자/후원자 최고 신뢰도 추출
-  let maxSuperiorTrust = 30; // 기본값
-  if (gameState.relationships?.personal) {
-    gameState.relationships.personal.forEach(rel => {
-      const parts = rel.split('|').map(s => s.trim());
-      const rawRelDesc = parts[3] || '';
-      const rawTrust = parts[1] || '';
-
-      const isNotSuperior = rawRelDesc.includes('[동료]') || rawRelDesc.includes('[직속부하]') || rawRelDesc.includes('[가신]') || rawRelDesc.includes('[적대]');
-      const isSuperior = !isNotSuperior && (
-        rawRelDesc.includes('[상급자]') || rawRelDesc.includes('[후원자]') ||
-        rawRelDesc.includes('상급자') || rawRelDesc.includes('후원자') ||
-        (rawRelDesc.includes('주교') && !rawRelDesc.includes('주교좌')) ||
-        rawRelDesc.includes('교구장') || rawRelDesc.includes('대주교') || rawRelDesc.includes('교황') ||
-        rawRelDesc.includes('주군') || rawRelDesc.includes('국왕') || rawRelDesc.includes('황제') || rawRelDesc.includes('촌장')
-      );
-      if (isSuperior) {
-        const trustM = rawTrust.match(/신뢰도\s*\[?(\d+)\]?/);
-        if (trustM) {
-          const val = parseInt(trustM[1], 10);
-          if (val > maxSuperiorTrust) maxSuperiorTrust = val;
-        }
-      }
-    });
-  }
+  // 상급자 최고 신뢰도 추출 (SSOT getSuperiorApprovalTrust 적용: 마테오 등 상인 배제, 진짜 상급자만 판별)
+  const superiorApproval = getSuperiorApprovalTrust(gameState.relationships?.personal, resources.archetype);
+  const maxSuperiorTrust = superiorApproval.maxTrust;
 
   const ladderInfo = STATUS_LADDER[cleanStatus] || STATUS_LADDER['평민'];
   

@@ -1,5 +1,6 @@
 // Crusader Kings 3 Style Visual & Attribute Calculation Helpers
 import { ParsedState } from './parser';
+import { parsePersonalRelation } from './characterRelations';
 
 export interface CKAttributeDetail {
   value: number;
@@ -712,7 +713,7 @@ export function parseNameAndRole(rawName: string): { name: string; role: string 
   };
 }
 
-// 5대 관계 위계(Tier) 판별 함수 (명시적 태그 최우선 + 기관명/상인 오인식 방지)
+// 5대 관계 위계(Tier) 판별 함수 (SSOT characterRelations.ts 위임)
 export function determineRelationTier(
   rawName: string,
   descStr: string,
@@ -720,68 +721,15 @@ export function determineRelationTier(
   role: string = '',
   subordinateName: string = '직속 가신 / 보좌'
 ): RelationTierInfo {
-  // 직속 부하의 구체적 역할(무관/호위대 vs 사제/복사/수사)에 맞춘 맞춤형 라벨 동적 보정
-  const getSubordinateDynamicLabel = (): string => {
-    const combinedRole = `${role} ${rawName} ${descStr}`;
-    const isMilitaryGuard = ['수호대', '경비대', '호위', '기사', '무관', '용병', '사병', '지휘관', '부대장'].some(k => combinedRole.includes(k));
-    if (isMilitaryGuard) {
-      return '🛡️ 직속 호위대 / 무관';
-    }
-    return subordinateName;
+  const synthesizedRel = `${rawName} | 신뢰도 50 | ${affStr} | ${descStr}`;
+  const p = parsePersonalRelation(synthesizedRel);
+  return {
+    id: p.tierId,
+    label: p.tierLabel,
+    color: p.tierColor,
+    bg: p.tierBg,
+    border: p.tierBorder
   };
-
-  // 1단계: AI가 명시적으로 출력한 5대 표준 위계 태그 최우선 판별
-  if (descStr.includes('[적대]') || affStr.includes('숙적') || affStr.includes('라이벌')) {
-    return { id: 'rival', label: '⚔️ 숙적 / 적대', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' };
-  }
-  if (descStr.includes('[상급자]')) {
-    return { id: 'superior', label: '👑 상급자 / 주군', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)', border: '#f59e0b' };
-  }
-  if (descStr.includes('[후원자]')) {
-    return { id: 'patron', label: '📜 후원자 / 신도', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: '#0284c7' };
-  }
-  if (descStr.includes('[직속부하]') || descStr.includes('[가신]')) {
-    return { id: 'subordinate', label: getSubordinateDynamicLabel(), color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
-  }
-  if (descStr.includes('[동료]')) {
-    return { id: 'peer', label: '🤝 대등한 동료', color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)', border: '#10b981' };
-  }
-
-  // 2단계: 태그 누락 시 텍스트 및 직책(Role) 키워드 정밀 분석 (기관명 오인식 방어)
-  const combined = `${rawName} ${descStr} ${affStr}`;
-
-  // 2-1. 적대 관계
-  if (combined.includes('숙적') || combined.includes('라이벌') || combined.includes('원한') || combined.includes('적대자')) {
-    return { id: 'rival', label: '⚔️ 숙적 / 적대', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' };
-  }
-
-  // 2-2. 상인, 길드, 평민, 장인 직책은 상급자에서 엄격 제외
-  const isMerchantOrCommoner = role.includes('행수') || role.includes('상단') || role.includes('상인') ||
-                               role.includes('도제') || role.includes('점원') || role.includes('길드원') ||
-                               role.includes('주점') || role.includes('여관');
-
-  // 2-3. 상급자(교단 상급자, 봉건 주군) 판별
-  // '주교좌'는 주교좌 성당/주교좌 상단 등 기관/장소명이므로 '주교' 단순 포함 매칭에서 엄격 제외
-  const isClergySuperior = (combined.includes('교구장') || combined.includes('대주교') || combined.includes('교황') || combined.includes('종정')) ||
-                           (combined.includes('주교') && !combined.includes('주교좌') && !isMerchantOrCommoner);
-  const isFeudalSuperior = combined.includes('주군') || combined.includes('국왕') || combined.includes('황제') || combined.includes('스승') || combined.includes('상관');
-
-  if (!isMerchantOrCommoner && (combined.includes('상급자') || isClergySuperior || isFeudalSuperior)) {
-    return { id: 'superior', label: '👑 상급자 / 주군', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)', border: '#f59e0b' };
-  }
-
-  // 2-4. 후원자 / 유력 신도 / 고용주
-  if (combined.includes('후원자') || combined.includes('신도') || combined.includes('미망인') || combined.includes('고용주') || combined.includes('의뢰인') || combined.includes('후원') || combined.includes('영부인') || combined.includes('대상인')) {
-    return { id: 'patron', label: '📜 후원자 / 신도', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: '#0284c7' };
-  }
-
-  // 2-5. 직속 부하 / 가신 / 복사 / 시종
-  if (combined.includes('직속부하') || combined.includes('가신') || combined.includes('부관') || combined.includes('시종') || combined.includes('복사') || combined.includes('수련수사') || combined.includes('도제') || combined.includes('사병')) {
-    return { id: 'subordinate', label: getSubordinateDynamicLabel(), color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)', border: '#8b5cf6' };
-  }
-
-  // 기본값: 대등한 동료
-  return { id: 'peer', label: '🤝 대등한 동료', color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)', border: '#10b981' };
 }
 
 // 29개 신분 프리셋별 턴당 기초 소득 기준표
@@ -879,51 +827,42 @@ export function calculateTurnIncome(gameState: ParsedState): CKIncomeBreakdown {
   let subordinateCount = 0;
 
   personalRels.forEach((rel, idx) => {
-    const parts = rel.split('|').map(p => p.trim());
-    if (parts.length >= 4) {
-      const rawName = parts[0];
-      const { name, role } = parseNameAndRole(rawName);
-      const trustStr = parts[1];
-      const affStr = parts[2];
-      const descStr = parts.slice(3).join(' ').replace('관계:', '').trim();
-      const trustVal = parseInt(trustStr.match(/(\d+)/)?.[1] || '50', 10);
+    const p = parsePersonalRelation(rel, archetype);
+    const { name, trust: trustVal, isSuperior, isSubordinate, isPatron, role, descStr } = p;
 
-      const tier = determineRelationTier(rawName, descStr, affStr, role);
-
-      if (tier.id === 'superior') {
-        superiorFound = true;
-      } else if (tier.id === 'subordinate') {
-        subordinateCount++;
-        if (archetype === 'noble') {
-          incomeItems.push({
-            id: `vassal_${idx}`,
-            name: `${name} 봉신 공납세`,
-            amount: 1.2,
-            category: 'relation',
-            desc: `직속 가신의 봉건 공납금`
-          });
-        }
-      } else if (tier.id === 'patron') {
-        const patronAmount = Math.round((2.0 + (trustVal / 100) * 3.0) * 10) / 10;
+    if (isSuperior) {
+      superiorFound = true;
+    } else if (isSubordinate) {
+      subordinateCount++;
+      if (archetype === 'noble') {
         incomeItems.push({
-          id: `patron_${idx}`,
-          name: `${name} 후원금/헌납금`,
-          amount: patronAmount,
+          id: `vassal_${idx}`,
+          name: `${name} 봉신 공납세`,
+          amount: 1.2,
           category: 'relation',
-          desc: `유력 신도/외부 후원자의 정기 지원금 (신뢰도 ${trustVal}%)`
+          desc: `직속 가신의 봉건 공납금`
         });
-      } else if (tier.id === 'peer') {
-        const isTrade = role.includes('행수') || role.includes('상단') || role.includes('상인') ||
-                        descStr.includes('공급') || descStr.includes('독점') || descStr.includes('무역') || descStr.includes('계약');
-        if (isTrade) {
-          incomeItems.push({
-            id: `trade_${idx}`,
-            name: `${name} 상업 교역 배당금`,
-            amount: 2.5,
-            category: 'relation',
-            desc: `상단 독점 물품 공급 및 무역 협정 이익`
-          });
-        }
+      }
+    } else if (isPatron) {
+      const patronAmount = Math.round((2.0 + (trustVal / 100) * 3.0) * 10) / 10;
+      incomeItems.push({
+        id: `patron_${idx}`,
+        name: `${name} 후원금/헌납금`,
+        amount: patronAmount,
+        category: 'relation',
+        desc: `유력 신도/외부 후원자의 정기 지원금 (신뢰도 ${trustVal}%)`
+      });
+    } else if (p.tierId === 'peer') {
+      const isTrade = role.includes('행수') || role.includes('상단') || role.includes('상인') ||
+                      descStr.includes('공급') || descStr.includes('독점') || descStr.includes('무역') || descStr.includes('계약');
+      if (isTrade) {
+        incomeItems.push({
+          id: `trade_${idx}`,
+          name: `${name} 상업 교역 배당금`,
+          amount: 2.5,
+          category: 'relation',
+          desc: `상단 독점 물품 공급 및 무역 협정 이익`
+        });
       }
     }
   });

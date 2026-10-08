@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { getArchetypeDetails, determineRelationTier, parseNameAndRole } from '@/lib/ckVisuals';
+import { getArchetypeDetails } from '@/lib/ckVisuals';
+import { parseAllPersonalRelations, ParsedCharacterRelation } from '@/lib/characterRelations';
 import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck } from 'lucide-react';
 
 interface Props {
@@ -60,53 +61,35 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
     subordinateName: '직속 가신 / 보좌'
   };
 
-  // 5대 관계 위계(Tier) 판별 함수 (공용 판별 로직 위임)
-  const getRelationTier = (rawName: string, descStr: string, affStr: string, role: string = '') => {
-    return determineRelationTier(rawName, descStr, affStr, role, config.subordinateName);
-  };
-
-  // 파싱 및 위계 분류된 인물 목록
-  const parsedCharacters = personalRels.map(rel => {
-    const parts = rel.split('|').map(p => p.trim());
-    if (parts.length >= 4) {
-      const rawName = parts[0];
-      const { name, role } = parseNameAndRole(rawName);
-
-      const trustStr = parts[1];
-      const affStr = parts[2];
-      const descStr = parts.slice(3).join(' | ').replace('관계:', '').trim();
-
-      const trustMatch = trustStr.match(/(\d+)/);
-      const affMatch = affStr.match(/(\d+)/);
-
-      const trustVal = trustMatch ? Math.min(100, Math.max(0, parseInt(trustMatch[1], 10))) : 50;
-      const affVal = affMatch ? Math.min(100, Math.max(0, parseInt(affMatch[1], 10))) : 50;
-
-      const tier = getRelationTier(rawName, descStr, affStr, role);
-
-      const isRomance = affStr.includes('애정도') || descStr.includes('연인') || descStr.includes('배우자');
-      const isRival = tier.id === 'rival';
-      const isObsessive = affStr.includes('집착') || affStr.includes('광애');
-      const isSwornFriend = affStr.includes('맹우') || trustStr.includes('맹우');
-
-      return {
-        raw: rel,
-        name,
-        role,
-        trustStr,
-        affStr,
-        descStr,
-        trustVal,
-        affVal,
-        tier,
-        isRomance,
-        isRival,
-        isObsessive,
-        isSwornFriend
-      };
-    }
-    return null;
-  }).filter(Boolean);
+  // SSOT 단일 진실 공급원 파서(characterRelations.ts)를 통한 인물 목록 일원화
+  const parsedCharacters = parseAllPersonalRelations(personalRels, archetype).map(p => {
+    const isObsessive = p.raw.includes('집착') || p.raw.includes('광애');
+    const isSwornFriend = p.raw.includes('맹우');
+    return {
+      raw: p.raw,
+      name: p.name,
+      role: p.role,
+      trustStr: `신뢰도 ${p.trust}`,
+      affStr: `호감도 ${p.affection}`,
+      descStr: p.descStr,
+      trustVal: p.trust,
+      affVal: p.affection,
+      tier: {
+        id: p.tierId,
+        label: p.tierLabel,
+        color: p.tierColor,
+        bg: p.tierBg,
+        border: p.tierBorder
+      },
+      vocation: p.vocation,
+      vocationLabel: p.vocationLabel,
+      vocationIcon: p.vocationIcon,
+      isRomance: p.isRomance,
+      isRival: p.isRival,
+      isObsessive,
+      isSwornFriend
+    };
+  });
 
   // 위계별 인원수 계산
   const tierCounts = {
@@ -283,7 +266,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                           fontSize: '1.2rem',
                           flexShrink: 0
                         }}>
-                          {c.isRival ? '⚔️' : c.isRomance ? '❤️' : c.tier.id === 'superior' ? '👑' : c.tier.id === 'patron' ? '📜' : c.isSwornFriend ? '🛡️' : '👤'}
+                          {c.isRival ? '⚔️' : c.isRomance ? '❤️' : c.tier.id === 'superior' ? '👑' : c.tier.id === 'patron' ? (c.vocation === 'merchant' ? '🪙' : '📜') : c.tier.id === 'subordinate' ? (c.vocation === 'military' ? '🛡️' : '🕊️') : c.isSwornFriend ? '🛡️' : '👤'}
                         </div>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>

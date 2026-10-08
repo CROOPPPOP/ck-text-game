@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import RealmDashboard from './RealmDashboard';
 import { ParsedState } from '@/lib/parser';
-import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome, parseNameAndRole } from '@/lib/ckVisuals';
+import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome } from '@/lib/ckVisuals';
+import { getCouncilVassals } from '@/lib/characterRelations';
 import { QueueItem, BuildOption, turnsLeft, sameBuildingName } from '@/lib/construction';
 import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle, Coins, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -62,35 +63,8 @@ export default function CKRealmModal({
     ? `${archetypeDetails.num} ${archetypeDetails.title} 대시보드`
     : '영지 및 세력 통치 대시보드';
 
-  // 거점 상주 자문관 및 직속 부하/가신 추출 (상급자 및 외부 후원자 엄격 제외)
-  const councilVassals = (gameState?.relationships?.personal || []).filter(rel => {
-    const rawName = rel.split('|')[0] || '';
-    const descStr = rel.split('|').slice(3).join(' ') || '';
-    const combined = `${rawName} ${descStr}`;
-
-    // 1. 명시적 태그 최우선 판별
-    if (descStr.includes('[직속부하]') || descStr.includes('[가신]')) return true;
-    if (descStr.includes('[상급자]') || descStr.includes('[후원자]') || descStr.includes('[동료]') || descStr.includes('[적대]')) return false;
-
-    // 2. 키워드 제외 대상: 상급자, 후원자, 외부 유력자, 적대자 (주교좌 등 기관명 오인식 방지)
-    const excludeKeywords = ['상급자', '교구장', '대주교', '교황', '주군', '영주', '국왕', '황제', '스승', '종정', '후원자', '미망인', '영부인', '고용주', '의뢰인', '적대', '숙적', '라이벌'];
-    if (excludeKeywords.some(k => combined.includes(k))) return false;
-    if (combined.includes('주교') && !combined.includes('주교좌')) return false;
-
-    // 포함 대상: 직속 부하/가신/보좌/단원
-    const subordinateKeywords = ['직속부하', '가신', '기사', '집사장', '원수', '첩보장', '부대장', '부원장', '관리인', '서기관', '참모', '시종', '복사', '수련수사', '도제', '조력자', '부관'];
-    return subordinateKeywords.some(k => combined.includes(k));
-  }).map(rel => {
-    const parts = rel.split('|').map(p => p.trim());
-    const rawName = parts[0] || '';
-    const { name, role: parsedRole } = parseNameAndRole(rawName);
-    const descStr = parts.slice(3).join(' ') || '';
-    const fallbackRole = (descStr.includes('수호') || descStr.includes('경비') || descStr.includes('호위') || descStr.includes('무관') || descStr.includes('기사'))
-      ? '직속 호위대장'
-      : (archetype === 'clergy' ? '보좌 수사' : archetype === 'company' ? '부대 간부' : archetype === 'wanderer' ? '동행 조력자' : '직속 가신');
-    const role = parsedRole || fallbackRole;
-    return { name, role };
-  });
+  // 거점 상주 자문관 및 직속 부하/가신 추출 (SSOT getCouncilVassals 적용)
+  const councilVassals = getCouncilVassals(gameState?.relationships?.personal, archetype);
 
   const getTagStyle = (t: string) => {
     if (t.includes('군사')) return { bg: 'rgba(239,68,68,0.2)', color: '#fca5a5', icon: '⚔️' };
@@ -335,10 +309,10 @@ export default function CKRealmModal({
                         gap: '5px'
                       }}>
                         <span style={{ color: 'var(--gold-accent)' }}>
-                          {(v.role.includes('수호') || v.role.includes('경비') || v.role.includes('기사') || v.role.includes('호위') || v.role.includes('무관') || v.role.includes('군사')) ? '🛡️' : (archetype === 'clergy' ? '🕊️' : archetype === 'company' ? '🛡️' : archetype === 'wanderer' ? '🗡️' : '👑')}
+                          {v.vocationIcon || '🛡️'}
                         </span>
                         <strong>{v.name}</strong>
-                        <span style={{ color: '#7dd3fc', fontSize: '0.72rem' }}>({v.role})</span>
+                        <span style={{ color: '#7dd3fc', fontSize: '0.72rem' }}>({v.role || v.tierLabel.replace(/^🛡️\s*/, '')})</span>
                       </span>
                     ))
                   ) : (
