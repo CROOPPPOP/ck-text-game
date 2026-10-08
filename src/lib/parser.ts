@@ -43,6 +43,7 @@ export interface ParsedState {
   traits?: Array<{ category: string; name: string; tier?: string; description: string; isNew?: boolean; isUpgraded?: boolean }>;
   inventory?: Record<string, string[]>;
   factionState?: Record<string, string>;
+  previousPopulation?: number;
   relationships?: { personal: string[], faction: string[] };
   objective?: { ultimateGoal: string; currentGoal: string; currentProgress: string; totalProgress: string; status: string; summary: string };
   familyState?: { 

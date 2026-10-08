@@ -1,6 +1,7 @@
 // Crusader Kings 3 Style Visual & Attribute Calculation Helpers
 import { ParsedState } from './parser';
 import { parsePersonalRelation } from './characterRelations';
+import { calculatePopulationGrowth, PopulationGrowthBreakdown } from './populationEconomy';
 
 export interface CKAttributeDetail {
   value: number;
@@ -82,6 +83,7 @@ export interface CKResources {
   archetypeTitle: string;
   labels: CKResourceLabels;
   income: CKIncomeBreakdown;
+  populationGrowth?: PopulationGrowthBreakdown;
 }
 
 export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
@@ -593,7 +595,7 @@ export function parseCKStress(gameState: ParsedState): CKStressState {
 }
 
 // CK3 핵심 자원 요약 추출
-export function parseCKResources(gameState: ParsedState): CKResources {
+export function parseCKResources(gameState: ParsedState, previousPopulation?: number): CKResources {
   const faction = gameState.factionState || {};
   const wealthItems = gameState.inventory?.wealth || [];
   const archetype = detectPlayerArchetype(gameState);
@@ -640,6 +642,7 @@ export function parseCKResources(gameState: ParsedState): CKResources {
   };
 
   const income = calculateTurnIncome(gameState);
+  const populationGrowth = calculatePopulationGrowth(gameState, previousPopulation);
 
   return {
     gold,
@@ -650,7 +653,8 @@ export function parseCKResources(gameState: ParsedState): CKResources {
     archetype,
     archetypeTitle: archetypeTitleMap[archetype],
     labels,
-    income
+    income,
+    populationGrowth
   };
 }
 

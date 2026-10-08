@@ -18,6 +18,12 @@ import {
   getPlayerWealthAmount
 } from './src/lib/estateEconomy';
 import { getUpgradeCandidates } from './src/lib/estate';
+import {
+  parsePopulationCount,
+  getEstatePopulationCapacity,
+  calculatePopulationGrowth
+} from './src/lib/populationEconomy';
+import { parseCKResources } from './src/lib/ckVisuals';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -704,6 +710,111 @@ const testGameStateWealth: any = {
 };
 const parsedWealth = getPlayerWealthAmount(testGameStateWealth, '은화');
 assert(parsedWealth === 145, `Player wealth parsed as 145 은화 (found: ${parsedWealth})`);
+
+// ==========================================
+// TEST 15: Universal Population Growth Engine & Save Compatibility
+// ==========================================
+console.log("\n--- 15. Testing Universal Population Growth Engine & Compatibility ---");
+
+// 15.1 Safe Parsing of various population text strings
+assert(parsePopulationCount('교구민 120명 (수도사 12명)') === 120, "Parses 120 from '교구민 120명 (수도사 12명)'");
+assert(parsePopulationCount('145명') === 145, "Parses 145 from '145명'");
+assert(parsePopulationCount('인구 3,500명') === 3500, "Parses 3500 from '인구 3,500명' with comma");
+assert(parsePopulationCount('정예 단원 24명') === 24, "Parses 24 from '정예 단원 24명'");
+assert(parsePopulationCount('단신 (동행 1명)') === 1, "Parses 1 from wanderer companion text");
+assert(parsePopulationCount('통치 중인 영지 없음') === 0, "Returns 0 for non-ruler status");
+assert(parsePopulationCount(undefined) === 0, "Returns 0 for undefined string");
+
+// 15.2 Estate Population Capacities (Lv.1 to Lv.5)
+assert(getEstatePopulationCapacity(1) === 100, "Lv.1 capacity is 100");
+assert(getEstatePopulationCapacity(2) === 300, "Lv.2 capacity is 300");
+assert(getEstatePopulationCapacity(3) === 800, "Lv.3 capacity is 800");
+assert(getEstatePopulationCapacity(4) === 2500, "Lv.4 capacity is 2500");
+assert(getEstatePopulationCapacity(5) === 10000, "Lv.5 capacity is 10000");
+
+// 15.3 Clergy Real Case Regression Test (User's parish with 6 buildings: 120 -> 145)
+const clergyRealMock: any = {
+  personalInfo: { '이름': '토마스', '신분': '사제' },
+  estate: {
+    level: 'Lv.2 교구 본당',
+    type: '교구 본당',
+    buildings: [
+      { name: '본당 예배당', tags: ['신앙'] },
+      { name: '석조 종탑 및 회랑', tags: ['신앙', '치안'] },
+      { name: '성물 안치실', tags: ['신앙', '문화'] },
+      { name: '사제관 및 서재', tags: ['행정', '학문'] },
+      { name: '장원 올리브 압착장', tags: ['생산', '재정'] },
+      { name: '성당 식료창고', tags: ['민생', '보급'] }
+    ]
+  },
+  factionState: {
+    '인구': '145명',
+    '치안': '평온함 (80%)',
+    '민심': '깊은 신앙 (95%)'
+  },
+  stats: {
+    admin: [{ name: '행정력', value: 75 }],
+    learning: [{ name: '학문', value: 80 }]
+  }
+};
+
+const clergyGrowth = calculatePopulationGrowth(clergyRealMock, 120);
+assert(clergyGrowth.currentPopulation === 145, "Current population is 145");
+assert(clergyGrowth.delta === 25, "Delta is exactly +25 (145 - 120)");
+assert(clergyGrowth.recentDeltaLabel === '▲ +25명', "Recent delta label is '▲ +25명'");
+assert(clergyGrowth.maxCapacity === 300, "Lv.2 parish max capacity is 300");
+assert(clergyGrowth.isOvercrowded === false, "145 is within 300 capacity");
+assert(clergyGrowth.growthRate > 5.0, `Clergy growth rate is healthy positive (>5.0, found: ${clergyGrowth.growthRate})`);
+assert(clergyGrowth.formattedGrowth.startsWith('+'), "Formatted growth starts with '+'");
+assert(clergyGrowth.growthItems.some(i => i.label.includes('식료창고')), "Granary bonus is present in breakdown");
+assert(clergyGrowth.growthItems.some(i => i.label.includes('압착장')), "Olive press bonus is present in breakdown");
+
+// 15.4 Overcrowding Penalty Test (Population 350 on Lv.2 holding capacity 300)
+const crowdedMock: any = {
+  ...clergyRealMock,
+  factionState: {
+    ...clergyRealMock.factionState,
+    '인구': '350명'
+  }
+};
+const crowdedGrowth = calculatePopulationGrowth(crowdedMock);
+assert(crowdedGrowth.isOvercrowded === true, "350 people in Lv.2 flagged as overcrowded");
+assert(crowdedGrowth.growthItems.some(i => i.label.includes('과밀')), "Overcrowding penalty item exists in breakdown");
+assert(crowdedGrowth.growthRate < clergyGrowth.growthRate, "Overcrowded growth rate is substantially penalized");
+
+// 15.5 Vercel / Legacy Local Storage Save File Compatibility Test
+// Legacy save has NO previousPopulation field and partial factionState
+const legacySaveMock: any = {
+  personalInfo: { '이름': '옛날 사제', '신분': '사제' },
+  factionState: { '인구': '120명' }
+};
+const legacyGrowth = calculatePopulationGrowth(legacySaveMock, undefined);
+assert(legacyGrowth.currentPopulation === 120, "Legacy save population parsed as 120");
+assert(legacyGrowth.delta === undefined, "Legacy save has undefined delta without previousPopulation");
+assert(legacyGrowth.recentDeltaLabel === undefined, "Legacy save has undefined delta label");
+assert(legacyGrowth.growthRate > 0, "Legacy save still calculates valid per-turn growth rate");
+
+// Integration test with parseCKResources
+const legacyResources = parseCKResources(legacySaveMock, undefined);
+assert(legacyResources.populationGrowth !== undefined, "parseCKResources handles legacy state without errors");
+assert(legacyResources.populationGrowth?.currentPopulation === 120, "Legacy parsed via parseCKResources has currentPopulation 120");
+
+// 15.6 4 Archetype Universal Coverage Test
+const wandererMock: any = {
+  personalInfo: { '이름': '방랑 무사', '신분': '방랑 기사' },
+  inventory: { companions: ['마르코 (종자)'] }
+};
+const wandererRes = parseCKResources(wandererMock, undefined);
+assert(wandererRes.levies === '동행 1명' || wandererRes.levies.includes('1'), "Wanderer safely handled as companion count");
+
+const mercenaryMock: any = {
+  personalInfo: { '이름': '용병대장', '신분': '용병대장' },
+  factionState: { '단원': '정예 단원 30명', '민심': '높음 (80%)', '치안': '엄격함 (85%)' }
+};
+const mercGrowth = calculatePopulationGrowth(mercenaryMock, 25);
+assert(mercGrowth.currentPopulation === 30, "Mercenary count parsed as 30");
+assert(mercGrowth.delta === 5, "Mercenary delta is +5 (30 - 25)");
+assert(mercGrowth.recentDeltaLabel === '▲ +5명', "Mercenary recent delta label is '▲ +5명'");
 
 // ==========================================
 // Summary

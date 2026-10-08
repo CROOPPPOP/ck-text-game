@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates } from '@/lib/estate';
-import { calculateEstatePromotionCost } from '@/lib/estateEconomy';
+import { calculateEstatePromotionCost, getPlayerWealthAmount } from '@/lib/estateEconomy';
+import { parsePopulationCount } from '@/lib/populationEconomy';
 import { calculateCKAttributes, detectPlayerArchetype } from '@/lib/ckVisuals';
 import { getCouncilVassals, sanitizeNameAndRole } from '@/lib/characterRelations';
 import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
@@ -506,6 +507,10 @@ export default function Home() {
             },
             personalInfo: mergeObject(prevState.personalInfo, data.parsed.personalInfo),
             factionState: data.parsed.factionState?.none ? { none: "true" } : mergeObject(prevState.factionState, data.parsed.factionState),
+            previousPopulation: (() => {
+              const prev = parsePopulationCount(prevState.factionState?.['인구']);
+              return prev > 0 ? prev : prevState.previousPopulation;
+            })(),
             relationships: mergedRelationships,
 
             playerStatus: data.parsed.playerStatus || prevState.playerStatus,

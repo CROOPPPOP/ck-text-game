@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { ParsedState } from "@/lib/parser";
 import { detectPlayerArchetype, parseCKResources } from "@/lib/ckVisuals";
 
@@ -61,9 +61,197 @@ function getColorAndGrade(num: number, raw: string) {
 }
 
 export default function RealmDashboard({ factionState, gameState }: Props) {
+  const [showPopModal, setShowPopModal] = useState(false);
   const archetype = gameState ? detectPlayerArchetype(gameState) : 'noble';
-  const resources = gameState ? parseCKResources(gameState) : null;
+  const resources = gameState ? parseCKResources(gameState, gameState.previousPopulation) : null;
   const isNoneFaction = !factionState || factionState.none;
+
+  const renderPopulationModal = () => {
+    if (!showPopModal || !resources?.populationGrowth) return null;
+    const pop = resources.populationGrowth;
+    const capacityPercent = Math.min(100, Math.round((pop.currentPopulation / pop.maxCapacity) * 100));
+    const isOvercrowded = pop.currentPopulation >= pop.maxCapacity;
+
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}
+        onClick={() => setShowPopModal(false)}
+      >
+        <div
+          style={{
+            background: 'linear-gradient(145deg, #1e293b, #0f172a)',
+            border: '1px solid rgba(212, 175, 55, 0.4)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '520px',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+            color: '#f8fafc',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                【 영지 인구 통계 & 정착민 장부 】
+              </div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'wrap' }}>
+                <span>👥 {resources.domain || '영지'} 인구 동태</span>
+                {pop.delta !== undefined && (
+                  <span style={{
+                    fontSize: '0.78rem',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    background: pop.delta >= 0 ? 'rgba(52, 211, 153, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    color: pop.delta >= 0 ? '#34d399' : '#f87171',
+                    border: `1px solid ${pop.delta >= 0 ? 'rgba(52, 211, 153, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                  }}>
+                    {pop.recentDeltaLabel}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPopModal(false)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                fontSize: '1.4rem',
+                cursor: 'pointer',
+                padding: '0 4px',
+                lineHeight: 1
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Capacity Progress Bar Card */}
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.35)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            padding: '14px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
+              <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
+                🏰 거점 규모 수용 한도 (Capacity)
+              </span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isOvercrowded ? '#f87171' : '#38bdf8' }}>
+                {pop.currentPopulation.toLocaleString()}명 / {pop.maxCapacity.toLocaleString()}명 ({capacityPercent}%)
+              </span>
+            </div>
+            <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${capacityPercent}%`,
+                height: '100%',
+                background: isOvercrowded ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #38bdf8, #34d399)',
+                borderRadius: '4px',
+                transition: 'width 0.4s ease'
+              }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginTop: '6px' }}>
+              <span>현재: {pop.rawString}</span>
+              <span>{isOvercrowded ? '⚠️ 수용 한도 도달 (과밀 패널티 적용)' : `여유 수용량: +${(pop.maxCapacity - pop.currentPopulation).toLocaleString()}명`}</span>
+            </div>
+          </div>
+
+          {/* Growth Breakdown Ledger */}
+          <div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--gold-accent)', fontWeight: 'bold', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+              <span>📈 턴당 예상 인구 증감 산출 내역</span>
+              <span style={{ color: pop.growthRate >= 0 ? '#34d399' : '#f87171' }}>
+                합계: {pop.formattedGrowth}/턴
+              </span>
+            </div>
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.6)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              maxHeight: '180px',
+              overflowY: 'auto'
+            }}>
+              {pop.growthItems.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                  <span style={{ color: '#cbd5e1' }}>• {item.label}</span>
+                  <span style={{
+                    fontWeight: 'bold',
+                    color: item.amount > 0 ? '#34d399' : item.amount < 0 ? '#f87171' : '#94a3b8'
+                  }}>
+                    {item.amount > 0 ? `+${item.amount.toFixed(1)}` : item.amount.toFixed(1)}명
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Historical Delta Note (if available) */}
+          {pop.delta !== undefined && (
+            <div style={{
+              background: pop.delta >= 0 ? 'rgba(52, 211, 153, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+              border: `1px dashed ${pop.delta >= 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+              borderRadius: '8px',
+              padding: '10px 12px',
+              fontSize: '0.8rem',
+              color: pop.delta >= 0 ? '#a7f3d0' : '#fca5a5',
+              lineHeight: '1.4'
+            }}>
+              <strong>🔄 직전 턴 대비 실질 변동 ({pop.recentDeltaLabel}): </strong>
+              {pop.delta > 0
+                ? '건물 완공, 거점 등급 승격, 피난민 유입 또는 안정된 섭정으로 인해 인구가 비약적으로 성장했습니다.'
+                : pop.delta < 0
+                ? '기근, 전쟁 징집, 전염병 또는 약탈 피해로 인해 거점 인구가 유출되었습니다.'
+                : '직전 턴과 인구수 변동 없이 안정적으로 유지되고 있습니다.'}
+            </div>
+          )}
+
+          {/* Guide tip footer */}
+          <div style={{ fontSize: '0.75rem', color: '#64748b', lineHeight: '1.3' }}>
+            💡 거점 등급 승격이나 식료창고·주거 시설 증축 시 인구 수용 한도와 유입 속도가 증가합니다. 민심과 치안이 낮으면 인구가 이탈할 수 있습니다.
+          </div>
+
+          {/* Close Button */}
+          <button
+            onClick={() => setShowPopModal(false)}
+            style={{
+              marginTop: '4px',
+              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.05))',
+              border: '1px solid var(--gold-accent)',
+              borderRadius: '6px',
+              color: 'var(--gold-accent)',
+              padding: '8px',
+              fontSize: '0.88rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              transition: 'background 0.2s'
+            }}
+          >
+            확인 및 닫기
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // 1. 방랑자 전용 대시보드 (Wanderer Camp & Travel Dashboard)
   if (archetype === 'wanderer' && isNoneFaction) {
@@ -286,17 +474,42 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* 4 Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
-          <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '8px',
-            padding: '12px 10px',
-            textAlign: 'center'
-          }}>
+          <div
+            onClick={() => setShowPopModal(true)}
+            style={{
+              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '8px',
+              padding: '12px 10px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              transition: 'transform 0.15s, border-color 0.15s'
+            }}
+            title="클릭하여 단원/인구 동태 장부 확인"
+          >
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>⚔️</div>
             <div style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: 'bold' }}>정예 단원</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {troopCount}
+              {resources?.populationGrowth && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.72rem', color: resources.populationGrowth.growthRate >= 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>
+                    ({resources.populationGrowth.formattedGrowth}/턴)
+                  </span>
+                  {resources.populationGrowth.delta !== undefined && (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      color: resources.populationGrowth.delta >= 0 ? '#34d399' : '#f87171',
+                      background: resources.populationGrowth.delta >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}>
+                      {resources.populationGrowth.recentDeltaLabel}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -406,6 +619,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           <strong>⚠️ 용병단 지휘 지침: </strong>
           매 턴마다 단원 주급(급료)과 식량 보급 유지비가 지출됩니다. 군자금이 고갈되면 사기 폭락 및 반란/탈영이 일어날 수 있으므로 제후들의 참전 계약을 수주하고 전리품을 분배하십시오.
         </div>
+
+        {/* Population Modal */}
+        {renderPopulationModal()}
       </div>
     );
   }
@@ -461,17 +677,42 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
 
         {/* 4 Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
-          <div style={{
-            background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-            border: '1px solid rgba(168, 85, 247, 0.3)',
-            borderRadius: '8px',
-            padding: '12px 10px',
-            textAlign: 'center'
-          }}>
+          <div
+            onClick={() => setShowPopModal(true)}
+            style={{
+              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              borderRadius: '8px',
+              padding: '12px 10px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              transition: 'transform 0.15s, border-color 0.15s'
+            }}
+            title="클릭하여 교구민/인구 동태 장부 확인"
+          >
             <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>👥</div>
             <div style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 'bold' }}>교구민 & 수도사</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
               {flockCount}
+              {resources?.populationGrowth && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.72rem', color: resources.populationGrowth.growthRate >= 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>
+                    ({resources.populationGrowth.formattedGrowth}/턴)
+                  </span>
+                  {resources.populationGrowth.delta !== undefined && (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      color: resources.populationGrowth.delta >= 0 ? '#34d399' : '#f87171',
+                      background: resources.populationGrowth.delta >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}>
+                      {resources.populationGrowth.recentDeltaLabel}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -581,6 +822,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           <strong>🕊️ 성직자 영성 지침: </strong>
           독신 서약과 금욕 규율을 준수하며 교구민의 고해성사를 듣고 성경을 필사합니다. 십일조를 모아 구빈원/약초원을 확장하고 세속 영주와의 과세 갈등을 신성 권위로 방어하십시오.
         </div>
+
+        {/* Population Modal */}
+        {renderPopulationModal()}
       </div>
     );
   }
@@ -631,23 +875,50 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
         {resourceKeys.map((key) => {
           const val = factionState[key] || '-';
+          const isPopKey = key.includes('인구');
           return (
-            <div key={key} style={{
-              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-              border: '1px solid rgba(212, 175, 55, 0.25)',
-              borderRadius: '8px',
-              padding: '12px 10px',
-              textAlign: 'center',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-            }}>
+            <div
+              key={key}
+              onClick={isPopKey ? () => setShowPopModal(true) : undefined}
+              style={{
+                background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+                border: isPopKey ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(212, 175, 55, 0.25)',
+                borderRadius: '8px',
+                padding: '12px 10px',
+                textAlign: 'center',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                cursor: isPopKey ? 'pointer' : 'default',
+                transition: 'transform 0.15s, border-color 0.15s'
+              }}
+              title={isPopKey ? "클릭하여 영지 인구 동태 장부 확인" : val}
+            >
               <div style={{ fontSize: '1.4rem', marginBottom: '2px' }}>{getResourceIcon(key)}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>{key}</div>
+              <div style={{ fontSize: '0.75rem', color: isPopKey ? '#38bdf8' : 'var(--gold-accent)', fontWeight: 'bold' }}>{key}</div>
               <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={val}>
                 {val}
                 {(key.includes('재정') || key.includes('금화') || key.includes('자금')) && resources?.income && (
                   <span style={{ fontSize: '0.72rem', color: resources.income.netIncome >= 0 ? '#4ade80' : '#f87171', marginLeft: '4px', fontWeight: 'bold' }}>
                     ({resources.income.formattedNet}/턴)
                   </span>
+                )}
+                {isPopKey && resources?.populationGrowth && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', color: resources.populationGrowth.growthRate >= 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>
+                      ({resources.populationGrowth.formattedGrowth}/턴)
+                    </span>
+                    {resources.populationGrowth.delta !== undefined && (
+                      <span style={{
+                        fontSize: '0.7rem',
+                        color: resources.populationGrowth.delta >= 0 ? '#34d399' : '#f87171',
+                        background: resources.populationGrowth.delta >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        fontWeight: 'bold'
+                      }}>
+                        {resources.populationGrowth.recentDeltaLabel}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -721,6 +992,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             ))}
         </div>
       )}
+
+      {/* Population Modal */}
+      {renderPopulationModal()}
 
     </div>
   );
