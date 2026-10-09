@@ -74,12 +74,13 @@ export default function CKRealmModal({
   const estateLevelNum = typeof estateLevelRaw === 'number'
     ? estateLevelRaw
     : parseInt(String(estateLevelRaw || '1').replace(/[^\d]/g, ''), 10) || 1;
+  const isFactionActive = !!(currentFaction && !currentFaction.none);
   const promotionMilestone = getEstatePromotionMilestones(
     estateLevelNum,
     gameState?.estate?.buildings || [],
     archetype,
-    gameState?.estate?.factionStats,
-    gameState?.estate?.isFactionActive
+    currentFaction,
+    isFactionActive
   );
 
   const getTagStyle = (t: string) => {

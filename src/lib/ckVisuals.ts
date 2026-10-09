@@ -299,24 +299,28 @@ export function getArchetypeDetails(gameState: ParsedState): ArchetypeDetails {
   };
 }
 
-// 텍스트에서 숫자 추출 (예: "15 (+2)" -> 17, "보통 (65%)" -> 65)
+// 텍스트에서 숫자 추출 (예: "15 (+2)" -> 17, "35.8 (+0.8/턴)" -> 35.8, "보통 (65%)" -> 65)
 export function extractNumericValue(raw: string | undefined, defaultValue: number = 0): number {
   if (!raw || typeof raw !== 'string') return defaultValue;
   const trimmed = raw.trim();
   if (!trimmed) return defaultValue;
   
-  // (15 (+2)) 포맷
-  const matchWithBonus = trimmed.match(/(\d+)\s*\(([+-]?\d+)\)/);
+  // (15 (+2)) 또는 (35.8 (+0.8/턴)) 포맷
+  const matchWithBonus = trimmed.match(/(\d+(?:\.\d+)?)\s*\(([+-]?\d+(?:\.\d+)?)/);
   if (matchWithBonus) {
-    const base = parseInt(matchWithBonus[1], 10);
-    const bonus = parseInt(matchWithBonus[2], 10);
-    return Math.max(0, base + bonus);
+    const base = parseFloat(matchWithBonus[1]);
+    const bonus = parseFloat(matchWithBonus[2]);
+    // 괄호 안에 이미 턴당 증가율 등이 표시된 경우, 앞의 base가 누적 총합임
+    if (trimmed.includes('/턴') || trimmed.includes('/turn') || trimmed.includes('/t')) {
+      return Math.max(0, Math.round(base * 10) / 10);
+    }
+    return Math.max(0, Math.round((base + bonus) * 10) / 10);
   }
 
-  // 단순 정수
-  const numMatch = trimmed.match(/(\d+)/);
+  // 단순 숫자 (소수점 포함)
+  const numMatch = trimmed.match(/(\d+(?:\.\d+)?)/);
   if (numMatch) {
-    return parseInt(numMatch[1], 10);
+    return Math.max(0, Math.round(parseFloat(numMatch[1]) * 10) / 10);
   }
 
   // 등급형 텍스트
@@ -1420,3 +1424,131 @@ export function calculateTurnIncome(gameState: ParsedState): CKIncomeBreakdown {
     statusColor
   };
 }
+
+/**
+ * 턴 경과 시 경제 수지(세력 재정/골드), 명망(위신), 영성(신앙)을 실제 게임 상태에 누적 반영합니다.
+ * - AI가 턴마다 수치를 갱신하지 않고 텍스트를 고정 출력하는 한계를 보완하여,
+ *   UI 명세서에 표시된 턴당 수지(+N/턴)가 실제 데이터에 정확히 가산/누적되도록 합니다.
+ */
+export function applyTurnResourceAccumulation(
+  newState: ParsedState,
+  prevState: ParsedState
+): ParsedState {
+  if (!newState || !prevState) return newState;
+
+  try {
+    // 1. 턴 당 재정 수지 (Net Income) 가산
+    const prevIncome = calculateTurnIncome(prevState);
+    const netIncome = prevIncome.netIncome; // e.g. +3.2 or -1.5
+    const archetype = detectPlayerArchetype(prevState);
+    const currencyName = prevIncome.currencyName || (archetype === 'clergy' ? '은화' : archetype === 'wanderer' ? '동화' : '금화');
+
+    // 재정 문자열 업데이트 헬퍼: 기존 포맷("금화 150닢", "은화 45.0닢" 등)을 보존하며 가산
+    const updateWealthString = (orig: string, delta: number): string => {
+      if (!orig) return `${currencyName} ${Math.max(0, Math.round(delta * 10) / 10)}닢`;
+      const match = orig.match(/(\D*?)(\d+(?:\.\d+)?)(.*)/);
+      if (match) {
+        const prefix = match[1] || '';
+        const oldVal = parseFloat(match[2]);
+        const suffix = match[3] || '';
+        const rawNew = Math.max(0, oldVal + delta);
+        const newVal = Number.isInteger(rawNew) ? rawNew : Math.round(rawNew * 10) / 10;
+        return `${prefix}${newVal}${suffix}`;
+      }
+      const rawNew = Math.max(0, delta);
+      const newVal = Number.isInteger(rawNew) ? rawNew : Math.round(rawNew * 10) / 10;
+      return `${currencyName} ${newVal}닢`;
+    };
+
+    // 1-1. 세력 재정 업데이트
+    if (newState.factionState && !newState.factionState.none) {
+      const curGoldKey = ['세력 재정', '재정', '군자금', '금화'].find(k => newState.factionState?.[k] !== undefined) || '세력 재정';
+      const oldVal = newState.factionState[curGoldKey] || prevState.factionState?.[curGoldKey] || '';
+      newState.factionState[curGoldKey] = updateWealthString(oldVal, netIncome);
+    }
+
+    // 1-2. 개인 소지품(재산) 업데이트
+    if (newState.inventory) {
+      const origWealth: any = newState.inventory.wealth;
+      if (Array.isArray(origWealth) && origWealth.length > 0) {
+        newState.inventory.wealth = origWealth.map(w => updateWealthString(String(w), netIncome));
+      } else if (typeof origWealth === 'string' && origWealth.trim()) {
+        newState.inventory.wealth = [updateWealthString(origWealth.trim(), netIncome)];
+      } else {
+        const initialWealth = Math.max(0, Math.round(netIncome * 10) / 10);
+        newState.inventory.wealth = [`${currencyName} ${initialWealth}닢`];
+      }
+    }
+
+    // 2. 턴 당 위신 (Prestige / 명성) 가산
+    const prevPrestige = parseCKResources(prevState);
+    const prestigeGain = calculateTurnPrestigeGain(prevState, prevPrestige.prestigeTier);
+    const pGain = prestigeGain.totalGain; // e.g. +1.5
+
+    if (pGain > 0) {
+      if (!newState.stats) {
+        newState.stats = { innate: {}, acquired: {} };
+      }
+      if (!newState.stats.acquired) {
+        newState.stats.acquired = {};
+      }
+      if (!newState.stats.innate) {
+        newState.stats.innate = {};
+      }
+
+      const curPrestigeScore = prevPrestige.prestigeScore;
+      const rawNewPrestige = curPrestigeScore + pGain;
+      const newPrestigeScore = Number.isInteger(rawNewPrestige) ? rawNewPrestige : Math.round(rawNewPrestige * 10) / 10;
+
+      // acquired 스탯에 명성/위신 수치 누적 갱신
+      const prestigeKey = newState.stats.acquired['명성'] !== undefined ? '명성' :
+                          newState.stats.acquired['위신'] !== undefined ? '위신' : '명성';
+      newState.stats.acquired[prestigeKey] = `${newPrestigeScore} (${prestigeGain.formattedGain})`;
+
+      if (newState.personalInfo) {
+        if (newState.personalInfo['명성'] !== undefined) newState.personalInfo['명성'] = `${newPrestigeScore}`;
+        if (newState.personalInfo['위신'] !== undefined) newState.personalInfo['위신'] = `${newPrestigeScore}`;
+      }
+    }
+
+    // 3. 턴 당 신앙 (Piety / 신앙·경건) 가산
+    const prevPiety = parseCKResources(prevState);
+    const pietyGain = calculateTurnPietyGain(prevState, prevPiety.pietyTier);
+    const pietyGainVal = pietyGain.totalGain; // e.g. +2.0
+
+    if (pietyGainVal > 0) {
+      const curPietyScore = prevPiety.pietyScore;
+      const rawNewPiety = curPietyScore + pietyGainVal;
+      const newPietyScore = Number.isInteger(rawNewPiety) ? rawNewPiety : Math.round(rawNewPiety * 10) / 10;
+
+      if (!Array.isArray(newState.playerStatus)) {
+        newState.playerStatus = [];
+      }
+      const pietyIdx = newState.playerStatus.findIndex(s => s && s.name && (s.name.includes('신앙') || s.name.includes('경건') || s.name.includes('사기')));
+      if (pietyIdx !== -1) {
+        newState.playerStatus[pietyIdx] = {
+          ...newState.playerStatus[pietyIdx],
+          value: `${newPietyScore}점 (${pietyGain.formattedGain})`
+        };
+      } else {
+        const pietyLabel = archetype === 'clergy' ? '신앙심' : archetype === 'company' ? '부대 사기' : '경건함';
+        newState.playerStatus.push({
+          name: pietyLabel,
+          value: `${newPietyScore}점 (${pietyGain.formattedGain})`,
+          risk: '안정',
+          description: '턴당 자연 경건성 및 성직 직무 축적'
+        });
+      }
+
+      if (newState.stats?.acquired) {
+        if (newState.stats.acquired['신앙'] !== undefined) newState.stats.acquired['신앙'] = `${newPietyScore}`;
+        if (newState.stats.acquired['경건'] !== undefined) newState.stats.acquired['경건'] = `${newPietyScore}`;
+      }
+    }
+  } catch (err) {
+    console.error('applyTurnResourceAccumulation error:', err);
+  }
+
+  return newState;
+}
+

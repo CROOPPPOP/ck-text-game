@@ -5,7 +5,7 @@ import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates, mergeEstateBuildings } from '@/lib/estate';
 import { calculateEstatePromotionCost, getPlayerWealthAmount } from '@/lib/estateEconomy';
 import { parsePopulationCount } from '@/lib/populationEconomy';
-import { calculateCKAttributes, detectPlayerArchetype } from '@/lib/ckVisuals';
+import { calculateCKAttributes, detectPlayerArchetype, applyTurnResourceAccumulation } from '@/lib/ckVisuals';
 import { getCouncilVassals, sanitizeNameAndRole } from '@/lib/characterRelations';
 import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
@@ -513,33 +513,36 @@ export default function Home() {
                 }
               : undefined;
 
-            return {
-            ...prevState,
-            ...data.parsed,
-            objective: data.parsed.objective || prevState.objective,
-            longTermPlan: data.parsed.longTermPlan !== undefined ? data.parsed.longTermPlan : prevState.longTermPlan,
-            inventory: data.parsed.inventory || prevState.inventory,
-            estate: mergedEstate,
-            buildOptions: data.parsed.buildOptions ?? prevState.buildOptions,
-            constructionRejected: undefined,
-            traits: mergedTraits,
-            stats: {
-              innate: mergeObject(prevState.stats?.innate, data.parsed.stats?.innate),
-              acquired: mergeObject(prevState.stats?.acquired, data.parsed.stats?.acquired)
-            },
-            personalInfo: mergeObject(prevState.personalInfo, data.parsed.personalInfo),
-            factionState: data.parsed.factionState?.none ? { none: "true" } : mergeObject(prevState.factionState, data.parsed.factionState),
-            previousPopulation: (() => {
-              const prev = parsePopulationCount(prevState.factionState?.['인구']);
-              return prev > 0 ? prev : prevState.previousPopulation;
-            })(),
-            relationships: mergedRelationships,
+            const nextCandidateState = {
+              ...prevState,
+              ...data.parsed,
+              objective: data.parsed.objective || prevState.objective,
+              longTermPlan: data.parsed.longTermPlan !== undefined ? data.parsed.longTermPlan : prevState.longTermPlan,
+              inventory: data.parsed.inventory || prevState.inventory,
+              estate: mergedEstate,
+              buildOptions: data.parsed.buildOptions ?? prevState.buildOptions,
+              constructionRejected: undefined,
+              traits: mergedTraits,
+              stats: {
+                innate: mergeObject(prevState.stats?.innate, data.parsed.stats?.innate),
+                acquired: mergeObject(prevState.stats?.acquired, data.parsed.stats?.acquired)
+              },
+              personalInfo: mergeObject(prevState.personalInfo, data.parsed.personalInfo),
+              factionState: data.parsed.factionState?.none ? { none: "true" } : mergeObject(prevState.factionState, data.parsed.factionState),
+              previousPopulation: (() => {
+                const prev = parsePopulationCount(prevState.factionState?.['인구']);
+                return prev > 0 ? prev : prevState.previousPopulation;
+              })(),
+              relationships: mergedRelationships,
 
-            playerStatus: data.parsed.playerStatus || prevState.playerStatus,
-            familyState: data.parsed.familyState || prevState.familyState,
-            chronicle: updatedChronicle
-          };
-        });
+              playerStatus: data.parsed.playerStatus || prevState.playerStatus,
+              familyState: data.parsed.familyState || prevState.familyState,
+              chronicle: updatedChronicle
+            };
+
+            // 턴 경과에 따른 경제(세력 재정/골드), 명망(위신), 영성(신앙) 자동 축적 엔진 적용
+            return applyTurnResourceAccumulation(nextCandidateState, prevState);
+          });
         // 투트랙 건설: 턴 갱신 및 큐 정리 (완공/거부 항목 제거, 착수 명령 전송 표시)
         const newTurn = parseTurnNumber(data.parsed.dateLocation) ?? turn + 1;
         const rejected: string[] = data.parsed.constructionRejected || [];
@@ -634,7 +637,8 @@ export default function Home() {
       ? gameState.estate.level
       : (parseInt(String(gameState.estate.level).match(/(?:Lv\.?|레벨)?\s*(\d+)/i)?.[1] || '1', 10));
 
-    const promoCheck = checkPromotion(estateLevel, gameState.estate.buildings, gameState.factionState, !!gameState.factionState);
+    const isFactionActive = !!(gameState.factionState && !gameState.factionState.none);
+    const promoCheck = checkPromotion(estateLevel, gameState.estate.buildings || [], gameState.factionState, isFactionActive);
     if (promoCheck.canPromote) {
       const promoEst = calculateEstatePromotionCost(estateLevel, playerArchetype, stewScore);
       promotionOption = {

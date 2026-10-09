@@ -50,6 +50,23 @@ export function getEstateLevel(estateLevelStr?: string): number {
 }
 
 /**
+ * factionStats 객체에서 치안/민심/개발도 수치를 한국어/영문 키 모두 대응하여 안전하게 추출합니다.
+ */
+export function getFactionMetric(stats: any, metric: 'order' | 'sentiment' | 'dev'): string {
+  if (!stats) return '';
+  if (metric === 'order') {
+    return stats.publicOrder || stats['치안'] || stats['치안 상태'] || stats['치안상태'] || '';
+  }
+  if (metric === 'sentiment') {
+    return stats.publicSentiment || stats['민심'] || stats['민심 상태'] || stats['민심상태'] || '';
+  }
+  if (metric === 'dev') {
+    return stats.development || stats['개발도'] || stats['영지 개발도'] || stats['영지개발도'] || '';
+  }
+  return '';
+}
+
+/**
  * 승격 가능 여부와 부족한 조건을 반환합니다.
  */
 export function checkPromotion(
@@ -71,7 +88,7 @@ export function checkPromotion(
 
   // 2. 건물 레벨 합: Σ 건물 Lv ≥ N × 3 (N은 currentEstateLevel)
   const requiredLevelSum = currentEstateLevel * 3;
-  const currentLevelSum = buildings.reduce((sum, b) => sum + Math.max(1, b.level), 0);
+  const currentLevelSum = buildings.reduce((sum, b) => sum + Math.max(1, b?.level || 1), 0);
   if (currentLevelSum < requiredLevelSum) {
     reasons.push(`건물 레벨 합 부족 (현재: ${currentLevelSum}, 필요: ${requiredLevelSum})`);
   }
@@ -79,33 +96,37 @@ export function checkPromotion(
   // 3. 태그 다양성: ≥ min(N + 1, 4)종
   const requiredTagCount = Math.min(currentEstateLevel + 1, 4);
   const uniqueTags = new Set<string>();
-  buildings.forEach(b => (b.tags || []).forEach(t => uniqueTags.add(t)));
+  buildings.forEach(b => (b?.tags || []).forEach(t => uniqueTags.add(t)));
   if (uniqueTags.size < requiredTagCount) {
     reasons.push(`건물 효과 태그 다양성 부족 (현재: ${uniqueTags.size}종, 필요: ${requiredTagCount}종)`);
   }
 
   // 세력 수치 조건 (세력 상태가 활성일 때만)
   if (isFactionActive && factionStats) {
+    const orderVal = getFactionMetric(factionStats, 'order');
+    const sentimentVal = getFactionMetric(factionStats, 'sentiment');
+    const devVal = getFactionMetric(factionStats, 'dev');
+
+    const badKeywords = ['나쁨', '불안', '낮음', '악화', '위험', '폭동', '파탄', '혼란', '반란'];
+    const isGood = (val?: string) => {
+      if (!val) return true; // 값이 없으면 기본 양호로 간주
+      return badKeywords.every(k => !val.includes(k));
+    };
+
     if (nextLevel >= 3) {
       // 치안과 민심이 모두 '보통' 이상
-      const badKeywords = ['나쁨', '불안', '낮음', '악화', '위험', '폭동', '파탄', '혼란'];
-      const isGood = (val?: string) => {
-        if (!val) return false;
-        return badKeywords.every(k => !val.includes(k));
-      };
-
-      if (!isGood(factionStats.publicOrder)) reasons.push(`치안 상태가 '보통' 이상이어야 합니다.`);
-      if (!isGood(factionStats.publicSentiment)) reasons.push(`민심 상태가 '보통' 이상이어야 합니다.`);
+      if (!isGood(orderVal)) reasons.push(`치안 상태가 '보통' 이상이어야 합니다. (현재: ${orderVal || '보통'})`);
+      if (!isGood(sentimentVal)) reasons.push(`민심 상태가 '보통' 이상이어야 합니다. (현재: ${sentimentVal || '보통'})`);
     }
     
     if (nextLevel >= 4) {
       // 개발도 '높음' 이상
       const highKeywords = ['높음', '우수', '매우', '번영', '발달', '전성'];
       const isHigh = (val?: string) => {
-        if (!val) return false;
+        if (!val) return true; // 값이 없으면 기본 통과
         return highKeywords.some(k => val.includes(k));
       };
-      if (!isHigh(factionStats.development)) reasons.push(`개발도가 '높음' 이상이어야 합니다.`);
+      if (!isHigh(devVal)) reasons.push(`개발도가 '높음' 이상이어야 합니다. (현재: ${devVal || '보통'})`);
     }
   }
 
@@ -212,18 +233,22 @@ export function getEstatePromotionMilestones(
   let factionAllMet = true;
   let factionReqs = undefined;
   if (isFactionActive && factionStats) {
-    const badKeywords = ['나쁨', '불안', '낮음', '악화', '위험', '폭동', '파탄', '혼란'];
-    const isGood = (val?: string) => val ? badKeywords.every(k => !val.includes(k)) : false;
+    const orderVal = getFactionMetric(factionStats, 'order');
+    const sentimentVal = getFactionMetric(factionStats, 'sentiment');
+    const devVal = getFactionMetric(factionStats, 'dev');
 
-    const poMet = nextLevel >= 3 ? isGood(factionStats.publicOrder) : true;
-    const psMet = nextLevel >= 3 ? isGood(factionStats.publicSentiment) : true;
-    const devMet = nextLevel >= 4 ? ['높음', '우수', '매우', '번영', '발달', '전성'].some(k => (factionStats.development || '').includes(k)) : true;
+    const badKeywords = ['나쁨', '불안', '낮음', '악화', '위험', '폭동', '파탄', '혼란', '반란'];
+    const isGood = (val?: string) => val ? badKeywords.every(k => !val.includes(k)) : true;
+
+    const poMet = nextLevel >= 3 ? isGood(orderVal) : true;
+    const psMet = nextLevel >= 3 ? isGood(sentimentVal) : true;
+    const devMet = nextLevel >= 4 ? ['높음', '우수', '매우', '번영', '발달', '전성'].some(k => devVal.includes(k)) : true;
 
     factionAllMet = poMet && psMet && devMet;
     factionReqs = {
-      publicOrder: nextLevel >= 3 ? { current: factionStats.publicOrder || '미상', met: poMet, required: '보통 이상' } : undefined,
-      publicSentiment: nextLevel >= 3 ? { current: factionStats.publicSentiment || '미상', met: psMet, required: '보통 이상' } : undefined,
-      development: nextLevel >= 4 ? { current: factionStats.development || '미상', met: devMet, required: '높음 이상' } : undefined,
+      publicOrder: nextLevel >= 3 ? { current: orderVal || '보통', met: poMet, required: '보통 이상' } : undefined,
+      publicSentiment: nextLevel >= 3 ? { current: sentimentVal || '보통', met: psMet, required: '보통 이상' } : undefined,
+      development: nextLevel >= 4 ? { current: devVal || '보통', met: devMet, required: '높음 이상' } : undefined,
       allMet: factionAllMet
     };
   }
