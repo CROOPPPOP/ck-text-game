@@ -1177,7 +1177,53 @@ const stateWithSplitFactions = {
 const sanitizedFactionState = sanitizeEstateState(stateWithSplitFactions);
 assert(sanitizedFactionState.relationships.faction.length === 1, "sanitizeEstateState automatically heals and unifies split factions in saves");
 
+// ==========================================
+// TEST 21: Narrative Meta Sanitization & Direct Dialogue Stability
+// ==========================================
+console.log("\n--- 21. Testing Narrative Meta Sanitization & Direct Dialogue Stability ---");
 
+// 21.1 Test sanitization of quoted '건물명 Lv.2' in narrative
+const sampleTextWithMetaLv = `【 날짜 / 위치 】
+1066년 10월 14일 / 토스카나 우르비노 [턴 수: 5]
+
+【 현재 상황 】
+"주교관의 오도 주교님께서 마침내 서한에 인장을 찍으셨습니다, 사제님."
+율리아누스가 숨을 헐떡이며 방으로 들어와 붉은 밀랍 인장이 선명한 양피지를 내밀었다.
+나는 서한을 받아 들며 낮게 읊조렸다.
+"수고했다. 이제 몬테펠트로 수도원은 우리 손안에 들어왔군."
+장원에서는 견고한 석조 성벽을 두른 '성 미카엘 요새 병영 Lv.2'와 방대한 고문서 및 금고를 수용하는 '사제관 및 서재 Lv.2'가 위풍당당하게 완공되어 정예 서원 기사 50명의 함성이 대지를 뒤흔들었으니, 토스카나의 마틸다 여백작을 맞이할 제국의 거점이 마침내 완성되었다.
+[역사적 고증: 확인됨]
+
+【 영지 및 야영지 상태 】
+[거점 형태]: 토스카나 장원
+[거점 규모]: Lv.2 장원
+▶ [성 미카엘 요새 병영 Lv.2] [군사·치안]: 정예 서원 기사 50명 주둔 및 방벽 방어
+▶ [사제관 및 서재 Lv.2] [행정·학문]: 고문서 보관 및 장원 행정 문서 결재`;
+
+const parsedWithMeta = parseLLMResponse(sampleTextWithMetaLv);
+assert(parsedWithMeta.narrative !== undefined, "Narrative parsed successfully");
+assert(!parsedWithMeta.narrative?.includes('Lv.2'), "Narrative does NOT contain 'Lv.2' (properly sanitized)");
+assert(!parsedWithMeta.narrative?.includes('Lv.'), "Narrative does NOT contain 'Lv.' prefix");
+assert(Boolean(parsedWithMeta.narrative?.includes('성 미카엘 요새 병영')), "Sanitized narrative preserves '성 미카엘 요새 병영' name");
+assert(Boolean(parsedWithMeta.narrative?.includes('사제관 및 서재')), "Sanitized narrative preserves '사제관 및 서재' name");
+assert(Boolean(parsedWithMeta.narrative?.includes('"수고했다. 이제 몬테펠트로 수도원은 우리 손안에 들어왔군."')), "Preserves player direct spoken dialogue");
+assert(Boolean(parsedWithMeta.narrative?.includes('"주교관의 오도 주교님께서 마침내 서한에 인장을 찍으셨습니다, 사제님."')), "Preserves NPC direct spoken dialogue");
+assert(parsedWithMeta.historicalTag === '확인됨', "Historical tag correctly extracted separately from narrative");
+
+// 21.2 Estate building list still correctly retains Lv.2
+const bMichael = parsedWithMeta.estate?.buildings.find(b => b.name === '성 미카엘 요새 병영');
+assert(bMichael !== undefined, "Estate building '성 미카엘 요새 병영' found");
+assert(bMichael?.level === 2, "Estate building '성 미카엘 요새 병영' correctly parsed as Lv.2 (found: " + bMichael?.level + ")");
+
+// 21.3 Local storage save file round-trip with sanitization
+const slotSaveTest = {
+  ...parsedWithMeta,
+  personalInfo: { '이름': '루카', '신분': '사제', '직위': '주임 사제' }
+};
+const healedSlot = sanitizeEstateState(slotSaveTest);
+assert(healedSlot.estate?.buildings.length === 2, "Sanitized save maintains all estate buildings");
+assert(Boolean(healedSlot.narrative?.includes('성 미카엘 요새 병영')), "Save file narrative maintains sanitized clean building name without Lv.2");
+assert(!healedSlot.narrative?.includes('Lv.2'), "Save file narrative is free of Lv.2");
 
 // ==========================================
 // Summary

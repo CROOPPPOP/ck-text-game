@@ -81,6 +81,12 @@ export function parseLLMResponse(text: string): ParsedState {
       result.historicalTag = tagMatch[1].trim();
       result.narrative = result.narrative.replace(tagMatch[0], '').trim();
     }
+    // 안전망: 본문 서사에 노출된 게임식 메타 레벨 표기(예: '성 미카엘 요새 병영 Lv.2' -> 성 미카엘 요새 병영) 자동 정제
+    result.narrative = result.narrative
+      .replace(/['"‘“]([^'"‘”\n]+?)\s*Lv\.?\s*\d+['"’”]/g, '$1')
+      .replace(/([가-힣A-Za-z0-9]+(?:\s+[가-힣A-Za-z0-9]+)*)\s+Lv\.?\s*\d+/g, '$1')
+      .replace(/\s*Lv\.?\s*\d+/gi, '')
+      .trim();
   }
 
   // 2. 주변 정세 및 환경

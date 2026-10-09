@@ -178,7 +178,7 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
         lines.push(
           `[시스템 명령] 건물 업그레이드 완공: ${cleanName} Lv.${targetLv}${tagHint}. ` +
           `【 영지 및 야영지 상태 】 목록에 반드시 "▶ [${cleanName} Lv.${targetLv}]${tagHint}: (강화된 2배 이상의 상세 효과 및 수익 묘사)" 형식으로 헤더에 'Lv.${targetLv}'를 명시하여 갱신하고, ` +
-          `해당 효과 태그에 맞춰 【 세력 상태 】 수치에 소폭 긍정적 변화를 반영하며 완공 장면을 서술하세요.`
+          `★서사 서술 절대 규칙: 【 현재 상황 】 서술 본문에는 'Lv.${targetLv}', 'Lv.2' 같은 시스템 레벨 숫자를 절대로 쓰지 마십시오. 대신 "석조 성벽을 증축하고 마구간을 넓힌 병영", "서고를 2층으로 높여 고문서를 확충한 사제관"처럼 시대상에 맞는 웅장한 건축적 증축 묘사나 수호대장/가신의 생생한 보고 대사로만 서술하고, 해당 효과 태그에 맞춰 【 세력 상태 】 수치에 소폭 긍정적 변화를 반영하십시오.`
         );
       } else {
         const cleanName = q.building.replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim() || q.building;
@@ -187,7 +187,7 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
         lines.push(
           `[시스템 명령] 건설 완공: ${cleanName} Lv.${targetLv}${tagHint}. ` +
           `【 영지 및 야영지 상태 】 건물 목록에 "▶ [${cleanName} Lv.${targetLv}]${tagHint}: (상세 기능 및 효과)" 형식으로 추가(이미 있으면 레벨 갱신)하고, ` +
-          `해당 효과 태그를 세력 수치에 반영하며 이번 상황 서술에 완공 장면을 자연스럽게 섞으세요.`
+          `★서사 서술 절대 규칙: 【 현재 상황 】 서술 본문에는 'Lv.${targetLv}' 등의 메타 레벨 숫자를 절대로 직접 쓰지 말고, 완공된 건물의 위용과 현장 인물(수호대장, 집사 등)의 생생한 보고 대사로 자연스럽게 묘사하며 세력 수치에 반영하십시오.`
         );
       }
       completedIds.push(q.id);
