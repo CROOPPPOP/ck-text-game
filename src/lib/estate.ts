@@ -425,6 +425,28 @@ export function sanitizeEstateState<T extends Record<string, any>>(state: T): T 
     // 6. 보강 7-1 표준 규격(7대 생체 지표, 5대 표준 위험도, 장기 계획 등) 누락 세이브 자동 정규화 (Self-Healing)
     cloned = normalizeParsedState(cloned);
 
+    // 7. 위신/명성/교단 발언권 왜곡(주교/백작 등 고위 신분인데 과거 10점으로 고정된 Vercel 세이브 파일) 자가 치유 (Self-Healing)
+    const statusText = ((cloned.personalInfo?.['신분'] || '') + ' ' + (cloned.personalInfo?.['직위'] || '')).toLowerCase();
+    const titleText = (cloned.personalInfo?.['칭호'] || '').toLowerCase();
+    const isHighRank = statusText.includes('주교') || statusText.includes('백작') || statusText.includes('공작') || statusText.includes('대주교') || statusText.includes('황제') || statusText.includes('국왕') || statusText.includes('교황') || titleText.includes('막후의 지배자');
+    if (isHighRank) {
+      const keysToCheck = ['명성', '위신', '교단 발언권', '교단발언권', '발언권', '가문 위신', '개인 명망'];
+      keysToCheck.forEach(k => {
+        if (cloned.stats?.acquired?.[k]) {
+          const rawNum = parseInt(String(cloned.stats.acquired[k]).match(/\d+/)?.[0] || '0', 10);
+          if (rawNum <= 25) {
+            delete cloned.stats.acquired[k]; // 동적 산출 엔진이 정상적으로 고득점(Lv.4 이상)을 부여하도록 정리
+          }
+        }
+        if (cloned.personalInfo?.[k]) {
+          const rawNum = parseInt(String(cloned.personalInfo[k]).match(/\d+/)?.[0] || '0', 10);
+          if (rawNum <= 25) {
+            delete cloned.personalInfo[k];
+          }
+        }
+      });
+    }
+
     return cloned;
   } catch (err) {
     console.error('sanitizeEstateState error:', err);

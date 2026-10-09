@@ -47,6 +47,8 @@ export default function CKTopHud({
   const emblem = getHeraldryEmblem(rulerName, culture, resources.archetype);
   const promoReport = checkStatusPromotion(gameState);
   const [showLedger, setShowLedger] = useState(false);
+  const [showPrestigeTooltip, setShowPrestigeTooltip] = useState(false);
+  const [showPietyTooltip, setShowPietyTooltip] = useState(false);
 
   const rawDate = gameState.dateLocation || '';
   const cleanDate = rawDate.replace(/\[턴 수:.*\]/, '').trim() || '서기 1066년';
@@ -374,8 +376,10 @@ export default function CKTopHud({
           {/* 👑 Prestige / Standing */}
           <div 
             onClick={onOpenCharacter}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', cursor: 'pointer' }} 
-            title={`${resources.labels.prestigeLabel}: ${resources.prestigeScore}/100 (${resources.prestigeLevel})\n클릭하여 인물 상세 시트 및 위신 내역 확인`}
+            onMouseEnter={() => setShowPrestigeTooltip(true)}
+            onMouseLeave={() => setShowPrestigeTooltip(false)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', cursor: 'pointer', position: 'relative' }} 
+            title="클릭하여 인물 상세 시트 및 결단 확인"
           >
             <Crown size={16} style={{ color: 'var(--gold-accent)' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -393,10 +397,76 @@ export default function CKTopHud({
                   color: '#e9d5ff',
                   fontWeight: '600'
                 }}>
-                  {resources.prestigeLevel}
+                  Lv.{resources.prestigeTier} {resources.prestigeLevel}
+                </span>
+                <span style={{
+                  fontSize: '0.68rem',
+                  color: '#c084fc',
+                  fontWeight: 'bold',
+                  background: 'rgba(192, 132, 252, 0.15)',
+                  padding: '0 4px',
+                  borderRadius: '3px'
+                }}>
+                  {resources.prestigeGain?.formattedGain || '+0.0/턴'}
                 </span>
               </div>
             </div>
+
+            {/* Prestige Breakdown Popover */}
+            {showPrestigeTooltip && resources.prestigeGain && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: '8px',
+                width: '280px',
+                background: 'linear-gradient(145deg, #1f1812, #140f0b)',
+                border: '1px solid rgba(192, 132, 252, 0.4)',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.85)',
+                padding: '12px',
+                zIndex: 1000,
+                color: '#f5ecd8',
+                fontSize: '0.75rem',
+                pointerEvents: 'none'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(192, 132, 252, 0.2)', paddingBottom: '6px', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 'bold', color: '#e9d5ff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Crown size={13} style={{ color: '#c084fc' }} />
+                    <span>👑 위신 턴당 수지 분석</span>
+                  </span>
+                  <span style={{ fontWeight: 'bold', color: '#c084fc' }}>
+                    {resources.prestigeGain.formattedGain}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {resources.prestigeGain.breakdownItems.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{item.name}</span>
+                      <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>+{item.amount.toFixed(1)}</span>
+                    </div>
+                  ))}
+                  {resources.prestigeGain.statModifierPercent > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#38bdf8' }}>
+                      <span>외교/군사 시너지 증폭</span>
+                      <span>+{resources.prestigeGain.statModifierPercent}%</span>
+                    </div>
+                  )}
+                  {resources.prestigeGain.tierBonusPercent > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#c084fc' }}>
+                      <span>명망 단계({resources.prestigeTier}단계) 증폭</span>
+                      <span>+{resources.prestigeGain.tierBonusPercent}%</span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                  💡 위신은 결단이나 외교 조약에 소모할 수 있으며, 점수가 줄어도 도달한 단계는 떨어지지 않습니다.
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
@@ -404,8 +474,10 @@ export default function CKTopHud({
           {/* 🕊️ Piety / Morale */}
           <div 
             onClick={onOpenCharacter}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', cursor: 'pointer' }} 
-            title={`${resources.labels.pietyLabel}: ${resources.pietyScore}/100 (${resources.pietyLevel})\n클릭하여 인물 상세 시트 및 신앙 내역 확인`}
+            onMouseEnter={() => setShowPietyTooltip(true)}
+            onMouseLeave={() => setShowPietyTooltip(false)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', cursor: 'pointer', position: 'relative' }} 
+            title="클릭하여 인물 상세 시트 및 신성 결단 확인"
           >
             <Sparkles size={16} style={{ color: '#34d399' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -423,10 +495,76 @@ export default function CKTopHud({
                   color: '#6ee7b7',
                   fontWeight: '600'
                 }}>
-                  {resources.pietyLevel}
+                  Lv.{resources.pietyTier} {resources.pietyLevel}
+                </span>
+                <span style={{
+                  fontSize: '0.68rem',
+                  color: '#34d399',
+                  fontWeight: 'bold',
+                  background: 'rgba(52, 211, 153, 0.15)',
+                  padding: '0 4px',
+                  borderRadius: '3px'
+                }}>
+                  {resources.pietyGain?.formattedGain || '+0.0/턴'}
                 </span>
               </div>
             </div>
+
+            {/* Piety Breakdown Popover */}
+            {showPietyTooltip && resources.pietyGain && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: '8px',
+                width: '280px',
+                background: 'linear-gradient(145deg, #1f1812, #140f0b)',
+                border: '1px solid rgba(52, 211, 153, 0.4)',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.85)',
+                padding: '12px',
+                zIndex: 1000,
+                color: '#f5ecd8',
+                fontSize: '0.75rem',
+                pointerEvents: 'none'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(52, 211, 153, 0.2)', paddingBottom: '6px', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 'bold', color: '#a7f3d0', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Sparkles size={13} style={{ color: '#34d399' }} />
+                    <span>🕊️ 신앙 턴당 수지 분석</span>
+                  </span>
+                  <span style={{ fontWeight: 'bold', color: '#34d399' }}>
+                    {resources.pietyGain.formattedGain}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {resources.pietyGain.breakdownItems.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{item.name}</span>
+                      <span style={{ color: '#6ee7b7', fontWeight: 'bold' }}>+{item.amount.toFixed(1)}</span>
+                    </div>
+                  ))}
+                  {resources.pietyGain.statModifierPercent > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#38bdf8' }}>
+                      <span>학습/영성 시너지 증폭</span>
+                      <span>+{resources.pietyGain.statModifierPercent}%</span>
+                    </div>
+                  )}
+                  {resources.pietyGain.tierBonusPercent > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#34d399' }}>
+                      <span>신앙 단계({resources.pietyTier}단계) 증폭</span>
+                      <span>+{resources.pietyGain.tierBonusPercent}%</span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                  💡 신앙은 사면령이나 교황청 청원에 소모할 수 있으며, 점수가 줄어도 영적 경지는 영구 보존됩니다.
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />

@@ -73,16 +73,38 @@ export interface CKIncomeBreakdown {
   statusColor: string;
 }
 
+export interface CKResourceGainItem {
+  id: string;
+  name: string;
+  amount: number;
+  desc: string;
+}
+
+export interface CKResourceGainBreakdown {
+  totalGain: number;           // 턴 당 최종 증가치
+  formattedGain: string;       // UI 표기용 (예: "+2.8/턴")
+  baseRankGain: number;        // 신분 기본치
+  facilityGain: number;        // 거점 부속 시설 기여
+  relationGain: number;        // 인맥 / 후원자 / 특성 기여
+  statModifierPercent: number; // 능력치 시너지 증폭율 (+38%)
+  tierBonusPercent: number;    // 명망/신앙 단계별 증폭율 (+55%)
+  breakdownItems: CKResourceGainItem[];
+}
+
 export interface CKResources {
   gold: string;
   prestige: string;
-  prestigeScore: number;       // 정량적 위신 점수 (0 ~ 100)
+  prestigeScore: number;       // 현재 보유 위신 (소모 가능한 수치, 상한 없음)
+  prestigeLifetimeScore?: number; // 역대 누적 위신
   prestigeLevel: string;       // CK3 스타일 위신 단계 명칭 (예: '저명인사', '살아있는 전설')
-  prestigeTier: number;        // 위신 단계 티어 (1 ~ 5)
+  prestigeTier: number;        // 위신 단계 티어 (1 ~ 5, 점수 소모 시에도 강등되지 않는 영구 등급)
+  prestigeGain: CKResourceGainBreakdown; // 턴 당 위신 증가치
   piety: string;
-  pietyScore: number;          // 정량적 신앙 점수 (0 ~ 100)
+  pietyScore: number;          // 현재 보유 신앙 (소모 가능한 수치, 상한 없음)
+  pietyLifetimeScore?: number; // 역대 누적 신앙
   pietyLevel: string;          // CK3 스타일 신앙 단계 명칭 (예: '신앙의 귀감', '지상의 성인')
-  pietyTier: number;           // 신앙 단계 티어 (1 ~ 5)
+  pietyTier: number;           // 신앙 단계 티어 (1 ~ 5, 점수 소모 시에도 강등되지 않는 영구 등급)
+  pietyGain: CKResourceGainBreakdown;    // 턴 당 신앙 증가치
   levies: string;
   domain: string;
   archetype: PlayerArchetype;
@@ -278,31 +300,33 @@ export function getArchetypeDetails(gameState: ParsedState): ArchetypeDetails {
 }
 
 // 텍스트에서 숫자 추출 (예: "15 (+2)" -> 17, "보통 (65%)" -> 65)
-export function extractNumericValue(raw: string | undefined): number {
-  if (!raw) return 10;
+export function extractNumericValue(raw: string | undefined, defaultValue: number = 0): number {
+  if (!raw || typeof raw !== 'string') return defaultValue;
+  const trimmed = raw.trim();
+  if (!trimmed) return defaultValue;
   
   // (15 (+2)) 포맷
-  const matchWithBonus = raw.match(/(\d+)\s*\(([+-]?\d+)\)/);
+  const matchWithBonus = trimmed.match(/(\d+)\s*\(([+-]?\d+)\)/);
   if (matchWithBonus) {
     const base = parseInt(matchWithBonus[1], 10);
     const bonus = parseInt(matchWithBonus[2], 10);
-    return Math.max(1, base + bonus);
+    return Math.max(0, base + bonus);
   }
 
   // 단순 정수
-  const numMatch = raw.match(/(\d+)/);
+  const numMatch = trimmed.match(/(\d+)/);
   if (numMatch) {
     return parseInt(numMatch[1], 10);
   }
 
   // 등급형 텍스트
-  if (raw.includes('전설') || raw.includes('극') || raw.includes('초인') || raw.includes('최상')) return 22;
-  if (raw.includes('상') || raw.includes('높음') || raw.includes('탁월') || raw.includes('우수')) return 16;
-  if (raw.includes('중') || raw.includes('보통') || raw.includes('평범')) return 10;
-  if (raw.includes('하') || raw.includes('낮음') || raw.includes('미흡')) return 6;
-  if (raw.includes('최하') || raw.includes('위태') || raw.includes('취약')) return 3;
+  if (trimmed.includes('전설') || trimmed.includes('극') || trimmed.includes('초인') || trimmed.includes('최상')) return 22;
+  if (trimmed.includes('상') || trimmed.includes('높음') || trimmed.includes('탁월') || trimmed.includes('우수')) return 16;
+  if (trimmed.includes('중') || trimmed.includes('보통') || trimmed.includes('평범')) return 10;
+  if (trimmed.includes('하') || trimmed.includes('낮음') || trimmed.includes('미흡')) return 6;
+  if (trimmed.includes('최하') || trimmed.includes('위태') || trimmed.includes('취약')) return 3;
 
-  return 10;
+  return defaultValue;
 }
 
 function getGradeFromScore(score: number): string {
@@ -326,7 +350,7 @@ export function calculateCKAttributes(gameState: ParsedState): CKAttributes {
     let count = 0;
     for (const [key, val] of Object.entries(allStats)) {
       if (names.some(n => key.includes(n))) {
-        sum += extractNumericValue(val);
+        sum += extractNumericValue(val, 40);
         count++;
       }
     }
@@ -600,29 +624,298 @@ export function parseCKStress(gameState: ParsedState): CKStressState {
   };
 }
 
+// 명망/위신 단계별 턴 당 획득량 증폭율 (Tier Bonus Percent)
+export function getPrestigeTierBonusPercent(tier: number): number {
+  if (tier >= 5) return 90; // Lv.5 불멸의 귀감: +90%
+  if (tier >= 4) return 55; // Lv.4 살아있는 전설: +55%
+  if (tier >= 3) return 30; // Lv.3 저명인사: +30%
+  if (tier >= 2) return 15; // Lv.2 인정받음: +15%
+  return 0;                 // Lv.1 무명인: +0%
+}
+
+// 신앙 단계별 턴 당 획득량 증폭율 (Tier Bonus Percent)
+export function getPietyTierBonusPercent(tier: number): number {
+  if (tier >= 5) return 90; // Lv.5 지상의 성인: +90%
+  if (tier >= 4) return 55; // Lv.4 신앙의 모범: +55%
+  if (tier >= 3) return 30; // Lv.3 신앙의 기둥: +30%
+  if (tier >= 2) return 15; // Lv.2 독실함: +15%
+  return 0;                 // Lv.1 형식적 신도: +0%
+}
+
 // 위신 단계 룰 (CK3 5-Tier Level of Fame & Reputation)
-export function getPrestigeLevelInfo(score: number): { tier: number; label: string; nextThreshold: number; desc: string } {
-  if (score < 20) return { tier: 1, label: '무명인', nextThreshold: 20, desc: '세간에 널리 알려지지 않은 평범한 인물' };
-  if (score < 40) return { tier: 2, label: '인정받음', nextThreshold: 40, desc: '지역 교구와 영지 일대에서 신망을 얻기 시작함' };
-  if (score < 60) return { tier: 3, label: '저명인사', nextThreshold: 60, desc: '인근 제후들과 고위 성직자들 사이에서 이름이 널리 알려짐' };
-  if (score < 80) return { tier: 4, label: '살아있는 전설', nextThreshold: 80, desc: '당대 최고의 영향력과 위세를 지닌 위대한 영걸' };
-  return { tier: 5, label: '불멸의 귀감', nextThreshold: 100, desc: '역사에 영원히 기록될 불멸의 군주이자 성현' };
+// permanentTierFloor: 신분/칭호/도달 이력에 따른 최저 보장 단계
+export function getPrestigeLevelInfo(score: number, permanentTierFloor: number = 1): { tier: number; label: string; nextThreshold: number; desc: string } {
+  let naturalTier = 1;
+  let label = '무명인';
+  let desc = '세간에 널리 알려지지 않은 평범한 인물';
+  let nextThreshold = 40;
+
+  if (score >= 300) {
+    naturalTier = 5;
+    label = '불멸의 귀감';
+    desc = '역사에 영원히 기록될 불멸의 군주이자 성현 (모든 최고위 결단 개방)';
+    nextThreshold = 500;
+  } else if (score >= 160) {
+    naturalTier = 4;
+    label = '살아있는 전설';
+    desc = '당대 최고의 영향력과 위세를 지닌 위대한 영걸 (막후 권력 행사 가능)';
+    nextThreshold = 300;
+  } else if (score >= 90) {
+    naturalTier = 3;
+    label = '저명인사';
+    desc = '인근 제후들과 고위 성직자들 사이에서 이름이 널리 알려짐';
+    nextThreshold = 160;
+  } else if (score >= 40) {
+    naturalTier = 2;
+    label = '인정받음';
+    desc = '지역 교구와 영지 일대에서 신망을 얻기 시작함';
+    nextThreshold = 90;
+  } else {
+    naturalTier = 1;
+    label = '무명인';
+    desc = '세간에 널리 알려지지 않은 평범한 인물';
+    nextThreshold = 40;
+  }
+
+  // 영구 단계 보장: 점수를 소모하여 현재 점수가 낮아졌더라도 한 번 도달한 단계는 떨어지지 않음!
+  const finalTier = Math.max(naturalTier, permanentTierFloor);
+  if (finalTier > naturalTier) {
+    if (finalTier === 5) { label = '불멸의 귀감'; desc = '역사에 영원히 기록될 불멸의 군주이자 성현 (영구 위상 유지)'; nextThreshold = 500; }
+    else if (finalTier === 4) { label = '살아있는 전설'; desc = '당대 최고의 영향력과 위세를 지닌 위대한 영걸 (영구 위상 유지)'; nextThreshold = 300; }
+    else if (finalTier === 3) { label = '저명인사'; desc = '인근 제후들과 고위 성직자들 사이에서 이름이 널리 알려짐 (영구 위상 유지)'; nextThreshold = 160; }
+    else if (finalTier === 2) { label = '인정받음'; desc = '지역 교구와 영지 일대에서 신망을 얻기 시작함 (영구 위상 유지)'; nextThreshold = 90; }
+  }
+
+  return { tier: finalTier, label, nextThreshold, desc };
 }
 
 // 신앙 단계 룰 (CK3 5-Tier Level of Devotion & Morale)
-export function getPietyLevelInfo(score: number, archetype: PlayerArchetype = 'noble'): { tier: number; label: string; nextThreshold: number; desc: string } {
+export function getPietyLevelInfo(score: number, archetype: PlayerArchetype = 'noble', permanentTierFloor: number = 1): { tier: number; label: string; nextThreshold: number; desc: string } {
+  let naturalTier = 1;
+  let label = '형식적 신도';
+  let desc = '의무적인 종교 의례만 준수함';
+  let nextThreshold = 40;
+
   if (archetype === 'company' || archetype === 'wanderer') {
-    if (score < 20) return { tier: 1, label: '사기 저하', nextThreshold: 20, desc: '규율이 흐트러지고 동요가 심함' };
-    if (score < 40) return { tier: 2, label: '평온', nextThreshold: 40, desc: '명령에 순응하며 기본 임무 수행 가능' };
-    if (score < 60) return { tier: 3, label: '용기백배', nextThreshold: 60, desc: '자신감이 넘치고 전투 의지가 충천함' };
-    if (score < 80) return { tier: 4, label: '일기당천', nextThreshold: 80, desc: '불굴의 결속력으로 어떤 역경도 돌파함' };
-    return { tier: 5, label: '전설적 의기', nextThreshold: 100, desc: '죽음도 두려워하지 않는 완벽한 맹세' };
+    if (score >= 300) { naturalTier = 5; label = '전설적 의기'; desc = '죽음도 두려워하지 않는 완벽한 맹세'; nextThreshold = 500; }
+    else if (score >= 160) { naturalTier = 4; label = '일기당천'; desc = '불굴의 결속력으로 어떤 역경도 돌파함'; nextThreshold = 300; }
+    else if (score >= 90) { naturalTier = 3; label = '용기백배'; desc = '자신감이 넘치고 전투 의지가 충천함'; nextThreshold = 160; }
+    else if (score >= 40) { naturalTier = 2; label = '평온'; desc = '명령에 순응하며 기본 임무 수행 가능'; nextThreshold = 90; }
+    else { naturalTier = 1; label = '사기 저하'; desc = '규율이 흐트러지고 동요가 심함'; nextThreshold = 40; }
+  } else {
+    if (score >= 300) { naturalTier = 5; label = '지상의 성인'; desc = '기적과 성스러움으로 추앙받는 살아있는 성인 (최고위 신성 결단 개방)'; nextThreshold = 500; }
+    else if (score >= 160) { naturalTier = 4; label = '신앙의 모범'; desc = '교황청과 고위 성직자들도 경의를 표하는 성덕'; nextThreshold = 300; }
+    else if (score >= 90) { naturalTier = 3; label = '신앙의 기둥'; desc = '교단과 교구 신도들의 영적 본보기가 됨'; nextThreshold = 160; }
+    else if (score >= 40) { naturalTier = 2; label = '독실함'; desc = '성실한 신앙생활과 기도로 덕망을 쌓음'; nextThreshold = 90; }
+    else { naturalTier = 1; label = '형식적 신도'; desc = '의무적인 종교 의례만 준수함'; nextThreshold = 40; }
   }
-  if (score < 20) return { tier: 1, label: '형식적 신도', nextThreshold: 20, desc: '의무적인 종교 의례만 준수함' };
-  if (score < 40) return { tier: 2, label: '독실함', nextThreshold: 40, desc: '성실한 신앙생활과 기도로 덕망을 쌓음' };
-  if (score < 60) return { tier: 3, label: '신앙의 기둥', nextThreshold: 60, desc: '교단과 교구 신도들의 영적 본보기가 됨' };
-  if (score < 80) return { tier: 4, label: '신앙의 모범', nextThreshold: 80, desc: '교황청과 고위 성직자들도 경의를 표하는 성덕' };
-  return { tier: 5, label: '지상의 성인', nextThreshold: 100, desc: '기적과 성스러움으로 추앙받는 살아있는 성인' };
+
+  const finalTier = Math.max(naturalTier, permanentTierFloor);
+  if (finalTier > naturalTier) {
+    if (archetype === 'company' || archetype === 'wanderer') {
+      if (finalTier === 5) { label = '전설적 의기'; desc = '죽음도 두려워하지 않는 완벽한 맹세 (영구 위상 유지)'; nextThreshold = 500; }
+      else if (finalTier === 4) { label = '일기당천'; desc = '불굴의 결속력으로 어떤 역경도 돌파함 (영구 위상 유지)'; nextThreshold = 300; }
+      else if (finalTier === 3) { label = '용기백배'; desc = '자신감이 넘치고 전투 의지가 충천함 (영구 위상 유지)'; nextThreshold = 160; }
+      else if (finalTier === 2) { label = '평온'; desc = '명령에 순응하며 기본 임무 수행 가능 (영구 위상 유지)'; nextThreshold = 90; }
+    } else {
+      if (finalTier === 5) { label = '지상의 성인'; desc = '기적과 성스러움으로 추앙받는 살아있는 성인 (영구 위상 유지)'; nextThreshold = 500; }
+      else if (finalTier === 4) { label = '신앙의 모범'; desc = '교황청과 고위 성직자들도 경의를 표하는 성덕 (영구 위상 유지)'; nextThreshold = 300; }
+      else if (finalTier === 3) { label = '신앙의 기둥'; desc = '교단과 교구 신도들의 영적 본보기가 됨 (영구 위상 유지)'; nextThreshold = 160; }
+      else if (finalTier === 2) { label = '독실함'; desc = '성실한 신앙생활과 기도로 덕망을 쌓음 (영구 위상 유지)'; nextThreshold = 90; }
+    }
+  }
+
+  return { tier: finalTier, label, nextThreshold, desc };
+}
+
+// 턴 당 위신 증가치 산출 함수
+export function calculateTurnPrestigeGain(gameState: ParsedState, prestigeTier: number = 1): CKResourceGainBreakdown {
+  const archetype = detectPlayerArchetype(gameState);
+  const attributes = calculateCKAttributes(gameState);
+  const statusStr = ((gameState.personalInfo?.['신분'] || '') + ' ' + (gameState.personalInfo?.['직위'] || '')).toLowerCase();
+  const titleStr = (gameState.personalInfo?.['칭호'] || '').toLowerCase();
+  const items: CKResourceGainItem[] = [];
+
+  // 1. 신분 품계 기본 증가치
+  let baseRankGain = 0.5;
+  if (statusStr.includes('황제') || statusStr.includes('교황')) baseRankGain = 3.0;
+  else if (statusStr.includes('국왕') || statusStr.includes('대공') || statusStr.includes('추기경')) baseRankGain = 2.4;
+  else if (statusStr.includes('공작') || statusStr.includes('대주교')) baseRankGain = 1.8;
+  else if (statusStr.includes('백작') || statusStr.includes('주교')) baseRankGain = 1.4;
+  else if (statusStr.includes('자작') || statusStr.includes('수도원장') || statusStr.includes('남작')) baseRankGain = 1.0;
+  else if (statusStr.includes('사제') || statusStr.includes('기사')) baseRankGain = 0.6;
+  else baseRankGain = 0.3;
+
+  items.push({
+    id: 'rank_base',
+    name: '신분 품계 기본 위신',
+    amount: baseRankGain,
+    desc: '현재 신분 및 직위에 따른 기본 위세'
+  });
+
+  // 칭호 보너스
+  let titleBonus = 0;
+  if (titleStr.includes('막후의 지배자') || titleStr.includes('흑막')) titleBonus = 0.8;
+  else if (titleStr.includes('살아있는 전설') || titleStr.includes('영웅')) titleBonus = 1.0;
+  else if (titleStr.includes('정복자') || titleStr.includes('대제')) titleBonus = 0.6;
+  else if (titleStr && titleStr !== '없음' && titleStr !== '-') titleBonus = 0.4;
+
+  if (titleBonus > 0) {
+    items.push({
+      id: 'title_bonus',
+      name: `'${gameState.personalInfo?.['칭호']}' 칭호 위세`,
+      amount: titleBonus,
+      desc: '명예로운 칭호에서 비롯되는 막강한 명망'
+    });
+  }
+
+  // 2. 직할 거점 부속 시설 기여
+  let facilityGain = 0;
+  const buildings = gameState.estate?.buildings || [];
+  buildings.forEach(b => {
+    const combined = `${b.name} ${b.desc} ${(b.tags || []).join(' ')}`;
+    if (combined.includes('병영') || combined.includes('성벽') || combined.includes('요새') || combined.includes('개선') || combined.includes('무기고') || combined.includes('영주관') || combined.includes('대성당')) {
+      facilityGain += 0.3 * (b.level || 1);
+    }
+  });
+  facilityGain = Math.round(facilityGain * 10) / 10;
+  if (facilityGain > 0) {
+    items.push({
+      id: 'facility_prestige',
+      name: '거점 위세 시설 기여',
+      amount: facilityGain,
+      desc: '웅장한 성벽, 병영 및 대성당의 위용'
+    });
+  }
+
+  // 3. 인맥 및 특성 기여
+  let relationGain = 0;
+  const personalRels = gameState.relationships?.personal || [];
+  personalRels.forEach(rel => {
+    if (rel.includes('[직속부하]') || rel.includes('가신') || rel.includes('봉신')) relationGain += 0.1;
+  });
+  if (gameState.traits?.some(t => t.name.includes('용맹') || t.name.includes('카리스마') || t.name.includes('명성') || t.name.includes('영웅'))) {
+    relationGain += 0.5;
+  }
+  relationGain = Math.round(relationGain * 10) / 10;
+  if (relationGain > 0) {
+    items.push({
+      id: 'relation_prestige',
+      name: '가신망 및 특성 명망',
+      amount: relationGain,
+      desc: '복종하는 부하들과 영웅적 성품'
+    });
+  }
+
+  // 4. 능력치 시너지 증폭 (외교력 기반)
+  const statModifierPercent = attributes.synergies.prestigeModifier; // e.g. +38%
+
+  // 5. 단계별 계단식 증폭 (Tier Bonus)
+  const tierBonusPercent = getPrestigeTierBonusPercent(prestigeTier); // e.g. Lv.4 -> +55%
+
+  const baseSum = baseRankGain + titleBonus + facilityGain + relationGain;
+  const statMult = 1 + (statModifierPercent / 100);
+  const tierMult = 1 + (tierBonusPercent / 100);
+  const totalGain = Math.round(baseSum * statMult * tierMult * 10) / 10;
+
+  return {
+    totalGain,
+    formattedGain: `+${totalGain.toFixed(1)}/턴`,
+    baseRankGain,
+    facilityGain,
+    relationGain,
+    statModifierPercent,
+    tierBonusPercent,
+    breakdownItems: items
+  };
+}
+
+// 턴 당 신앙 증가치 산출 함수
+export function calculateTurnPietyGain(gameState: ParsedState, pietyTier: number = 1): CKResourceGainBreakdown {
+  const archetype = detectPlayerArchetype(gameState);
+  const attributes = calculateCKAttributes(gameState);
+  const statusStr = ((gameState.personalInfo?.['신분'] || '') + ' ' + (gameState.personalInfo?.['직위'] || '')).toLowerCase();
+  const items: CKResourceGainItem[] = [];
+
+  // 1. 신분 품계 기본 증가치
+  let baseRankGain = 0.4;
+  if (archetype === 'clergy') {
+    if (statusStr.includes('교황')) baseRankGain = 3.5;
+    else if (statusStr.includes('추기경') || statusStr.includes('대주교')) baseRankGain = 2.8;
+    else if (statusStr.includes('주교')) baseRankGain = 2.0;
+    else if (statusStr.includes('수도원장')) baseRankGain = 1.4;
+    else if (statusStr.includes('사제') || statusStr.includes('신부')) baseRankGain = 1.0;
+    else baseRankGain = 0.5;
+  } else {
+    baseRankGain = 0.4;
+  }
+
+  items.push({
+    id: 'rank_base_piety',
+    name: '성직 품계 기본 신앙',
+    amount: baseRankGain,
+    desc: '기도, 미사 집전 및 성직 직무에 따른 영성 축적'
+  });
+
+  // 2. 성당 / 수도원 부속 시설 기여
+  let facilityGain = 0;
+  const buildings = gameState.estate?.buildings || [];
+  buildings.forEach(b => {
+    const combined = `${b.name} ${b.desc} ${(b.tags || []).join(' ')}`;
+    if (combined.includes('예배당') || combined.includes('성당') || combined.includes('수도원') || combined.includes('서재') || combined.includes('성유물') || combined.includes('안치실') || combined.includes('약초원') || combined.includes('구빈원')) {
+      facilityGain += 0.4 * (b.level || 1);
+    }
+  });
+  facilityGain = Math.round(facilityGain * 10) / 10;
+  if (facilityGain > 0) {
+    items.push({
+      id: 'facility_piety',
+      name: '성당 및 수도원 시설 기여',
+      amount: facilityGain,
+      desc: '신도 기도실, 성경 필사실 및 구빈원의 성덕'
+    });
+  }
+
+  // 3. 후원자 및 특성 기여
+  let relationGain = 0;
+  const personalRels = gameState.relationships?.personal || [];
+  personalRels.forEach(rel => {
+    if (rel.includes('[후원자]') || rel.includes('미망인') || rel.includes('신도')) relationGain += 0.3;
+  });
+  if (gameState.traits?.some(t => t.name.includes('신앙') || t.name.includes('독실') || t.name.includes('순례') || t.name.includes('성자') || t.name.includes('학자'))) {
+    relationGain += 0.5;
+  }
+  relationGain = Math.round(relationGain * 10) / 10;
+  if (relationGain > 0) {
+    items.push({
+      id: 'relation_piety',
+      name: '독실한 후원자 및 성덕 특성',
+      amount: relationGain,
+      desc: '유력 신도의 십일조 후원과 경건한 영성'
+    });
+  }
+
+  // 4. 능력치 시너지 증폭 (학습력 기반)
+  const statModifierPercent = attributes.synergies.pietyModifier; // e.g. +40%
+
+  // 5. 단계별 계단식 증폭 (Tier Bonus)
+  const tierBonusPercent = getPietyTierBonusPercent(pietyTier); // e.g. Lv.5 -> +90%
+
+  const baseSum = baseRankGain + facilityGain + relationGain;
+  const statMult = 1 + (statModifierPercent / 100);
+  const tierMult = 1 + (tierBonusPercent / 100);
+  const totalGain = Math.round(baseSum * statMult * tierMult * 10) / 10;
+
+  return {
+    totalGain,
+    formattedGain: `+${totalGain.toFixed(1)}/턴`,
+    baseRankGain,
+    facilityGain,
+    relationGain,
+    statModifierPercent,
+    tierBonusPercent,
+    breakdownItems: items
+  };
 }
 
 // CK3 핵심 자원 요약 추출
@@ -648,47 +941,90 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
     gold = archetype === 'clergy' ? '은화 45닢' : archetype === 'wanderer' ? '동화 30개' : archetype === 'company' ? '금화 150닢' : '금화 350개';
   }
 
-  // 1) 위신 (명성) 점수 및 단계 정밀 산출 (0 ~ 100)
+  const statusStr = ((gameState.personalInfo?.['신분'] || '') + ' ' + (gameState.personalInfo?.['직위'] || '')).toLowerCase();
+  const titleStr = (gameState.personalInfo?.['칭호'] || '').toLowerCase();
+
+  // 칭호 가중치
+  let titlePrestigeBonus = 0;
+  if (titleStr.includes('막후의 지배자') || titleStr.includes('흑막')) titlePrestigeBonus = 25;
+  else if (titleStr.includes('살아있는 전설') || titleStr.includes('영웅')) titlePrestigeBonus = 30;
+  else if (titleStr.includes('정복자') || titleStr.includes('대제')) titlePrestigeBonus = 20;
+  else if (titleStr.includes('성자') || titleStr.includes('현자')) titlePrestigeBonus = 20;
+  else if (titleStr && titleStr !== '없음' && titleStr !== '-') titlePrestigeBonus = 12;
+
+  // 신분 및 칭호 기반 최저 보장 단계 (Permanent Tier Floor)
+  let prestigeTierFloor = 1;
+  let pietyTierFloor = 1;
+
+  if (statusStr.includes('교황') || statusStr.includes('황제')) {
+    prestigeTierFloor = 5;
+    pietyTierFloor = 5;
+  } else if (statusStr.includes('추기경') || statusStr.includes('대주교') || statusStr.includes('대공') || statusStr.includes('국왕')) {
+    prestigeTierFloor = 4;
+    pietyTierFloor = 4;
+  } else if (statusStr.includes('주교') || statusStr.includes('백작') || statusStr.includes('공작')) {
+    // 주교 + 막후의 지배자 = Tier 4 보장
+    prestigeTierFloor = titlePrestigeBonus >= 20 ? 4 : 3;
+    pietyTierFloor = 4;
+  } else if (statusStr.includes('수도원장') || statusStr.includes('자작') || statusStr.includes('남작')) {
+    prestigeTierFloor = 2;
+    pietyTierFloor = 3;
+  } else if (statusStr.includes('사제') || statusStr.includes('기사')) {
+    prestigeTierFloor = 2;
+    pietyTierFloor = 2;
+  }
+
+  // 1) 위신 (명성) 점수 및 단계 정밀 산출 (소모성 자원, 상한 100 철폐)
   let prestigeScore = 30;
-  const rawPrestige = gameState.stats?.acquired?.['명성'] || gameState.personalInfo?.['명성'] || '';
-  const parsedPrestigeNum = extractNumericValue(rawPrestige);
+  const rawPrestige = gameState.stats?.acquired?.['명성'] || 
+                      gameState.stats?.acquired?.['위신'] || 
+                      gameState.stats?.acquired?.['교단 발언권'] || 
+                      gameState.stats?.acquired?.['교단발언권'] || 
+                      gameState.stats?.acquired?.['발언권'] || 
+                      gameState.personalInfo?.['명성'] || 
+                      gameState.personalInfo?.['위신'] || 
+                      gameState.personalInfo?.['교단 발언권'] || 
+                      gameState.personalInfo?.['교단발언권'] || '';
+  const parsedPrestigeNum = extractNumericValue(rawPrestige, 0);
+
   if (parsedPrestigeNum > 0) {
-    prestigeScore = Math.min(100, Math.max(10, parsedPrestigeNum));
+    prestigeScore = parsedPrestigeNum;
   } else {
     // 신분 티어 기반 기본 점수 산출
-    const statusStr = (gameState.personalInfo?.['신분'] || '') + ' ' + (gameState.personalInfo?.['직위'] || '');
     let basePrestige = 35;
-    if (statusStr.includes('황제') || statusStr.includes('교황')) basePrestige = 90;
-    else if (statusStr.includes('국왕') || statusStr.includes('대공') || statusStr.includes('추기경')) basePrestige = 82;
-    else if (statusStr.includes('공작') || statusStr.includes('대주교')) basePrestige = 75;
-    else if (statusStr.includes('백작') || statusStr.includes('주교')) basePrestige = 68;
-    else if (statusStr.includes('보좌주교') || statusStr.includes('자작')) basePrestige = 58;
-    else if (statusStr.includes('남작') || statusStr.includes('수도원장')) basePrestige = 48;
+    if (statusStr.includes('황제') || statusStr.includes('교황')) basePrestige = 180;
+    else if (statusStr.includes('국왕') || statusStr.includes('대공') || statusStr.includes('추기경')) basePrestige = 140;
+    else if (statusStr.includes('공작') || statusStr.includes('대주교')) basePrestige = 110;
+    else if (statusStr.includes('백작') || statusStr.includes('주교')) basePrestige = 85;
+    else if (statusStr.includes('보좌주교') || statusStr.includes('자작')) basePrestige = 65;
+    else if (statusStr.includes('남작') || statusStr.includes('수도원장')) basePrestige = 50;
     else if (statusStr.includes('사제') || statusStr.includes('기사')) basePrestige = 38;
     else if (statusStr.includes('평민') || statusStr.includes('수도사')) basePrestige = 25;
 
     // 능력치 시너지 (외교, 군사, 기량)
-    const synergyBonus = Math.round(attributes.diplomacy.value * 0.35 + attributes.martial.value * 0.2 + attributes.prowess.value * 0.15);
-    const traitBonus = (gameState.traits?.some(t => t.name.includes('명성') || t.name.includes('위신') || t.name.includes('영웅')) ? 15 : 0);
-    prestigeScore = Math.min(100, Math.max(10, basePrestige + synergyBonus + traitBonus));
+    const synergyBonus = Math.round(attributes.diplomacy.value * 0.4 + attributes.martial.value * 0.25 + attributes.prowess.value * 0.15);
+    const traitBonus = (gameState.traits?.some(t => t.name.includes('명성') || t.name.includes('위신') || t.name.includes('영웅')) ? 20 : 0);
+    prestigeScore = Math.max(10, basePrestige + titlePrestigeBonus + synergyBonus + traitBonus);
   }
-  const prestigeLevelInfo = getPrestigeLevelInfo(prestigeScore);
+
+  const prestigeLevelInfo = getPrestigeLevelInfo(prestigeScore, prestigeTierFloor);
+  const prestigeGain = calculateTurnPrestigeGain(gameState, prestigeLevelInfo.tier);
   const prestige = `${prestigeScore}점 (${prestigeLevelInfo.label})`;
 
-  // 2) 신앙 / 사기 점수 및 단계 정밀 산출 (0 ~ 100)
-  let pietyScore = 30;
+  // 2) 신앙 / 사기 점수 및 단계 정밀 산출 (소모성 자원, 상한 100 철폐)
+  let pietyScore = 40;
   const pietyStatus = gameState.playerStatus?.find(s => s.name.includes('신앙') || s.name.includes('경건') || s.name.includes('사기'));
-  const parsedPietyNum = pietyStatus ? extractNumericValue(pietyStatus.value) : 0;
+  const parsedPietyNum = pietyStatus ? extractNumericValue(pietyStatus.value, 0) : 0;
+
   if (parsedPietyNum > 0) {
-    pietyScore = Math.min(100, Math.max(10, parsedPietyNum));
+    pietyScore = parsedPietyNum;
   } else {
     // 신분 티어 기반 기본 점수 산출
-    const statusStr = (gameState.personalInfo?.['신분'] || '') + ' ' + (gameState.personalInfo?.['직위'] || '');
     let basePiety = 40;
     if (archetype === 'clergy') {
-      if (statusStr.includes('교황') || statusStr.includes('추기경')) basePiety = 90;
-      else if (statusStr.includes('대주교') || statusStr.includes('주교')) basePiety = 78;
-      else if (statusStr.includes('보좌주교') || statusStr.includes('수도원장')) basePiety = 68;
+      if (statusStr.includes('교황') || statusStr.includes('추기경')) basePiety = 180;
+      else if (statusStr.includes('대주교') || statusStr.includes('주교')) basePiety = 110;
+      else if (statusStr.includes('보좌주교') || statusStr.includes('수도원장')) basePiety = 75;
       else if (statusStr.includes('사제') || statusStr.includes('신부')) basePiety = 55;
       else basePiety = 45;
     } else {
@@ -696,11 +1032,13 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
     }
 
     // 학문/영성(Learning) 시너지
-    const learningBonus = Math.round(attributes.learning.value * 0.6);
-    const traitBonus = (gameState.traits?.some(t => t.name.includes('신앙') || t.name.includes('성직') || t.name.includes('독실') || t.name.includes('순례')) ? 15 : 0);
-    pietyScore = Math.min(100, Math.max(10, basePiety + learningBonus + traitBonus));
+    const learningBonus = Math.round(attributes.learning.value * 0.7);
+    const traitBonus = (gameState.traits?.some(t => t.name.includes('신앙') || t.name.includes('성직') || t.name.includes('독실') || t.name.includes('순례')) ? 20 : 0);
+    pietyScore = Math.max(10, basePiety + learningBonus + traitBonus);
   }
-  const pietyLevelInfo = getPietyLevelInfo(pietyScore, archetype);
+
+  const pietyLevelInfo = getPietyLevelInfo(pietyScore, archetype, pietyTierFloor);
+  const pietyGain = calculateTurnPietyGain(gameState, pietyLevelInfo.tier);
   const piety = `${pietyScore}점 (${pietyLevelInfo.label})`;
 
   // 병력
@@ -731,10 +1069,12 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
     prestigeScore,
     prestigeLevel: prestigeLevelInfo.label,
     prestigeTier: prestigeLevelInfo.tier,
+    prestigeGain,
     piety,
     pietyScore,
     pietyLevel: pietyLevelInfo.label,
     pietyTier: pietyLevelInfo.tier,
+    pietyGain,
     levies,
     domain,
     archetype,

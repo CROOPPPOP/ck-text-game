@@ -1006,6 +1006,9 @@ export default function Home() {
           onPetitionPromotion={(target) => {
             handleAction(`[신분 승격 청원] 모든 승격 요건을 완비하였으므로, '${target.ceremonyName}' 의식을 공식 거행하고 정식 '${target.targetRank}'(으)로 승격을 청원하는 공식 서임 절차를 진행합니다.`);
           }}
+          onExecuteDecision={(command) => {
+            handleAction(command);
+          }}
         />
       )}
 

@@ -11,16 +11,19 @@ import {
 } from '@/lib/traitUtils';
 import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins, ChevronDown, ChevronUp, Compass } from 'lucide-react';
 import { checkStatusPromotion, PromotionTarget } from '@/lib/statusPromotion';
+import { ALL_DECISIONS, PIETY_DECISIONS, PRESTIGE_DECISIONS, CKDecision, getAvailableDecisions } from '@/lib/ckDecisions';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   gameState: ParsedState;
   onPetitionPromotion?: (target: PromotionTarget) => void;
+  onExecuteDecision?: (command: string) => void;
 }
 
-export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitionPromotion }: Props) {
+export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitionPromotion, onExecuteDecision }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<'all' | TraitCategoryKey>('all');
+  const [decisionCategory, setDecisionCategory] = useState<'all' | 'piety' | 'prestige'>('all');
   const [showEmptySessions, setShowEmptySessions] = useState(true);
   const [showDetailedStats, setShowDetailedStats] = useState(false);
 
@@ -42,6 +45,12 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
   const emblem = getHeraldryEmblem(rulerName, culture, archetypeDetails.archetype);
   const groupedTraits = groupTraitsBySession(gameState.traits || []);
   const totalTraitsCount = (gameState.traits || []).length;
+  const decisionStatus = getAvailableDecisions(resources);
+  const filteredDecisions = decisionCategory === 'all'
+    ? ALL_DECISIONS
+    : decisionCategory === 'piety'
+    ? PIETY_DECISIONS
+    : PRESTIGE_DECISIONS;
 
   return (
     <div 
@@ -409,6 +418,233 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
           )}
         </div>
 
+        {/* 1.9 위신 및 신앙 특수 결단 (Decisions & Special Rites) */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(20, 16, 28, 0.9), rgba(15, 23, 42, 0.9))',
+          border: '1.5px solid rgba(192, 132, 252, 0.35)',
+          borderRadius: '12px',
+          padding: '18px 20px',
+          marginBottom: '26px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)'
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Crown size={18} style={{ color: '#c084fc' }} />
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#e9d5ff', margin: 0 }}>
+                위신 및 신앙 특수 결단 (Decisions & Special Rites)
+              </h2>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: '0.78rem',
+                background: decisionStatus.available.length > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                color: decisionStatus.available.length > 0 ? '#6ee7b7' : 'var(--text-muted)',
+                border: `1px solid ${decisionStatus.available.length > 0 ? '#10b981' : 'rgba(255, 255, 255, 0.1)'}`,
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontWeight: 'bold'
+              }}>
+                ⚡ 즉시 발동 가능: {decisionStatus.available.length}개
+              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                보유 점수: <strong style={{ color: '#c084fc' }}>👑 위신 {resources.prestigeScore}점</strong> / <strong style={{ color: '#34d399' }}>🕊️ 신앙 {resources.pietyScore}점</strong>
+              </span>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '14px', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '6px', lineHeight: '1.4' }}>
+            💡 <strong style={{ color: '#fde047' }}>점수 소모형 결단 룰:</strong> 축적된 위신과 신앙 점수를 소모하여 강력한 칙령을 반포하고 외교·종교적 대사건을 일으킵니다. <span style={{ color: '#6ee7b7' }}>결단을 실행하여 점수를 소모하더라도 영구 명망/신앙 단계는 결코 강등되지 않습니다.</span>
+          </div>
+
+          {/* Filter Tabs */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setDecisionCategory('all')}
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                border: decisionCategory === 'all' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                background: decisionCategory === 'all' ? 'rgba(192, 132, 252, 0.25)' : 'rgba(0,0,0,0.35)',
+                color: decisionCategory === 'all' ? '#fff' : 'var(--text-muted)',
+                cursor: 'pointer'
+              }}
+            >
+              전체 결단 ({ALL_DECISIONS.length})
+            </button>
+            <button
+              onClick={() => setDecisionCategory('piety')}
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                border: decisionCategory === 'piety' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.1)',
+                background: decisionCategory === 'piety' ? 'rgba(52, 211, 153, 0.25)' : 'rgba(0,0,0,0.35)',
+                color: decisionCategory === 'piety' ? '#a7f3d0' : 'var(--text-muted)',
+                cursor: 'pointer'
+              }}
+            >
+              🕊️ 신앙 성무 결단 ({PIETY_DECISIONS.length})
+            </button>
+            <button
+              onClick={() => setDecisionCategory('prestige')}
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                border: decisionCategory === 'prestige' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                background: decisionCategory === 'prestige' ? 'rgba(192, 132, 252, 0.25)' : 'rgba(0,0,0,0.35)',
+                color: decisionCategory === 'prestige' ? '#e9d5ff' : 'var(--text-muted)',
+                cursor: 'pointer'
+              }}
+            >
+              👑 위신 칙령 결단 ({PRESTIGE_DECISIONS.length})
+            </button>
+          </div>
+
+          {/* Decision Cards Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '14px' }}>
+            {filteredDecisions.map(dec => {
+              const isPiety = dec.category === 'piety';
+              const currentScore = isPiety ? resources.pietyScore : resources.prestigeScore;
+              const currentTier = isPiety ? resources.pietyTier : resources.prestigeTier;
+              const hasTier = currentTier >= dec.requiredTier;
+              const hasCost = currentScore >= dec.cost;
+              const canExecute = hasTier && hasCost;
+
+              let lockedReason = '';
+              if (!hasTier) lockedReason = `${dec.costType} Lv.${dec.requiredTier}단계 이상 필요 (현재 Lv.${currentTier})`;
+              else if (!hasCost) lockedReason = `${dec.costType} ${dec.cost - currentScore}점 부족 (${currentScore}/${dec.cost})`;
+
+              return (
+                <div key={dec.id} style={{
+                  background: 'rgba(0, 0, 0, 0.45)',
+                  border: canExecute ? `1.5px solid ${isPiety ? '#10b981' : '#c084fc'}` : '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '10px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  boxShadow: canExecute ? `0 0 16px ${isPiety ? 'rgba(16, 185, 129, 0.25)' : 'rgba(192, 132, 252, 0.25)'}` : 'none'
+                }}>
+                  {/* Card Title & Badges */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>{dec.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.98rem', color: canExecute ? '#fff' : 'var(--text-main)' }}>
+                          {dec.title}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: isPiety ? '#6ee7b7' : '#c084fc' }}>
+                          {dec.subtitle}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: hasCost ? (isPiety ? 'rgba(52, 211, 153, 0.2)' : 'rgba(192, 132, 252, 0.2)') : 'rgba(239, 68, 68, 0.2)',
+                        color: hasCost ? (isPiety ? '#6ee7b7' : '#e9d5ff') : '#f87171',
+                        border: `1px solid ${hasCost ? (isPiety ? '#34d399' : '#c084fc') : '#ef4444'}`
+                      }}>
+                        {dec.costType} {dec.cost} 소모
+                      </span>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        color: hasTier ? 'var(--text-muted)' : '#f87171'
+                      }}>
+                        요구: Lv.{dec.requiredTier}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                    {dec.description}
+                  </div>
+
+                  {/* Historical Lore Quote */}
+                  <div style={{
+                    fontSize: '0.74rem',
+                    color: '#94a3b8',
+                    fontStyle: 'italic',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderLeft: `2px solid ${isPiety ? '#34d399' : '#c084fc'}`,
+                    padding: '6px 10px',
+                    borderRadius: '0 4px 4px 0',
+                    lineHeight: '1.35'
+                  }}>
+                    📖 {dec.historicalLore}
+                  </div>
+
+                  {/* Effects List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: 'var(--gold-accent)' }}>
+                      ✨ 발동 효과:
+                    </div>
+                    {dec.effects.map((eff, eIdx) => (
+                      <div key={eIdx} style={{ fontSize: '0.75rem', color: '#e2e8f0', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                        <span style={{ color: isPiety ? '#34d399' : '#c084fc' }}>•</span>
+                        <span>{eff}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Button */}
+                  {canExecute ? (
+                    <button
+                      onClick={() => {
+                        if (confirm(`'${dec.title}' 결단을 발동하시겠습니까?\n\n소모: ${dec.costType} ${dec.cost}점 (현재 ${currentScore}점 보유)\n(도달한 영구 단계는 유지됩니다)`)) {
+                          onClose();
+                          onExecuteDecision?.(dec.actionCommand);
+                        }
+                      }}
+                      style={{
+                        background: isPiety 
+                          ? 'linear-gradient(135deg, #059669, #10b981)' 
+                          : 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                        border: `1px solid ${isPiety ? '#34d399' : '#c084fc'}`,
+                        color: '#fff',
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        boxShadow: `0 4px 15px ${isPiety ? 'rgba(16, 185, 129, 0.35)' : 'rgba(168, 85, 247, 0.35)'}`,
+                        transition: 'all 0.2s',
+                        marginTop: 'auto'
+                      }}
+                    >
+                      ✨ {dec.title} 결단 발동 및 칙령 반포
+                    </button>
+                  ) : (
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      color: 'var(--text-muted)',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      textAlign: 'center',
+                      marginTop: 'auto'
+                    }}>
+                      🔒 {lockedReason}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* 2. Crusader Kings 3 Core Attributes (5대 핵심 능력치 + 기량) */}
         <div style={{ marginBottom: '28px' }}>
           <div style={{
@@ -637,24 +873,24 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                 <span>🏰 직할 영지 한계: <strong style={{ color: '#38bdf8' }}>{attributes.synergies.domainLimit}개소</strong></span>
                 <span>🪙 재정 수입: <strong style={{ color: '#fbbf24' }}>+{attributes.synergies.goldIncomeModifier}%</strong></span>
                 <span>⚔️ 징집 병력: <strong style={{ color: '#ef4444' }}>+{attributes.synergies.levyModifier}%</strong></span>
-                <span title={`위신 점수: ${resources.prestigeScore}/100\n단계: Lv.${resources.prestigeTier} ${resources.prestigeLevel}\n외교/군사 시너지: +${attributes.synergies.prestigeModifier}% 획득 증폭`}>
+                <span title={`소모 가능 위신: ${resources.prestigeScore}점\n영구 단계: Lv.${resources.prestigeTier} ${resources.prestigeLevel}\n턴 당 획득: ${resources.prestigeGain?.formattedGain || '+0.0/턴'}`}>
                   👑 위신: <strong style={{ color: '#c084fc' }}>{resources.prestigeScore}점</strong>{' '}
                   <span style={{ fontSize: '0.74rem', color: '#e9d5ff', background: 'rgba(192, 132, 252, 0.18)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(192, 132, 252, 0.3)' }}>
                     Lv.{resources.prestigeTier} {resources.prestigeLevel}
                   </span>{' '}
-                  <small style={{ color: '#c084fc', fontWeight: 'bold' }}>(+{attributes.synergies.prestigeModifier}%)</small>
+                  <small style={{ color: '#c084fc', fontWeight: 'bold' }}>({resources.prestigeGain?.formattedGain || '+0.0/턴'})</small>
                 </span>
-                <span title={`신앙 점수: ${resources.pietyScore}/100\n단계: Lv.${resources.pietyTier} ${resources.pietyLevel}\n영성/학문 시너지: +${attributes.synergies.pietyModifier}% 획득 증폭`}>
+                <span title={`소모 가능 신앙: ${resources.pietyScore}점\n영구 단계: Lv.${resources.pietyTier} ${resources.pietyLevel}\n턴 당 획득: ${resources.pietyGain?.formattedGain || '+0.0/턴'}`}>
                   🕊️ {resources.labels.pietyLabel}: <strong style={{ color: '#34d399' }}>{resources.pietyScore}점</strong>{' '}
                   <span style={{ fontSize: '0.74rem', color: '#a7f3d0', background: 'rgba(52, 211, 153, 0.18)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(52, 211, 153, 0.3)' }}>
                     Lv.{resources.pietyTier} {resources.pietyLevel}
                   </span>{' '}
-                  <small style={{ color: '#34d399', fontWeight: 'bold' }}>(+{attributes.synergies.pietyModifier}%)</small>
+                  <small style={{ color: '#34d399', fontWeight: 'bold' }}>({resources.pietyGain?.formattedGain || '+0.0/턴'})</small>
                 </span>
               </div>
             </div>
 
-            {/* 위신 & 신앙 진행 게이지 바 */}
+            {/* 위신 & 신앙 진행 게이지 바 (소모성 점수와 영구 단계 분리) */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
@@ -663,48 +899,77 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
               borderTop: '1px dashed rgba(212, 175, 55, 0.2)'
             }}>
               {/* 위신 게이지 */}
-              <div style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(192, 132, 252, 0.25)',
-                borderRadius: '6px',
-                padding: '8px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
-                  <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>👑 위신 (Prestige / Fame)</span>
-                    <span style={{ fontSize: '0.7rem', color: '#c084fc' }}>Lv.{resources.prestigeTier} {resources.prestigeLevel}</span>
-                  </span>
-                  <span style={{ fontWeight: 'bold', color: '#c084fc' }}>{resources.prestigeScore} / 100</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${resources.prestigeScore}%`, height: '100%', background: 'linear-gradient(90deg, #9333ea, #c084fc)' }} />
-                </div>
-              </div>
+              {(() => {
+                const nextThreshold = resources.prestigeTier >= 5 ? 300 : resources.prestigeTier === 4 ? 300 : resources.prestigeTier === 3 ? 160 : resources.prestigeTier === 2 ? 90 : 40;
+                const progressPct = resources.prestigeTier >= 5 ? 100 : Math.min(100, Math.round((resources.prestigeScore / nextThreshold) * 100));
+                return (
+                  <div style={{
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(192, 132, 252, 0.25)',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                      <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>👑 위신 (소모 가능: {resources.prestigeScore}점)</span>
+                        <span style={{ fontSize: '0.7rem', color: '#c084fc' }}>Lv.{resources.prestigeTier} {resources.prestigeLevel} [영구]</span>
+                      </span>
+                      <span style={{ fontWeight: 'bold', color: '#c084fc', fontSize: '0.72rem' }}>
+                        {resources.prestigeTier >= 5 ? '최고 단계 도달' : `다음 단계: ${resources.prestigeScore} / ${nextThreshold}점`}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${progressPct}%`, height: '100%', background: 'linear-gradient(90deg, #9333ea, #c084fc)' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                      <span>턴당 {resources.prestigeGain?.formattedGain || '+0.0/턴'}</span>
+                      <span style={{ color: '#e9d5ff' }}>단계 증폭 +{resources.prestigeGain?.tierBonusPercent || 0}%</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 신앙 게이지 */}
-              <div style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(52, 211, 153, 0.25)',
-                borderRadius: '6px',
-                padding: '8px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
-                  <span style={{ color: '#a7f3d0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>🕊️ {resources.labels.pietyLabel}</span>
-                    <span style={{ fontSize: '0.7rem', color: '#34d399' }}>Lv.{resources.pietyTier} {resources.pietyLevel}</span>
-                  </span>
-                  <span style={{ fontWeight: 'bold', color: '#34d399' }}>{resources.pietyScore} / 100</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${resources.pietyScore}%`, height: '100%', background: 'linear-gradient(90deg, #059669, #34d399)' }} />
-                </div>
-              </div>
+              {(() => {
+                const nextThreshold = resources.pietyTier >= 5 ? 300 : resources.pietyTier === 4 ? 300 : resources.pietyTier === 3 ? 160 : resources.pietyTier === 2 ? 90 : 40;
+                const progressPct = resources.pietyTier >= 5 ? 100 : Math.min(100, Math.round((resources.pietyScore / nextThreshold) * 100));
+                return (
+                  <div style={{
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(52, 211, 153, 0.25)',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                      <span style={{ color: '#a7f3d0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🕊️ {resources.labels.pietyLabel} (소모 가능: {resources.pietyScore}점)</span>
+                        <span style={{ fontSize: '0.7rem', color: '#34d399' }}>Lv.{resources.pietyTier} {resources.pietyLevel} [영구]</span>
+                      </span>
+                      <span style={{ fontWeight: 'bold', color: '#34d399', fontSize: '0.72rem' }}>
+                        {resources.pietyTier >= 5 ? '최고 단계 도달' : `다음 단계: ${resources.pietyScore} / ${nextThreshold}점`}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${progressPct}%`, height: '100%', background: 'linear-gradient(90deg, #059669, #34d399)' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                      <span>턴당 {resources.pietyGain?.formattedGain || '+0.0/턴'}</span>
+                      <span style={{ color: '#a7f3d0' }}>단계 증폭 +{resources.pietyGain?.tierBonusPercent || 0}%</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 영구 단계 보장 안내 텍스트 */}
+            <div style={{ fontSize: '0.72rem', color: '#94a3b8', background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: '4px', lineHeight: '1.35' }}>
+              💡 <strong style={{ color: '#fde047' }}>소모성 점수와 영구 단계 분리:</strong> 결단이나 외교 조약에 점수를 소모하더라도 도달한 영구 명망 및 신앙 단계는 강등되지 않습니다.
             </div>
           </div>
 
