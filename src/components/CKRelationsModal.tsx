@@ -5,7 +5,7 @@ import { ParsedState } from '@/lib/parser';
 import { getArchetypeDetails } from '@/lib/ckVisuals';
 import { parseAllPersonalRelations, ParsedCharacterRelation } from '@/lib/characterRelations';
 import { mergeAndDeduplicateFactionRelations, parseFactionRelation } from '@/lib/factionRelations';
-import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck, AlertTriangle, Compass, Flame } from 'lucide-react';
+import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck, AlertTriangle, Compass, Flame, Castle, Church, Coins } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -23,6 +23,29 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
 
   const archetypeDetails = getArchetypeDetails(gameState);
   const archetype = archetypeDetails.archetype;
+
+  const getFactionHeraldicIcon = (cleanName: string, tier: number, color: string) => {
+    const name = cleanName || '';
+    if (tier >= 3) {
+      return <Swords size={16} color={color} style={{ flexShrink: 0 }} />;
+    }
+    if (/교황|교황청|대성당|성당|교구|수도원|주교|추기경/.test(name)) {
+      return <Church size={16} color={color} style={{ flexShrink: 0 }} />;
+    }
+    if (/제국|황제|왕국|기벨린/.test(name)) {
+      return <Crown size={16} color={color} style={{ flexShrink: 0 }} />;
+    }
+    if (/백국|백작|공국|공작|영주|가문|성채|토스카나|카스텔로/.test(name)) {
+      return <Castle size={16} color={color} style={{ flexShrink: 0 }} />;
+    }
+    if (/기사단|용병|수호대|군단|경비/.test(name)) {
+      return <Swords size={16} color={color} style={{ flexShrink: 0 }} />;
+    }
+    if (/상단|길드|상인|환전|도시/.test(name)) {
+      return <Coins size={16} color={color} style={{ flexShrink: 0 }} />;
+    }
+    return <Shield size={16} color={color} style={{ flexShrink: 0 }} />;
+  };
 
   // 아키타입별 맥락 맞춤형 명칭
   const config = {
@@ -488,13 +511,46 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                       boxShadow: h.tier >= 3 ? `0 0 14px ${h.bgColor}` : 'none'
                     }}
                   >
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {h.tier >= 3 ? <Swords size={18} color={h.color} /> : <Shield size={18} color={h.color} />}
-                        <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.98rem' }}>{f.cleanName}</span>
+                    {/* Header: Fixed 32x32px Heraldic Badge & Balanced Responsive Title */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        {/* 32x32px 고정 규격 문장(Heraldic) 뱃지 컨테이너 - 텍스트 길이에 따른 찌그러짐 100% 방지 */}
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          minWidth: '32px',
+                          minHeight: '32px',
+                          flexShrink: 0,
+                          borderRadius: '8px',
+                          background: h.bgColor || 'rgba(255, 255, 255, 0.05)',
+                          border: `1.5px solid ${h.borderColor || h.color}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: `0 2px 6px ${h.bgColor}`
+                        }}>
+                          {getFactionHeraldicIcon(f.cleanName, h.tier, h.color)}
+                        </div>
+                        <span style={{
+                          fontWeight: 'bold',
+                          color: 'var(--text-main)',
+                          fontSize: '0.98rem',
+                          lineHeight: '1.35',
+                          wordBreak: 'keep-all',
+                          overflowWrap: 'break-word'
+                        }}>
+                          {f.cleanName}
+                        </span>
                       </div>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <div style={{
+                        display: 'flex',
+                        gap: '6px',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        justifyContent: 'flex-end',
+                        maxWidth: '52%',
+                        flexShrink: 0
+                      }}>
                         <span style={{
                           fontSize: '0.72rem',
                           fontWeight: 'bold',
@@ -507,16 +563,22 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                         }}>
                           {h.tierLabel}
                         </span>
-                        <span style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 500,
-                          color: '#e2e8f0',
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          whiteSpace: 'nowrap'
-                        }}>
+                        <span 
+                          title={f.status}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 500,
+                            color: '#e2e8f0',
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            maxWidth: '190px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
                           {f.status}
                         </span>
                       </div>

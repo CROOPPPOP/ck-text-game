@@ -202,7 +202,51 @@ export function deriveNPCAgenda(
   const combined = `${name} ${role} ${desc}`;
 
   // 1. 특정 주요 네임드 캐릭터 고유 심리 & 지능 규칙
+  // 1-1. 오도 주교 (선대 노주교이자 영적 스승/후원자)
+  if (combined.includes('오도') || (combined.includes('노주교') && combined.includes('교구장'))) {
+    const isRetiringOrInfirm = /병약|안도|맡기|착좌|후계|위임|노주교/.test(combined);
+    if (trust >= 70 || isRetiringOrInfirm) {
+      return {
+        motives: ['교단 안녕', '후계 육성'],
+        innerThought: '자신의 쇠약함을 인정하고, 교구의 미래를 온전히 짊어질 플레이어의 성장을 흐뭇하게 지켜보며 평온히 축복함',
+        proactiveAction: '교구 주요 성물과 인장 인계 및 사목 전권 위임 발표, 영적 축복 집전'
+      };
+    }
+    return {
+      motives: ['교단 지도', '사목 지도'],
+      innerThought: '플레이어가 교구의 참된 지도자로 올바르게 성장하도록 자애로운 시선으로 이끌어줌',
+      proactiveAction: '교구 참사회 주관 및 사목 활동 평가, 교단 법률 자문'
+    };
+  }
+
+  // 1-2. 엘레오노라 (카스텔로 영주 부인 겸 단독 섭정 - 로맨스/밀회/임신 또는 정치적 동맹)
+  if (combined.includes('엘레오노라') || (combined.includes('영주 부인') && combined.includes('섭정'))) {
+    const hasRomanceOrPregnancy = isRomance || affection >= 50 || /밀회|태중|아이|임신|연정|사랑|사모|공모자/.test(combined);
+    if (hasRomanceOrPregnancy) {
+      return {
+        motives: ['애정·유대', '혈통 수호'],
+        innerThought: '태중에 잉태된 플레이어의 핏줄과 비밀스러운 연정을 지키기 위해, 주교의 품에 온전히 의탁하며 둘만의 은밀한 미래를 꿈꿈',
+        proactiveAction: '은밀한 야간 밀회 및 태중 아이의 안위를 위한 기도와 비밀 서신 교환'
+      };
+    }
+    return {
+      motives: ['가문·혈통', '영지 안정'],
+      innerThought: trust >= 60
+        ? '어린 후계자를 지키고 섭정 권력을 유지하기 위해 주교이자 막후 실력자인 플레이어와의 확고한 동맹을 원함'
+        : '자신의 섭정권을 침해받지 않도록 플레이어의 영향력과 의도를 예의주시함',
+      proactiveAction: '카스텔로 영지의 중요 외교 기밀 공유 및 사적인 야간 자문 회의 요청'
+    };
+  }
+
+  // 1-3. 베아트리체 (토착 장원 미망인)
   if (combined.includes('베아트리체') || (combined.includes('미망인') && combined.includes('장원'))) {
+    if (isRomance || affection >= 60 || /밀회|연정|사랑/.test(combined)) {
+      return {
+        motives: ['애정·유대', '영지 보전'],
+        innerThought: '엄격한 세속의 시선을 넘어 플레이어에게 깊은 연정을 품고 있으며, 장원과 함께 자신의 마음을 온전히 바치고자 함',
+        proactiveAction: '비밀스런 장원 만찬 초대 및 손수 빚은 특산 와인과 사적인 정표 전달'
+      };
+    }
     return {
       motives: ['가문·혈통', '영지 안정'],
       innerThought: trust >= 60 
@@ -212,16 +256,7 @@ export function deriveNPCAgenda(
     };
   }
 
-  if (combined.includes('엘레오노라') || (combined.includes('영주 부인') && combined.includes('섭정'))) {
-    return {
-      motives: ['가문·혈통', '권력·야심'],
-      innerThought: trust >= 60
-        ? '어린 후계자를 지키고 섭정 권력을 유지하기 위해 주교이자 막후 실력자인 플레이어와의 확고한 동맹을 원함'
-        : '자신의 섭정권을 침해받지 않도록 플레이어의 영향력과 의도를 예의주시함',
-      proactiveAction: '카스텔로 영지의 중요 외교 기밀 공유 및 사적인 야간 자문 회의 요청'
-    };
-  }
-
+  // 1-4. 마틸다 (토스카나 여백작)
   if (combined.includes('마틸다')) {
     return {
       motives: ['애정·유대', '가문·혈통'],
@@ -232,6 +267,7 @@ export function deriveNPCAgenda(
     };
   }
 
+  // 1-5. 마테오 (우르비노 상단 행수)
   if (combined.includes('마테오') || (combined.includes('상단') && combined.includes('행수'))) {
     return {
       motives: ['실리·상업', '독점 이권'],
@@ -242,6 +278,7 @@ export function deriveNPCAgenda(
     };
   }
 
+  // 1-6. 베르나르도 (성 미카엘 수호대장)
   if (combined.includes('베르나르도') || combined.includes('수호대장') || combined.includes('호위대장')) {
     return {
       motives: ['충의·명예', '군사 규율'],
@@ -252,7 +289,7 @@ export function deriveNPCAgenda(
     };
   }
 
-  // 2. 범용 인물 위계 및 직능 기반 동적 심리 산출
+  // 2. 범용 인물 위계 및 직능 기반 동적 심리 산출 (서사 맥락 감응)
   if (tierId === 'rival') {
     return {
       motives: ['정적 숙청', '위협 견제'],
@@ -262,10 +299,25 @@ export function deriveNPCAgenda(
   }
 
   if (tierId === 'superior') {
+    const isRetiringOrInfirm = /병약|안도|맡기|착좌|후계|위임|은퇴/.test(combined);
+    if (trust >= 75 || isRetiringOrInfirm) {
+      return {
+        motives: ['후계 양성', '영지 안녕'],
+        innerThought: '자신의 신뢰받는 기둥이자 후계자인 플레이어를 깊이 신뢰하며 중대한 사목과 통치 권한을 위임하고자 함',
+        proactiveAction: '영지/교구 주요 특권 위임 및 영적·정치적 공식 축복, 공동 정무 주관'
+      };
+    }
+    if (trust < 40) {
+      return {
+        motives: ['권위 유지', '충성 시험'],
+        innerThought: '플레이어의 영향력을 강하게 경계하며 자신을 넘어서지 못하도록 공납과 서약을 지속 시험함',
+        proactiveAction: '교구/영지 칙령 준수 여부 감찰 사절 파견 및 특별 십일조/의전 참석 명령'
+      };
+    }
     return {
-      motives: ['권위 유지', '충성 시험'],
-      innerThought: '플레이어의 탁월한 능력을 주시하면서도, 자신을 위협하지 못하도록 공납과 서약을 지속 시험함',
-      proactiveAction: '교구 칙령 준수 여부 감찰 사절 파견 및 특별 십일조/의전 참석 명령'
+      motives: ['기강 확립', '질서 유지'],
+      innerThought: '플레이어의 역량을 인정하면서도 상하 위계와 본령의 법도를 엄격히 준수하도록 감독함',
+      proactiveAction: '정례 업무 보고 접수 및 상급 기관 하달 칙서 준수 점검'
     };
   }
 
@@ -285,12 +337,12 @@ export function deriveNPCAgenda(
     };
   }
 
-  // Default: Peer
-  if (isRomance) {
+  // Default: Peer (로맨스, 밀회/혈통 공모 범용 감응)
+  if (isRomance || /밀회|태중의 아이|태중|연정|사모/.test(combined)) {
     return {
-      motives: ['애정·유대', '정치적 결속'],
-      innerThought: '엄격한 세속의 시선을 피해 플레이어와의 은밀하고 각별한 관계를 지속하고자 함',
-      proactiveAction: '은밀한 서신 교환 및 사적인 비밀 회동 약속 제안'
+      motives: ['애정·유대', '혈통 수호'],
+      innerThought: '세속의 엄격한 규율 속에서도 플레이어와의 특별한 인연과 태중의 약속을 소중히 지켜나가고자 함',
+      proactiveAction: '은밀한 서신 교환 및 사적인 비밀 회동, 혈통의 안위를 위한 기도'
     };
   }
 
