@@ -327,32 +327,45 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
                 background: hasHeir ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.6))' : 'rgba(0,0,0,0.3)',
                 border: hasHeir ? '2px solid var(--success)' : '1px dashed rgba(239, 68, 68, 0.5)',
                 borderRadius: '12px',
-                position: 'relative'
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
               }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  background: hasHeir ? 'var(--success)' : 'var(--danger)',
-                  color: '#fff',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold',
-                  padding: '2px 8px',
-                  borderRadius: '4px'
-                }}>
-                  {hasHeir ? labels.heirLabel : '계승자 부재'}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
-                  <div style={{ fontSize: '2.2rem' }}>{hasHeir ? '🛡️' : '⚠️'}</div>
-                  <div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: hasHeir ? 'var(--success)' : 'var(--danger)' }}>
-                      {heir}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      계승법: {successionLaw}
+                {/* Header: Icon, Name, Law & Badge with safe spacing */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '2.2rem', lineHeight: 1, flexShrink: 0, marginTop: '2px' }}>{hasHeir ? '🛡️' : '⚠️'}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ 
+                        fontSize: '1.15rem', 
+                        fontWeight: 'bold', 
+                        color: hasHeir ? 'var(--success)' : 'var(--danger)',
+                        wordBreak: 'keep-all',
+                        overflowWrap: 'break-word',
+                        lineHeight: '1.35',
+                        marginBottom: '4px'
+                      }}>
+                        {heir}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        계승법: {successionLaw}
+                      </div>
                     </div>
                   </div>
+                  <div style={{
+                    background: hasHeir ? 'var(--success)' : 'var(--danger)',
+                    color: '#fff',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}>
+                    {hasHeir ? labels.heirLabel : '계승자 부재'}
+                  </div>
                 </div>
+
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(0, 0, 0, 0.25)', padding: '10px 12px', borderRadius: '6px', lineHeight: '1.4' }}>
                   {hasHeir 
                     ? `유고(사망 또는 은퇴) 시 계승자 '${heir}'에게 모든 소지품과 직위, 유산이 그대로 계승됩니다.` 

@@ -370,6 +370,57 @@ export function sanitizeEstateState<T extends Record<string, any>>(state: T): T 
       cloned.relationships.faction = mergeAndDeduplicateFactionRelations(cloned.relationships.faction);
     }
 
+    // 5. relationships.personal 인물 관계 왜곡(상급자/후원자/동료) 자동 정정 (Self-Healing)
+    if (cloned.relationships && Array.isArray(cloned.relationships.personal)) {
+      cloned.relationships.personal = cloned.relationships.personal.map((rel: string) => {
+        if (!rel || typeof rel !== 'string') return rel;
+
+        let fixed = rel;
+
+        // 1) 베아트리체 (토착 장원 미망인): 상급자 오분류 방지 -> 후원자로 정정
+        if (fixed.includes('베아트리체') || fixed.includes('장원 미망인') || fixed.includes('미망인')) {
+          if (fixed.includes('[상급자]')) {
+            fixed = fixed.replace(/\[상급자\]/g, '[후원자]');
+          }
+          if (fixed.includes('관계: 상급자')) {
+            fixed = fixed.replace(/관계:\s*상급자/g, '관계: [후원자]');
+          }
+        }
+
+        // 2) 엘레오노라 (카스텔로 영주 부인 겸 단독 섭정): 상급자 오분류 방지 -> 후원자로 정정
+        if (fixed.includes('엘레오노라') || fixed.includes('영주 부인')) {
+          if (fixed.includes('[상급자]')) {
+            fixed = fixed.replace(/\[상급자\]/g, '[후원자]');
+          }
+          if (fixed.includes('관계: 상급자')) {
+            fixed = fixed.replace(/관계:\s*상급자/g, '관계: [후원자]');
+          }
+        }
+
+        // 3) 마테오 (우르비노 주교좌 상단 행수): 상급자/후원자 오분류 방지 -> 동료로 정정
+        if (fixed.includes('마테오') || (fixed.includes('상단 행수') && !fixed.includes('후원자 명시'))) {
+          if (fixed.includes('[상급자]') || fixed.includes('[후원자]')) {
+            fixed = fixed.replace(/\[상급자\]/g, '[동료]').replace(/\[후원자\]/g, '[동료]');
+          }
+          if (fixed.includes('관계: 상급자') || fixed.includes('관계: 후원자')) {
+            fixed = fixed.replace(/관계:\s*(?:상급자|후원자)/g, '관계: [동료]');
+          }
+        }
+
+        // 4) 일반 규칙: 상인/행수가 상급자로 태그된 경우 -> [동료]로 정정
+        if ((fixed.includes('상인') || fixed.includes('행수') || fixed.includes('상단') || fixed.includes('환전')) && fixed.includes('[상급자]')) {
+          fixed = fixed.replace(/\[상급자\]/g, '[동료]');
+        }
+
+        // 5) 일반 규칙: 미망인/신도가 상급자로 태그된 경우 -> [후원자]로 정정
+        if ((fixed.includes('미망인') || fixed.includes('신도') || fixed.includes('영주 부인')) && fixed.includes('[상급자]')) {
+          fixed = fixed.replace(/\[상급자\]/g, '[후원자]');
+        }
+
+        return fixed;
+      });
+    }
+
     return cloned;
   } catch (err) {
     console.error('sanitizeEstateState error:', err);

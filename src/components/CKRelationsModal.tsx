@@ -65,7 +65,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
   // SSOT 단일 진실 공급원 파서(characterRelations.ts)를 통한 인물 목록 일원화
   const parsedCharacters = parseAllPersonalRelations(personalRels, archetype).map(p => {
     const isObsessive = p.raw.includes('집착') || p.raw.includes('광애') || p.affStage === '집착' || p.affStage === '광애';
-    const isSwornFriend = p.raw.includes('맹우') || p.affStage === '맹우';
+    const isSwornFriend = !p.isRomance && p.affLabel === '우정도' && (p.affStage === '맹우' || p.affection >= 80);
     return {
       raw: p.raw,
       name: p.name,
@@ -319,9 +319,9 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                             광애 / 집착
                           </span>
                         )}
-                        {c.isSwornFriend && (
+                        {c.isSwornFriend && !c.isRomance && (
                           <span style={{ fontSize: '0.72rem', color: '#fbbf24', background: 'rgba(251, 191, 36, 0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid #fbbf24', whiteSpace: 'nowrap' }}>
-                            맹우
+                            🤝 맹우
                           </span>
                         )}
                       </div>

@@ -109,62 +109,70 @@ export function sanitizeNameAndRole(rawName: string): { name: string; role: stri
 
 // 2. 직능(Vocation) 감지 로직
 export function detectVocation(role: string, desc: string, name: string = ''): RelationVocation {
-  const combined = `${role} ${desc} ${name}`;
+  const roleName = `${role} ${name}`;
 
-  // 1) 상인 / 경제 (마테오 사례 방어: '주교좌 성당 납품 상단' 등)
+  // 1) 1차 판별: 직책(role)과 이름(name)을 최우선으로 검사 (설명문에 언급된 플레이어 직위 오염 방지)
+  // 상인 / 경제 (마테오 사례 방어: '주교좌 성당 납품 상단', '상단 행수' 등)
   if (
-    combined.includes('행수') || combined.includes('상단') || combined.includes('상인') ||
-    combined.includes('점원') || combined.includes('도제') || combined.includes('길드원') ||
-    combined.includes('환전') || combined.includes('조합') || combined.includes('거상') ||
-    combined.includes('납품') || combined.includes('교역') || combined.includes('대상인')
+    roleName.includes('행수') || roleName.includes('상단') || roleName.includes('상인') ||
+    roleName.includes('점원') || roleName.includes('도제') || roleName.includes('길드') ||
+    roleName.includes('환전') || roleName.includes('조합') || roleName.includes('거상') ||
+    roleName.includes('납품') || roleName.includes('교역') || roleName.includes('대상인')
   ) {
     return 'merchant';
   }
 
-  // 2) 무관 / 경비 / 군사 (베르나르도 사례 방어: '성 미카엘 수호대장' 등)
+  // 무관 / 경비 / 군사 (베르나르도 사례 방어: '성 미카엘 수호대장' 등)
   if (
-    combined.includes('수호대') || combined.includes('경비대') || combined.includes('호위') ||
-    combined.includes('기사') || combined.includes('무관') || combined.includes('용병') ||
-    combined.includes('부대장') || combined.includes('지휘관') || combined.includes('단장') ||
-    combined.includes('사병') || combined.includes('원수') || combined.includes('방위') ||
-    combined.includes('무력대') || combined.includes('수호병') || combined.includes('순찰')
+    roleName.includes('수호대') || roleName.includes('경비대') || roleName.includes('호위') ||
+    roleName.includes('기사') || roleName.includes('무관') || roleName.includes('용병') ||
+    roleName.includes('부대장') || roleName.includes('지휘관') || roleName.includes('단장') ||
+    roleName.includes('사병') || roleName.includes('원수') || roleName.includes('방위') ||
+    roleName.includes('무력대') || roleName.includes('수호병') || roleName.includes('순찰')
   ) {
     return 'military';
   }
 
-  // 3) 성직 / 수도
-  // 주의: 상인/무관은 1), 2)에서 이미 우선 분류됨
+  // 행정 / 궁정 관료 / 봉건 영주 및 미망인·영주 부인 (베아트리체, 엘레오노라)
   if (
-    combined.includes('주교') || combined.includes('대주교') || combined.includes('교황') ||
-    combined.includes('추기경') || combined.includes('총대주교') || combined.includes('교구장') ||
-    combined.includes('관구장') || combined.includes('사제') || combined.includes('신부') ||
-    combined.includes('수도원장') || combined.includes('수사') || combined.includes('수도사') ||
-    combined.includes('복사') || combined.includes('수련수사') || combined.includes('종정') ||
-    combined.includes('이단심문') || combined.includes('성직')
-  ) {
-    return 'clergy';
-  }
-
-  // 4) 행정 / 궁정 관료 / 봉건 영주 및 가신 (Noble & Court)
-  if (
-    combined.includes('백작') || combined.includes('공작') || combined.includes('남작') ||
-    combined.includes('후작') || combined.includes('자작') || combined.includes('영주') ||
-    combined.includes('제후') || combined.includes('국왕') || combined.includes('황제') ||
-    combined.includes('군주') || combined.includes('귀족') || combined.includes('집사') ||
-    combined.includes('서기') || combined.includes('참모') || combined.includes('관리인') ||
-    combined.includes('재상') || combined.includes('시종') || combined.includes('궁정') ||
-    combined.includes('가신') || combined.includes('촌장')
+    roleName.includes('미망인') || roleName.includes('영주 부인') || roleName.includes('섭정') ||
+    roleName.includes('백작') || roleName.includes('공작') || roleName.includes('남작') ||
+    roleName.includes('후작') || roleName.includes('자작') || roleName.includes('영주') ||
+    roleName.includes('제후') || roleName.includes('국왕') || roleName.includes('황제') ||
+    roleName.includes('군주') || roleName.includes('귀족') || roleName.includes('집사') ||
+    roleName.includes('서기') || roleName.includes('참모') || roleName.includes('관리인') ||
+    roleName.includes('재상') || roleName.includes('시종') || roleName.includes('궁정') ||
+    roleName.includes('가신') || roleName.includes('촌장') || roleName.includes('부인')
   ) {
     return 'court';
   }
 
-  // 5) 학자 / 의원
+  // 성직 / 수도
   if (
-    combined.includes('학사') || combined.includes('교수') || combined.includes('의원') ||
-    combined.includes('의술') || combined.includes('연금술') || combined.includes('천문')
+    roleName.includes('교구장') || roleName.includes('대주교') || roleName.includes('교황') ||
+    roleName.includes('추기경') || roleName.includes('총대주교') || roleName.includes('관구장') ||
+    roleName.includes('사제') || roleName.includes('신부') || roleName.includes('수도원장') ||
+    roleName.includes('수사') || roleName.includes('수도사') || roleName.includes('복사') ||
+    roleName.includes('수련수사') || roleName.includes('종정') || roleName.includes('이단심문') ||
+    roleName.includes('성직') || (roleName.includes('주교') && !roleName.includes('주교좌'))
+  ) {
+    return 'clergy';
+  }
+
+  // 학자 / 의원
+  if (
+    roleName.includes('학사') || roleName.includes('교수') || roleName.includes('의원') ||
+    roleName.includes('의술') || roleName.includes('연금술') || roleName.includes('천문')
   ) {
     return 'scholar';
   }
+
+  // 2) 2차 판별: 직책이 불명확할 때만 설명문(desc) 보조 검사
+  const combined = `${role} ${desc} ${name}`;
+  if (combined.includes('행수') || combined.includes('상단') || combined.includes('상인')) return 'merchant';
+  if (combined.includes('수호대') || combined.includes('경비대') || combined.includes('호위')) return 'military';
+  if (combined.includes('미망인') || combined.includes('영주 부인') || combined.includes('영주') || combined.includes('귀족')) return 'court';
+  if (combined.includes('수도원장') || combined.includes('수사') || combined.includes('복사')) return 'clergy';
 
   return 'commoner';
 }
@@ -216,7 +224,7 @@ export function parsePersonalRelation(
   const explicitTag = tagMatch ? tagMatch[1].trim() : '';
   const descStr = rawDescStr.replace(/^\[.*?\]\s*/, '').trim();
 
-  // 직능 판별
+  // 직능 판별 (직책 우선 판별 SSOT 적용)
   const vocation = detectVocation(role, rawDescStr, name);
 
   // 직능별 기본 메타
@@ -230,6 +238,7 @@ export function parsePersonalRelation(
   };
 
   const combined = `${rawName} ${role} ${rawDescStr} ${affStr}`;
+  const roleNameTarget = `${name} ${role}`;
 
   // 1. 신뢰도 단계 추출 또는 자동 산정 (대시, 콜론, 괄호 뒤의 단계명 파싱 지원)
   const trustStageMatch = trustStr.match(/(?:[-\u2013\u2014:]|\()\s*\[?([가-힣]+)\]?/) || trustStr.match(/\[([가-힣]+)\]/);
@@ -265,7 +274,8 @@ export function parsePersonalRelation(
       affStage = getAffectionStage(affection);
     }
   } else {
-    if (combined.includes('맹우') || combined.includes('[맹우]')) {
+    // 비로맨스 우정도일 때만 맹우/숙적 판별
+    if (affStr.includes('맹우') || explicitTag.includes('맹우')) {
       affStage = '맹우';
     } else if (combined.includes('숙적') || combined.includes('라이벌')) {
       affStage = '숙적';
@@ -310,17 +320,45 @@ export function parsePersonalRelation(
   }
 
   // 2단계: 상급자 차단 게이트 (Superior Blocker)
-  // 상인/평민 직능은 봉건/교단 서열의 상급자가 될 수 없음 (마테오 사례 방어)
-  const isBlockedFromSuperior = vocation === 'merchant' || vocation === 'commoner';
+  // 미망인, 영주 부인, 섭정, 부인, 신도, 상인, 평민은 봉건/교단 서열의 상급자가 될 수 없음 (베아트리체, 엘레오노라, 마테오 사례 철저 방어)
+  const isPatronPerson = 
+    roleNameTarget.includes('미망인') || 
+    roleNameTarget.includes('영주 부인') || 
+    roleNameTarget.includes('섭정') || 
+    roleNameTarget.includes('신도') || 
+    roleNameTarget.includes('과부') ||
+    rawDescStr.includes('미망인') ||
+    rawDescStr.includes('영주 부인');
 
-  // 3단계: 명시적 상급자 태그 판별
-  const hasExplicitSuperiorTag = explicitTag.includes('상급자') || rawDescStr.includes('[상급자]');
+  // 진짜 독립 작위 보유자(예: '여백작', '여공작')는 부인이 아니므로 예외 허용
+  const isRealRulingNoble = roleNameTarget.includes('여백작') || roleNameTarget.includes('여공작');
+
+  const isBlockedFromSuperior = 
+    vocation === 'merchant' || 
+    vocation === 'commoner' || 
+    (isPatronPerson && !isRealRulingNoble);
+
+  // 3단계: 명시적 상급자 태그 판별 (단, 차단 게이트 통과자만)
+  const hasExplicitSuperiorTag = !isBlockedFromSuperior && (explicitTag.includes('상급자') || rawDescStr.includes('[상급자]'));
   
-  // 4단계: 키워드 기반 상급자 판별 (기관명 오인식 방어)
-  // '주교좌'는 장소/기관명이므로 '주교' 단순 포함에서 엄격 배제
-  const isClergySuperior = (combined.includes('교구장') || combined.includes('대주교') || combined.includes('교황') || combined.includes('종정') || combined.includes('관구장') || combined.includes('추기경')) ||
-                           (combined.includes('주교') && !combined.includes('주교좌'));
-  const isFeudalSuperior = combined.includes('주군') || combined.includes('국왕') || combined.includes('황제') || combined.includes('스승') || combined.includes('백작') || combined.includes('공작');
+  // 4단계: 키워드 기반 상급자 판별 (기관명 및 설명문 오인식 철저 방어)
+  // ★ 중요: 설명문(rawDescStr)에는 '주교 등극에', '주교의 위세에'처럼 플레이어의 신분이 자주 언급되므로,
+  // 상급자 여부는 오직 NPC 본인의 이름과 직책(roleNameTarget) 및 명시적 [상급자] 태그로만 판별해야 함!
+  const isClergySuperior = 
+    roleNameTarget.includes('교구장') || 
+    roleNameTarget.includes('대주교') || 
+    roleNameTarget.includes('교황') || 
+    roleNameTarget.includes('종정') || 
+    roleNameTarget.includes('관구장') || 
+    roleNameTarget.includes('추기경') || 
+    (roleNameTarget.includes('주교') && !roleNameTarget.includes('주교좌') && !roleNameTarget.includes('보좌'));
+
+  const isFeudalSuperior = 
+    roleNameTarget.includes('주군') || 
+    roleNameTarget.includes('국왕') || 
+    roleNameTarget.includes('황제') || 
+    roleNameTarget.includes('스승') || 
+    (!roleNameTarget.includes('부인') && (roleNameTarget.includes('백작') || roleNameTarget.includes('공작')));
 
   const isSuperior = !isBlockedFromSuperior && (hasExplicitSuperiorTag || ((isClergySuperior || isFeudalSuperior) && !explicitTag.includes('동료') && !explicitTag.includes('직속부하') && !explicitTag.includes('가신')));
 
@@ -358,9 +396,24 @@ export function parsePersonalRelation(
 
   // 5단계: 후원자 / 유력 신도 / 고용주 판별
   const hasExplicitPatronTag = explicitTag.includes('후원자') || rawDescStr.includes('[후원자]');
-  const isPatronKeyword = combined.includes('후원자') || combined.includes('신도') || combined.includes('미망인') || combined.includes('고용주') || combined.includes('의뢰인') || combined.includes('영부인') || combined.includes('대상인');
+  const isPatronRole = 
+    roleNameTarget.includes('미망인') || 
+    roleNameTarget.includes('신도') || 
+    roleNameTarget.includes('후원자') || 
+    roleNameTarget.includes('영주 부인') || 
+    roleNameTarget.includes('영부인') || 
+    roleNameTarget.includes('섭정') || 
+    roleNameTarget.includes('고용주') || 
+    roleNameTarget.includes('의뢰인') ||
+    rawDescStr.includes('미망인') ||
+    rawDescStr.includes('영주 부인');
 
-  if (hasExplicitPatronTag || isPatronKeyword) {
+  // 상인 직능(마테오 등)은 명시적 [후원자] 태그가 없는 한 기본적으로 협력 '동료(상업 파트너)'로 유지 (설명문 속 '대상인' 수식어 오분류 방어)
+  const isMerchantPeer = vocation === 'merchant' && !hasExplicitPatronTag && !role.includes('후원');
+
+  const isPatron = !isMerchantPeer && (hasExplicitPatronTag || isPatronRole || (!isSuperior && (combined.includes('후원자') || combined.includes('신도'))));
+
+  if (isPatron) {
     return {
       id: name,
       raw: rawRel,
