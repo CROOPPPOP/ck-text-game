@@ -629,9 +629,10 @@ export default function Home() {
   let promotionOption: any = null;
   let derivedUpgradeOptions: any[] = [];
 
-  if (gameState?.estate && gameState.estate.level) {
-    const estateLevelMatch = gameState.estate.level.match(/Lv\.?\s*(\d+)/i);
-    const estateLevel = estateLevelMatch ? parseInt(estateLevelMatch[1], 10) : 1;
+  if (gameState?.estate && gameState.estate.level !== undefined && gameState.estate.level !== null) {
+    const estateLevel = typeof gameState.estate.level === 'number'
+      ? gameState.estate.level
+      : (parseInt(String(gameState.estate.level).match(/(?:Lv\.?|레벨)?\s*(\d+)/i)?.[1] || '1', 10));
 
     const promoCheck = checkPromotion(estateLevel, gameState.estate.buildings, gameState.factionState, !!gameState.factionState);
     if (promoCheck.canPromote) {

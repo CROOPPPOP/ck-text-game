@@ -342,10 +342,15 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                   boxShadow: target.canPromote ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                    <div>
-                      <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.15)', color: '#7dd3fc', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '1px 6px', borderRadius: '4px', marginRight: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.15)', color: '#7dd3fc', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
                         {target.ceremonyName}
                       </span>
+                      {target.pathwayLabel && (
+                        <span style={{ fontSize: '0.7rem', background: 'rgba(192, 132, 252, 0.15)', color: '#e9d5ff', border: '1px solid rgba(192, 132, 252, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                          {target.pathwayLabel}
+                        </span>
+                      )}
                       <strong style={{ fontSize: '1.05rem', color: target.canPromote ? '#6ee7b7' : 'var(--text-main)' }}>
                         목표: {target.targetRank}
                       </strong>
@@ -374,6 +379,20 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                       </div>
                     ))}
                   </div>
+
+                  {/* Unlocked Benefits */}
+                  {target.benefits && target.benefits.length > 0 && (
+                    <div style={{ background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.25)', padding: '8px 10px', borderRadius: '6px' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: 'var(--gold-accent)', marginBottom: '3px' }}>
+                        🎁 승격 시 해금 권능 및 영구 혜택:
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.74rem', color: '#fef08a' }}>
+                        {target.benefits.map((b, bIdx) => (
+                          <div key={bIdx}>• {b}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '6px', lineHeight: '1.4' }}>
                     {target.historicalLore}

@@ -1,6 +1,19 @@
 // Single Source of Truth (SSOT) for Faction Relations, Normalization & Deduplication
 // 세력 간 외교 상태의 명칭 이형태(성당 ↔ 대성당, 공국 ↔ 공작령 등)를 정규화하고 중복 쪼개짐을 완벽 방지
 
+export type HostilityTier = 0 | 1 | 2 | 3 | 4;
+
+export interface FactionHostility {
+  score: number;             // 0 ~ 100
+  tier: HostilityTier;       // 0: 평화·우호, 1: 경계·경쟁, 2: 긴장·마찰, 3: 위기·적대, 4: 전면 전쟁
+  tierLabel: string;         // 'Lv.0 평화·우호', 'Lv.1 경계·경쟁', 'Lv.2 긴장·마찰', 'Lv.3 위기·적대', 'Lv.4 전면 전쟁'
+  color: string;             // Hex color code
+  bgColor: string;           // RGBA background
+  borderColor: string;       // Border color
+  activeThreats: string[];   // 발동 중인 위협 및 디버프
+  mitigationTips: string[];  // 완화 및 해소 방안
+}
+
 export interface ParsedFactionRelation {
   raw: string;
   name: string;           // 표시용 세력명 (예: '[우르비노 주교좌 대성당]')
@@ -9,6 +22,104 @@ export interface ParsedFactionRelation {
   status: string;         // 외교 상태 (예: '주종 관계(교구 재정관 겸 참사회 수석위원)')
   threat: string;         // 위협도 (예: '안전')
   attitude: string;       // 태도 (예: '우호적')
+  hostility: FactionHostility; // 5단계 적대도 및 정량 위기 지표
+}
+
+/**
+ * 외교 상태, 위협도, 태도 및 원본 텍스트를 종합 분석하여
+ * 0~100의 정량 적대도 점수와 5단계 위기 레벨(Lv.0~4)을 산출합니다.
+ */
+export function calculateFactionHostility(
+  status: string = '',
+  threat: string = '',
+  attitude: string = '',
+  rawText: string = ''
+): FactionHostility {
+  const combined = `${status} ${threat} ${attitude} ${rawText}`;
+  
+  // 1. 명시적 숫자 추출 (예: '적대도 70', '적대: 80', '적대도: [65]')
+  const explicitScoreMatch = combined.match(/적대(?:도)?\s*[:\s\[\(]?\s*(\d+)/);
+  let score: number = 0;
+
+  if (explicitScoreMatch) {
+    score = Math.min(100, Math.max(0, parseInt(explicitScoreMatch[1], 10)));
+  } else {
+    // 2. 키워드 기반 기본 점수 산출
+    let base = 20; // 기본 평화/중립치
+
+    // 위협도
+    if (threat.includes('치명') || threat.includes('파멸') || threat.includes('극도')) base += 50;
+    else if (threat.includes('위험') || threat.includes('높음')) base += 35;
+    else if (threat.includes('경계') || threat.includes('보통')) base += 15;
+    else if (threat.includes('안전') || threat.includes('낮음')) base -= 10;
+
+    // 태도
+    if (attitude.includes('전쟁') || attitude.includes('교전') || attitude.includes('증오') || attitude.includes('극적대')) base += 40;
+    else if (attitude.includes('적대') || attitude.includes('원한') || attitude.includes('불신')) base += 25;
+    else if (attitude.includes('경계') || attitude.includes('냉담') || attitude.includes('냉정')) base += 10;
+    else if (attitude.includes('우호') || attitude.includes('친선') || attitude.includes('동맹')) base -= 20;
+
+    // 상태/지위
+    if (status.includes('전쟁') || status.includes('침공') || status.includes('토벌') || status.includes('봉쇄')) base += 35;
+    else if (status.includes('경쟁') || status.includes('분쟁') || status.includes('갈등') || status.includes('압박')) base += 15;
+    else if (status.includes('동맹') || status.includes('주종') || status.includes('신종') || status.includes('조약')) base -= 20;
+
+    score = Math.min(100, Math.max(0, base));
+  }
+
+  // 3. 5단계 Tier 및 세부 메타 결정
+  let tier: HostilityTier = 0;
+  let tierLabel = 'Lv.0 평화·우호';
+  let color = '#10b981';
+  let bgColor = 'rgba(16, 185, 129, 0.15)';
+  let borderColor = '#059669';
+  let activeThreats: string[] = ['안정적인 국경 및 상호 우호 조약 유지'];
+  let mitigationTips: string[] = ['정기 외교 서신 교환', '공동 축제 및 종교 축일 축하'];
+
+  if (score >= 85 || combined.includes('전쟁') || combined.includes('교전')) {
+    tier = 4;
+    tierLabel = 'Lv.4 전면 전쟁';
+    color = '#ef4444';
+    bgColor = 'rgba(239, 68, 68, 0.25)';
+    borderColor = '#b91c1c';
+    activeThreats = ['전면 침공 및 공성전 개시', '직할령 약탈 및 수확물 소각', '모든 무역로 즉각 차단'];
+    mitigationTips = ['무조건 항복 또는 막대한 전시 배상금 지급', '교황청/상위 군주의 즉각 정전 중재 요청', '동맹군 긴급 구원 요청'];
+  } else if (score >= 65 || combined.includes('위기') || combined.includes('적대')) {
+    tier = 3;
+    tierLabel = 'Lv.3 위기·적대';
+    color = '#f97316';
+    bgColor = 'rgba(249, 115, 22, 0.2)';
+    borderColor = '#ea580c';
+    activeThreats = ['국경 지역 약탈 및 사병 도발', '상단 대상 통행세 폭리 부과', '암살 및 흑색선전 공작'];
+    mitigationTips = ['특사 파견 및 외교 선물 공여', '상호 불가침 밀약 체결', '교단 중재 및 영토 경계 협상'];
+  } else if (score >= 45 || combined.includes('긴장') || combined.includes('마찰')) {
+    tier = 2;
+    tierLabel = 'Lv.2 긴장·마찰';
+    color = '#eab308';
+    bgColor = 'rgba(234, 179, 8, 0.2)';
+    borderColor = '#ca8a04';
+    activeThreats = ['외교적 비난 및 관계 냉각', '교역 물품 검문 강화', '정치적 견제 투서'];
+    mitigationTips = ['친선 연회 초대', '상업 이권 분할 협약', '상급자/주군을 통한 외교적 화해'];
+  } else if (score >= 25 || combined.includes('경계') || combined.includes('경쟁')) {
+    tier = 1;
+    tierLabel = 'Lv.1 경계·경쟁';
+    color = '#38bdf8';
+    bgColor = 'rgba(56, 189, 248, 0.15)';
+    borderColor = '#0284c7';
+    activeThreats = ['세력권 확장 경쟁', '상업 길드 내 알력 다툼'];
+    mitigationTips = ['호의적 서신 및 특산품 교환', '합동 순찰 또는 사절 영접'];
+  }
+
+  return {
+    score,
+    tier,
+    tierLabel,
+    color,
+    bgColor,
+    borderColor,
+    activeThreats,
+    mitigationTips
+  };
 }
 
 /**
@@ -121,6 +232,7 @@ export function parseFactionRelation(rel: string): ParsedFactionRelation {
 
   const cleanName = rawName.replace(/[\[\]]/g, '').trim();
   const canonicalKey = getCanonicalFactionKey(rawName);
+  const hostility = calculateFactionHostility(status, threat, attitude, rel);
 
   return {
     raw: rel,
@@ -129,7 +241,8 @@ export function parseFactionRelation(rel: string): ParsedFactionRelation {
     canonicalKey,
     status,
     threat,
-    attitude
+    attitude,
+    hostility
   };
 }
 
@@ -190,3 +303,52 @@ export function mergeFactionLists(prevFactions: string[] = [], newFactions: stri
   const combined = [...prevFactions, ...newFactions];
   return mergeAndDeduplicateFactionRelations(combined);
 }
+
+/**
+ * 전체 세력 중 가장 높은 위협/적대도를 가진 세력 및 위기 상태를 추출합니다 (HUD 경보용).
+ */
+export function getHighestThreatFaction(factions: string[] = []): {
+  maxHostility: FactionHostility;
+  factionName: string;
+  hasThreat: boolean;
+} {
+  if (!factions || factions.length === 0) {
+    return {
+      maxHostility: calculateFactionHostility('', '', ''),
+      factionName: '',
+      hasThreat: false
+    };
+  }
+
+  const parsed = factions.map(f => parseFactionRelation(f));
+  let highest = parsed[0];
+  for (let i = 1; i < parsed.length; i++) {
+    if (parsed[i].hostility.score > highest.hostility.score) {
+      highest = parsed[i];
+    }
+  }
+
+  return {
+    maxHostility: highest.hostility,
+    factionName: highest.cleanName,
+    hasThreat: highest.hostility.tier >= 2 // Lv.2 긴장·마찰 이상일 때 상단 HUD 경보 발령
+  };
+}
+
+/**
+ * LLM 프롬프트 주입용 세력 적대도 및 위기 단계 요약 포맷터
+ */
+export function formatFactionHostilityForPrompt(factions: string[] = []): string {
+  if (!factions || factions.length === 0) return '';
+  const parsed = factions.map(f => parseFactionRelation(f));
+  const lines = parsed.slice(0, 5).map(p => {
+    return `- [${p.cleanName}] (${p.hostility.tierLabel} | 적대도 ${p.hostility.score}/100 | 태도: ${p.attitude || '중립'} | 위협도: ${p.threat || '보통'})
+  * 직면 위협: ${p.hostility.activeThreats.join(', ')}
+  * 해소 수단: ${p.hostility.mitigationTips.join(', ')}`;
+  });
+
+  return `[세력 간 적대도 및 위기 단계 (Faction Hostility SSOT)]
+다음 세력들과의 적대도(0~100)와 5단계 위기 레벨에 맞춰 국경 충돌, 교역 제한, 전면 전쟁 등의 외교적 위기 및 결단 선택지를 생성하세요:
+${lines.join('\n')}`;
+}
+

@@ -11,13 +11,18 @@ export interface PromotionRequirement {
   desc: string;
 }
 
+export type PromotionPathway = 'orthodox' | 'usurpation' | 'charter';
+
 export interface PromotionTarget {
   targetRank: string;
   targetArchetype: 'wanderer' | 'company' | 'clergy' | 'noble';
   ceremonyName: string;
   ceremonyType: 'investiture' | 'knighting' | 'charter' | 'conclave' | 'enfeoffment' | 'usurpation';
+  pathway: PromotionPathway;
+  pathwayLabel: string;
   historicalLore: string;
   requirements: PromotionRequirement[];
+  benefits: string[];
   canPromote: boolean;
   progressPercent: number;
 }
@@ -266,76 +271,129 @@ export const STATUS_LADDER: Record<string, {
   }
 };
 
-/**
- * 플레이어의 현재 신분을 바탕으로 신분 승격 가능성을 평가합니다.
- */
+export function getBenefitsForTarget(targetRank: string, archetype: string): string[] {
+  if (targetRank.includes('교황')) {
+    return [
+      '전 유럽 기독교 세계 최고 주권자 등극',
+      '전 군주 파문(Excommunication) 및 십자군 발의권 획득',
+      '바티칸 성좌 및 교황령 직할 통솔권 장악'
+    ];
+  }
+  if (targetRank.includes('대주교') || targetRank.includes('공작') || targetRank.includes('대공')) {
+    return [
+      '직할 영지/교구 보유 한계(Domain Limit) +1개소 영구 확장',
+      '턴 당 기본 위신 획득량 +1.8/턴 대폭 도약',
+      '관구 전체 최고위 교단 재판권 및 대제후급 외교 발언권 획득',
+      '최고위 신성 결단 [교황 선출 콘클라베 참가권] 개방'
+    ];
+  }
+  if (targetRank.includes('주교') || targetRank.includes('백작') || targetRank.includes('후작')) {
+    return [
+      '직할 영지/교구 보유 한계(Domain Limit) +1개소 영구 확장',
+      '턴 당 기본 위신 획득량 +1.4/턴 대폭 도약',
+      '신앙/위신 특수 결단 [교황청 명분 청원], [시노드 자치권] 전면 개방',
+      '독자적 영지 조세권 및 주교좌/백작령 자치 불가침권 확립'
+    ];
+  }
+  if (targetRank.includes('수도원장') || targetRank.includes('남작') || targetRank.includes('자작')) {
+    return [
+      '직할 영지/수도원 한계 기본 2개소 보장',
+      '턴 당 기본 위신/신앙 획득량 +1.0/턴 상승',
+      '정식 봉건 가신/수도자 정규 서임권 개방',
+      '주변 세속 군주들과의 합법적 외교 조약 권한 획득'
+    ];
+  }
+  if (targetRank.includes('기사') || targetRank.includes('용병대장') || targetRank.includes('상단주') || targetRank.includes('길드마스터')) {
+    return [
+      '정식 귀족/용병대장/대길드 수장 공식 인가',
+      '턴 당 군자금 및 상비군 징집력 대폭 확충',
+      '독자적 상업 특허장 및 무기 소지 면허 획득'
+    ];
+  }
+  return [
+    '사회적 신분 상승 및 거점 정착 권리 획득',
+    '마을 호적 등재 및 자유민 신분 공인',
+    '상위 직업군(용병/도제/학사/성직) 성장 사다리 전면 개방'
+  ];
+}
+
 export function checkStatusPromotion(gameState: ParsedState): PromotionStatusReport {
-  const rawStatus = gameState.personalInfo?.['신분'] || gameState.personalInfo?.['직위'] || '평민';
-  const cleanStatus = rawStatus.split('/')[0].split('(')[0].trim();
+  const cleanStatus = (gameState.personalInfo?.['신분'] || gameState.personalInfo?.['직위'] || '평민')
+    .split('/')[0].split('(')[0].trim();
 
   const resources = parseCKResources(gameState);
-  
-  // 1. 화폐/자금 수치 추출
+  const attributes = calculateCKAttributes(gameState);
+
+  // 1. 금화 수치 추출
   let playerGold = 0;
-  if (resources.gold) {
-    playerGold = extractNumericValue(resources.gold);
-  }
-  if (gameState.inventory?.wealth) {
-    const rawW = gameState.inventory.wealth;
-    const wealthList: string[] = Array.isArray(rawW) ? rawW : typeof rawW === 'string' ? [rawW] : [];
-    wealthList.forEach(w => {
-      const v = extractNumericValue(w);
-      if (v > playerGold) playerGold = v;
-    });
-  }
-  if ((gameState.inventory as any)?.['재산및병력']) {
-    const rawInv = (gameState.inventory as any)['재산및병력'];
-    if (Array.isArray(rawInv)) {
-      rawInv.forEach((w: string) => {
-        const v = extractNumericValue(w);
-        if (v > playerGold) playerGold = v;
-      });
-    }
+  const wealthStr = String(resources.gold || '');
+  const goldMatch = wealthStr.match(/(\d+)/);
+  if (goldMatch) {
+    playerGold = parseInt(goldMatch[1], 10);
   }
 
-  // 2. 명성 / 위신 수치 추출 (SSOT parseCKResources 완전 일치 연동)
+  // 2. 명성 / 위신 수치 (소모성 점수와 영구 단계 동시 연동)
   let playerPrestige = resources.prestigeScore || 30;
-  if (!playerPrestige) {
-    const rawPrestige = gameState.stats?.acquired?.['명성'] || gameState.personalInfo?.['명성'];
-    if (rawPrestige) playerPrestige = extractNumericValue(rawPrestige);
-  }
+  const prestigeTier = resources.prestigeTier || 1;
 
-  // 3. 신앙 / 경건 수치 추출 (SSOT parseCKResources 완전 일치 연동)
+  // 3. 신앙 / 경건 수치 (소모성 점수와 영구 단계 동시 연동)
   let playerPiety = resources.pietyScore || 30;
-  if (!playerPiety) {
-    const pietyStatus = gameState.playerStatus?.find(s => s.name.includes('신앙') || s.name.includes('경건'));
-    if (pietyStatus) playerPiety = extractNumericValue(pietyStatus.value);
-  }
+  const pietyTier = resources.pietyTier || 1;
 
   // 거점 레벨 추출
   let estateLevel = 1;
-  if (gameState.estate?.level) {
-    const lvMatch = gameState.estate.level.match(/(?:Lv\.?|레벨)\s*(\d+)/i);
-    if (lvMatch) estateLevel = parseInt(lvMatch[1], 10);
+  if (gameState.estate?.level !== undefined && gameState.estate?.level !== null) {
+    if (typeof gameState.estate.level === 'number') {
+      estateLevel = gameState.estate.level;
+    } else {
+      const lvMatch = String(gameState.estate.level).match(/(?:Lv\.?|레벨)?\s*(\d+)/i);
+      if (lvMatch) estateLevel = parseInt(lvMatch[1], 10);
+    }
   }
 
-  // 상급자 최고 신뢰도 추출 (SSOT getSuperiorApprovalTrust 적용: 마테오 등 상인 배제, 진짜 상급자만 판별)
+  // 상급자 최고 신뢰도 추출
   const superiorApproval = getSuperiorApprovalTrust(gameState.relationships?.personal, resources.archetype);
   const maxSuperiorTrust = superiorApproval.maxTrust;
 
   const ladderInfo = STATUS_LADDER[cleanStatus] || STATUS_LADDER['평민'];
-  
-  // 현재 신분 티어에 따른 기본 입지 가산 (고위직일수록 기본 입지와 신망 반영)
-  const tierBonus = (ladderInfo.tier || 0) * 8;
-  playerPrestige = Math.min(100, playerPrestige + tierBonus);
-  playerPiety = Math.min(100, playerPiety + tierBonus);
 
   const possibleTargets: PromotionTarget[] = [];
 
   ladderInfo.nextRanks.forEach(next => {
-    // 성직자는 신앙도 우선, 나머지는 명성 우선
-    const testScore = next.archetype === 'clergy' ? Math.max(playerPiety, playerPrestige) : Math.max(playerPrestige, playerPiety);
-    const scoreLabel = next.archetype === 'clergy' ? '신앙심' : '명성 및 위신';
+    const isClergy = next.archetype === 'clergy';
+    const testScore = isClergy ? Math.max(playerPiety, playerPrestige) : Math.max(playerPrestige, playerPiety);
+    const currentTier = isClergy ? Math.max(pietyTier, prestigeTier) : Math.max(prestigeTier, pietyTier);
+    const scoreLabel = isClergy ? '신앙심 및 영성' : '명망 및 가문 위신';
+
+    // 요구 영구 단계 (Tier 1 ~ 5)
+    const reqTier = next.minPrestigeOrPiety >= 180 ? 4 : next.minPrestigeOrPiety >= 90 ? 3 : next.minPrestigeOrPiety >= 40 ? 2 : 1;
+
+    // 경로 판별
+    const pathway: PromotionPathway = next.ceremonyType === 'usurpation' 
+      ? 'usurpation' 
+      : next.ceremonyType === 'charter' 
+      ? 'charter' 
+      : 'orthodox';
+
+    const pathwayLabel = pathway === 'usurpation'
+      ? '⚔️ 실력 점거 및 참칭'
+      : pathway === 'charter'
+      ? '📜 특허장/칙서 매입'
+      : '👑 정통 봉건/교단 서임';
+
+    // 상급자 승인 판정 (경로 다변화)
+    let superiorMet = maxSuperiorTrust >= next.superiorTrustReq;
+    let superiorDesc = `주군/상관 공식 신뢰도 (${maxSuperiorTrust} / ${next.superiorTrustReq})`;
+
+    if (pathway === 'usurpation') {
+      const martialOrIntrigue = Math.max(attributes.martial.value, attributes.prowess.value, attributes.intrigue.value);
+      superiorMet = superiorApproval.hasSuperior ? (maxSuperiorTrust >= next.superiorTrustReq || martialOrIntrigue >= 14) : true;
+      superiorDesc = superiorMet ? `실력 장악 충족 (무력/계책 ${martialOrIntrigue}점 또는 상관 신뢰)` : `상관 승인 또는 무력/계책 14점 이상 필요`;
+    } else if (pathway === 'charter') {
+      const hasEnoughGoldForBypass = playerGold >= Math.round(next.minGold * 1.25);
+      superiorMet = maxSuperiorTrust >= next.superiorTrustReq || hasEnoughGoldForBypass;
+      superiorDesc = superiorMet ? `특허장 매입 자금 충족 (${playerGold}/${next.minGold})` : `상관 승인 또는 특허장 기금 충족 필요`;
+    }
 
     const reqs: PromotionRequirement[] = [
       {
@@ -349,10 +407,10 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
       {
         id: 'reputation',
         label: scoreLabel,
-        current: testScore,
-        target: next.minPrestigeOrPiety,
-        met: testScore >= next.minPrestigeOrPiety,
-        desc: `사회적 신망 및 입지 (${testScore} / ${next.minPrestigeOrPiety})`
+        current: `${testScore}점 (Lv.${currentTier})`,
+        target: `${next.minPrestigeOrPiety}점 (Lv.${reqTier})`,
+        met: testScore >= next.minPrestigeOrPiety && currentTier >= reqTier,
+        desc: `영구 명망/신앙 단계 및 축적 점수 (${testScore}점 / 요구 ${next.minPrestigeOrPiety}점, Lv.${reqTier}+)`
       },
       {
         id: 'estate',
@@ -360,15 +418,15 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
         current: `Lv.${estateLevel}`,
         target: `Lv.${next.minEstateLevel}`,
         met: estateLevel >= next.minEstateLevel,
-        desc: `거점 인프라 (${estateLevel} / ${next.minEstateLevel})`
+        desc: `거점 인프라 규모 (Lv.${estateLevel} / Lv.${next.minEstateLevel})`
       },
       {
         id: 'superior',
-        label: '상급자/후원자 승인',
+        label: pathway === 'usurpation' ? '권력 승인 / 실력 장악' : pathway === 'charter' ? '특허장 / 상관 공인' : '상급자 / 주군 승인',
         current: maxSuperiorTrust,
         target: next.superiorTrustReq,
-        met: maxSuperiorTrust >= next.superiorTrustReq,
-        desc: `상관 신뢰도 (${maxSuperiorTrust} / ${next.superiorTrustReq})`
+        met: superiorMet,
+        desc: superiorDesc
       }
     ];
 
@@ -381,8 +439,11 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
       targetArchetype: next.archetype,
       ceremonyName: next.ceremony,
       ceremonyType: next.ceremonyType,
+      pathway,
+      pathwayLabel,
       historicalLore: next.lore,
       requirements: reqs,
+      benefits: getBenefitsForTarget(next.target, next.archetype),
       canPromote,
       progressPercent
     });

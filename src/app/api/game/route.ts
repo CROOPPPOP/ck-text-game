@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { parseLLMResponse } from "@/lib/parser";
+import { formatNPCAgendasForPrompt } from "@/lib/characterRelations";
+import { formatFactionHostilityForPrompt } from "@/lib/factionRelations";
 
 export async function POST(req: Request) {
   try {
@@ -164,6 +166,16 @@ Your goal is to simulate a highly consistent, ruthless, and historically authent
      * 소규모 집단: 도적단 두목(사면) -> 용병대장/상단주/촌장 -> 장원 관리인/길드마스터 -> 남작(영지 수봉 칙서 / 영지 매입)
      * 봉건 귀족: 기사 -> 남작(분봉) -> 자작(부영주) -> 백작(주 수봉) -> 변경백(후작) -> 공작(대제후) -> 황제(제국 대관식)
    - 승격 성공 시: 【 개인 정보 】의 [신분] 및 [직위]를 반드시 해당 단일 명칭으로 즉시 승격 갱신하고, 그에 걸맞은 명성과 영지 위상을 부여하십시오.
+
+5. 【 NPC 자율 지능 및 능동적 아젠다 규칙 (NPC Dynamic Agendas & Proactive Behaviors) 】:
+   - 등장인물(베아트리체, 엘레오노라, 마틸다, 마테오, 베르나르도 등)은 단순한 대화 상대나 수동적 반응자가 아니라, 각자의 [고유 동기](가문 혈통, 권력 야심, 상업 실리, 충의와 명예, 애정과 유대)와 [내면 심리], [능동적 의도]를 지닌 자율적 지능 에이전트입니다.
+   - 플레이어의 신분 승격, 영지 확장, 자금 축적, 결단 행동에 맞춰 적극적으로 아첨, 직속 청탁, 비밀 만찬 초대, 선물 진상, 독점권 청원, 혹은 정적 투서 및 배후 견제 공작 등의 고유 행동을 본문 서사와 대화문에서 전개하십시오.
+   - 예시: 주교로 승격된 플레이어에게 유력 신도 미망인(베아트리체)은 장원 보전을 위한 후원을 바라며 올리브유 첫 압착분을 바치고, 섭정 영주 부인(엘레오노라)은 섭정권 유지를 위해 외교 기밀을 나누며, 상단 행수(마테오)는 독점 납품 칙허를 얻기 위해 희귀 향신료를 진상하는 등 현실적 이해관계를 대화와 행동에 적극 반영하십시오.
+
+6. 【 세력 적대도 5단계 및 위기 시뮬레이션 규칙 (Faction Hostility 5-Tier SSOT) 】:
+   - 세력 간 관계는 0~100 수치와 5단계 위기 레벨(Lv.0 평화·우호, Lv.1 경계·경쟁, Lv.2 긴장·마찰, Lv.3 위기·적대, Lv.4 전면 전쟁)을 따릅니다.
+   - 적대도가 상승함에 따라 국경 긴장, 교역품 검문/통행세 부과, 사병 도발, 정적 규합 및 사문서 위조, 전면 공성/약탈 등의 직접적인 위협과 페널티가 발생합니다.
+   - 선택지(Choices) 생성 시, 적대 세력과의 위기를 완화하거나 타개할 수 있는 현실적 수단(외교 사절 파견, 친선 연회 초대, 상업 이권 양보, 배상금 지급, 상위 군주/교황청 중재 청원, 또는 선제 기습 타격)을 반드시 포함하십시오.
 
 [STRICT FORMATTING RULES]
 You MUST ALWAYS use the following strict markdown format for your responses. Do not deviate. 
@@ -357,7 +369,19 @@ YYYY년 MM월 DD일 / 위치 [턴 수: N]
        const chronicleSummary = currentState.chronicle && currentState.chronicle.length > 0
          ? `\n\n[가문 연대기 (과거 주요 역사 기록)]:\n` + currentState.chronicle.slice(-6).map((c: any) => `- [턴 ${c.turn} | ${c.dateLocation || ''}] 행동: "${c.action}" -> 판정: ${c.result || '진행'}`).join('\n') + `\n(AI는 과거의 주요 역사적 사건, 은원 관계 및 플레이어의 과거 행동을 기억하고 현재 상황에 유기적으로 반영하십시오.)\n`
          : "";
-       userPrompt = `이전 턴의 게임 상태(JSON): ${JSON.stringify(currentState)}${chronicleSummary}\n\n플레이어의 행동: ${action}\n\n이 행동을 판정하고, 인과율에 맞춰 다음 턴의 상태를 위의 엄격한 포맷에 맞춰 텍스트로 반환하세요.`;
+
+       const personalRels = currentState.relationships?.personal || [];
+       const factionRels = currentState.relationships?.faction || [];
+       const playerArchetype = currentState.personalInfo?.['신분'] || 'noble';
+
+       const npcAgendasPrompt = formatNPCAgendasForPrompt(personalRels, playerArchetype);
+       const factionHostilityPrompt = formatFactionHostilityForPrompt(factionRels);
+
+       const relationsPromptInjection = (npcAgendasPrompt || factionHostilityPrompt)
+         ? `\n\n${npcAgendasPrompt ? npcAgendasPrompt + '\n\n' : ''}${factionHostilityPrompt ? factionHostilityPrompt + '\n\n' : ''}`
+         : "";
+
+       userPrompt = `이전 턴의 게임 상태(JSON): ${JSON.stringify(currentState)}${chronicleSummary}${relationsPromptInjection}\n\n플레이어의 행동: ${action}\n\n이 행동을 판정하고, 인과율에 맞춰 다음 턴의 상태를 위의 엄격한 포맷에 맞춰 텍스트로 반환하세요.`;
     }
 
     if (wantStream) {

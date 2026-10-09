@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
 import { getArchetypeDetails } from '@/lib/ckVisuals';
 import { parseAllPersonalRelations, ParsedCharacterRelation } from '@/lib/characterRelations';
-import { mergeAndDeduplicateFactionRelations } from '@/lib/factionRelations';
-import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck } from 'lucide-react';
+import { mergeAndDeduplicateFactionRelations, parseFactionRelation } from '@/lib/factionRelations';
+import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck, AlertTriangle, Compass, Flame } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -87,6 +87,7 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
       vocation: p.vocation,
       vocationLabel: p.vocationLabel,
       vocationIcon: p.vocationIcon,
+      agenda: p.agenda,
       isRomance: p.isRomance,
       isFriendship: p.isFriendship,
       isRival: p.isRival,
@@ -386,6 +387,52 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                       </div>
                     </div>
 
+                    {/* 3. NPC Dynamic Agenda & Proactive Action */}
+                    {c.agenda && (
+                      <div style={{
+                        background: 'rgba(0, 0, 0, 0.35)',
+                        borderRadius: '6px',
+                        padding: '9px 11px',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        fontSize: '0.76rem'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                          <span style={{ color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>🧠 고유 동기:</span>
+                          </span>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {c.agenda.motives.map((m, mIdx) => (
+                              <span key={mIdx} style={{
+                                background: 'rgba(212, 175, 55, 0.15)',
+                                color: '#fef08a',
+                                border: '1px solid rgba(212, 175, 55, 0.3)',
+                                borderRadius: '3px',
+                                padding: '1px 6px',
+                                fontSize: '0.68rem',
+                                fontWeight: 500
+                              }}>
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {c.agenda.innerThought && (
+                          <div style={{ color: '#94a3b8', fontStyle: 'italic', lineHeight: '1.35' }}>
+                            💭 &quot;{c.agenda.innerThought}&quot;
+                          </div>
+                        )}
+                        {c.agenda.proactiveAction && (
+                          <div style={{ color: '#38bdf8', display: 'flex', alignItems: 'flex-start', gap: '5px', lineHeight: '1.35' }}>
+                            <span style={{ fontWeight: 600, color: '#7dd3fc', flexShrink: 0 }}>⚡ 이번 턴 행동:</span>
+                            <span>{c.agenda.proactiveAction}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                   </div>
                 );
               })}
@@ -397,86 +444,127 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
           )}
         </div>
 
-        {/* 2. Faction Diplomacy */}
+        {/* 2. Faction Diplomacy & 5-Tier Hostility Engine */}
         <div>
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            justifyContent: 'space-between',
             color: 'var(--gold-accent)',
             fontSize: '1.1rem',
             fontWeight: 'bold',
             marginBottom: '14px',
             borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
-            paddingBottom: '8px'
+            paddingBottom: '8px',
+            flexWrap: 'wrap',
+            gap: '8px'
           }}>
-            <Shield size={18} />
-            <span>세력 간 외교 상태 (Faction Diplomacy)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shield size={18} />
+              <span>세력 외교 및 적대도 체계 (Faction Hostility SSOT)</span>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'normal' }}>
+              0~100 수치화 및 5단계 위기 레벨 (Lv.0 평화 ~ Lv.4 전면 전쟁)
+            </span>
           </div>
 
           {factionRels.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
               {factionRels.map((rel, idx) => {
-                const match = rel.match(/^(.*?)\s+-\s+(.*)$/);
-                const name = match ? match[1].replace(/^[○•\s]+/, '').trim() : rel;
-                const rest = match ? match[2].trim() : '미상';
-                const pipeParts = rest.split('|').map(p => p.trim());
-                const status = pipeParts[0];
-                let threat = '';
-                let attitude = '';
-                pipeParts.slice(1).forEach(p => {
-                  if (p.startsWith('위협도:')) threat = p.replace('위협도:', '').trim();
-                  if (p.startsWith('태도:')) attitude = p.replace('태도:', '').trim();
-                });
-
-                const isAllied = status.includes('동맹') || status.includes('우호');
-                const isHostile = status.includes('적대') || status.includes('교전') || status.includes('전쟁') || status.includes('파문');
-                const isVassal = status.includes('주종') || status.includes('봉신') || status.includes('주군');
-
-                const statusColor = isAllied ? '#38bdf8' : isHostile ? '#ef4444' : isVassal ? '#c084fc' : '#fbbf24';
-                const statusBg = isAllied ? 'rgba(56, 189, 248, 0.15)' : isHostile ? 'rgba(239, 68, 68, 0.15)' : isVassal ? 'rgba(192, 132, 252, 0.15)' : 'rgba(251, 191, 36, 0.15)';
+                const f = parseFactionRelation(rel);
+                const h = f.hostility;
 
                 return (
                   <div 
                     key={idx}
                     style={{
-                      background: 'rgba(0, 0, 0, 0.35)',
-                      border: `1px solid ${statusColor}44`,
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: `1px solid ${h.borderColor}`,
                       borderRadius: '8px',
-                      padding: '12px 14px',
+                      padding: '14px',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '8px'
+                      gap: '10px',
+                      boxShadow: h.tier >= 3 ? `0 0 14px ${h.bgColor}` : 'none'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {isHostile ? <Swords size={16} color="#ef4444" /> : <Shield size={16} color={statusColor} />}
-                        <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.95rem' }}>{name}</span>
+                        {h.tier >= 3 ? <Swords size={18} color={h.color} /> : <Shield size={18} color={h.color} />}
+                        <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.98rem' }}>{f.cleanName}</span>
                       </div>
-                      <span style={{
-                        fontSize: '0.8rem',
-                        fontWeight: 'bold',
-                        color: statusColor,
-                        background: statusBg,
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        border: `1px solid ${statusColor}`
-                      }}>
-                        {status}
-                      </span>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 'bold',
+                          color: h.color,
+                          background: h.bgColor,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          border: `1px solid ${h.borderColor}`,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {h.tierLabel}
+                        </span>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 500,
+                          color: '#e2e8f0',
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {f.status}
+                        </span>
+                      </div>
                     </div>
 
-                    {(threat || attitude) && (
-                      <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem' }}>
-                        {threat && (
-                          <span style={{ color: threat.includes('위험') || threat.includes('치명') ? '#f87171' : threat.includes('안전') ? '#4ade80' : '#fbbf24', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
-                            ⚠️ 위협: {threat}
+                    {/* Hostility Score Gauge */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem' }}>
+                        <span style={{ color: h.color, fontWeight: 600 }}>적대도 지표</span>
+                        <span style={{ color: h.color, fontWeight: 'bold' }}>{h.score} / 100</span>
+                      </div>
+                      <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: `${h.score}%`, height: '100%', background: `linear-gradient(90deg, #10b981, ${h.color})`, transition: 'width 0.3s' }} />
+                      </div>
+                    </div>
+
+                    {/* Threat & Mitigation Panel */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '5px',
+                      fontSize: '0.74rem',
+                      background: 'rgba(0,0,0,0.25)',
+                      padding: '8px 10px',
+                      borderRadius: '5px',
+                      border: '1px solid rgba(255,255,255,0.04)'
+                    }}>
+                      <div style={{ color: '#f87171', lineHeight: '1.3' }}>
+                        <span style={{ fontWeight: 600 }}>⚠️ 직면 위협: </span>
+                        <span>{h.activeThreats.join(' · ')}</span>
+                      </div>
+                      <div style={{ color: '#6ee7b7', lineHeight: '1.3' }}>
+                        <span style={{ fontWeight: 600 }}>🕊️ 완화 방안: </span>
+                        <span>{h.mitigationTips.join(' · ')}</span>
+                      </div>
+                    </div>
+
+                    {/* Sub Tags: Threat / Attitude */}
+                    {(f.threat || f.attitude) && (
+                      <div style={{ display: 'flex', gap: '8px', fontSize: '0.72rem', marginTop: '-2px' }}>
+                        {f.threat && (
+                          <span style={{ color: f.threat.includes('위험') || f.threat.includes('치명') ? '#f87171' : f.threat.includes('안전') ? '#4ade80' : '#fbbf24', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
+                            위협도: {f.threat}
                           </span>
                         )}
-                        {attitude && (
-                          <span style={{ color: attitude.includes('우호') ? '#38bdf8' : attitude.includes('적대') ? '#f87171' : '#e2e8f0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
-                            👁️ 태도: {attitude}
+                        {f.attitude && (
+                          <span style={{ color: f.attitude.includes('우호') ? '#38bdf8' : f.attitude.includes('적대') ? '#f87171' : '#e2e8f0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '3px' }}>
+                            태도: {f.attitude}
                           </span>
                         )}
                       </div>

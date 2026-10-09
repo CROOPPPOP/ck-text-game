@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
 import { parseCKResources, parseCKStress, getHeraldryEmblem } from '@/lib/ckVisuals';
 import { checkStatusPromotion } from '@/lib/statusPromotion';
-import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X } from 'lucide-react';
+import { getHighestThreatFaction } from '@/lib/factionRelations';
+import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X, Swords } from 'lucide-react';
 
 interface Props {
   gameState: ParsedState;
@@ -46,6 +47,7 @@ export default function CKTopHud({
   const stress = parseCKStress(gameState);
   const emblem = getHeraldryEmblem(rulerName, culture, resources.archetype);
   const promoReport = checkStatusPromotion(gameState);
+  const highestThreat = getHighestThreatFaction(gameState.relationships?.faction || []);
   const [showLedger, setShowLedger] = useState(false);
   const [showPrestigeTooltip, setShowPrestigeTooltip] = useState(false);
   const [showPietyTooltip, setShowPietyTooltip] = useState(false);
@@ -873,8 +875,10 @@ export default function CKTopHud({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
-            border: '1px solid rgba(200, 159, 60, 0.4)',
+            background: highestThreat.hasThreat
+              ? (highestThreat.maxHostility.tier >= 3 ? 'linear-gradient(180deg, #581c1c 0%, #2f0f0f 100%)' : 'linear-gradient(180deg, #452c10 0%, #291a0a 100%)')
+              : 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
+            border: highestThreat.hasThreat ? `1.5px solid ${highestThreat.maxHostility.color}` : '1px solid rgba(200, 159, 60, 0.4)',
             color: 'var(--gold-hover)',
             padding: '7px 16px',
             borderRadius: '6px',
@@ -882,16 +886,30 @@ export default function CKTopHud({
             fontWeight: 'bold',
             cursor: 'pointer',
             transition: 'all 0.2s',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
+            boxShadow: highestThreat.hasThreat ? `0 0 12px ${highestThreat.maxHostility.bgColor}` : '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
           }}
         >
-          <Heart size={15} style={{ color: '#fca5a5' }} />
+          {highestThreat.hasThreat ? <Swords size={15} style={{ color: highestThreat.maxHostility.color }} /> : <Heart size={15} style={{ color: '#fca5a5' }} />}
           <span>{
             resources.archetype === 'clergy' ? '⛪ 교구 인맥 (Relations)' :
             resources.archetype === 'wanderer' ? '🗡️ 방랑 인맥 (Relations)' :
             resources.archetype === 'company' ? '👥 대외 인맥 (Relations)' :
             '🤝 궁정 외교 (Court & Relations)'
           }</span>
+          {highestThreat.hasThreat && (
+            <span style={{
+              fontSize: '0.68rem',
+              color: '#ffffff',
+              background: highestThreat.maxHostility.color,
+              padding: '1px 6px',
+              borderRadius: '10px',
+              marginLeft: '4px',
+              fontWeight: 800,
+              boxShadow: '0 0 6px rgba(0,0,0,0.5)'
+            }}>
+              {highestThreat.maxHostility.tierLabel.split(' ')[0]}
+            </span>
+          )}
         </button>
 
         <button

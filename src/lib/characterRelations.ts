@@ -5,6 +5,12 @@ export type RelationTierId = 'superior' | 'patron' | 'peer' | 'subordinate' | 'r
 
 export type RelationVocation = 'military' | 'clergy' | 'merchant' | 'court' | 'scholar' | 'commoner';
 
+export interface NPCAgenda {
+  motives: string[];
+  innerThought: string;
+  proactiveAction: string;
+}
+
 export interface ParsedCharacterRelation {
   id: string;               // 정규화된 고유 인물 식별자 (중복 병합용)
   raw: string;              // 원본 문자열
@@ -39,6 +45,7 @@ export interface ParsedCharacterRelation {
   isRival: boolean;         // 숙적/적대 여부
   isRomance: boolean;       // 연인/밀회/배우자 여부
   isFriendship: boolean;    // 동성/비로맨스 우정도 여부
+  agenda: NPCAgenda;        // NPC 지능 & 능동적 동기/속마음/행동
 }
 
 // 신뢰도 단계 룰: 0-12 경계, 13-24 어색함, 25-37 관심, 38-49 호기심, 50-62 우호, 63-74 친밀, 75-89 신뢰, 90-100 동반
@@ -177,6 +184,123 @@ export function detectVocation(role: string, desc: string, name: string = ''): R
   return 'commoner';
 }
 
+/**
+ * 2.5 NPC 자율 지능 및 고유 동기 엔진 (NPC Dynamic Agendas)
+ * NPC의 직책, 위계, 직능, 신뢰도 및 플레이어와의 관계를 종합 평가하여
+ * 고유한 내부 동기(motives), 속마음(innerThought), 능동적 행동(proactiveAction)을 도출합니다.
+ */
+export function deriveNPCAgenda(
+  name: string,
+  role: string,
+  vocation: RelationVocation,
+  tierId: RelationTierId,
+  trust: number,
+  affection: number,
+  isRomance: boolean,
+  desc: string = ''
+): NPCAgenda {
+  const combined = `${name} ${role} ${desc}`;
+
+  // 1. 특정 주요 네임드 캐릭터 고유 심리 & 지능 규칙
+  if (combined.includes('베아트리체') || (combined.includes('미망인') && combined.includes('장원'))) {
+    return {
+      motives: ['가문·혈통', '영지 안정'],
+      innerThought: trust >= 60 
+        ? '남편 사후 위태로운 장원을 지켜줄 강력한 수호자이자 주교인 플레이어를 온전히 신뢰함'
+        : '장원의 소유권을 온전히 보전하기 위해 주교좌 성당과의 관계를 조심스럽게 살핌',
+      proactiveAction: '장원 최고급 올리브유 첫 압착분 봉헌 및 비밀스런 장원 만찬 초대'
+    };
+  }
+
+  if (combined.includes('엘레오노라') || (combined.includes('영주 부인') && combined.includes('섭정'))) {
+    return {
+      motives: ['가문·혈통', '권력·야심'],
+      innerThought: trust >= 60
+        ? '어린 후계자를 지키고 섭정 권력을 유지하기 위해 주교이자 막후 실력자인 플레이어와의 확고한 동맹을 원함'
+        : '자신의 섭정권을 침해받지 않도록 플레이어의 영향력과 의도를 예의주시함',
+      proactiveAction: '카스텔로 영지의 중요 외교 기밀 공유 및 사적인 야간 자문 회의 요청'
+    };
+  }
+
+  if (combined.includes('마틸다')) {
+    return {
+      motives: ['애정·유대', '가문·혈통'],
+      innerThought: affection >= 60
+        ? '플레이어의 고위 성직 승격과 안전을 진심으로 염려하며 깊은 애정과 연정을 품고 있음'
+        : '플레이어의 곁에서 특별한 존재로 인정받기를 은밀히 갈망함',
+      proactiveAction: '피로와 스트레스를 달래줄 향유와 다과 마련 및 사적인 산책 밀회 주선'
+    };
+  }
+
+  if (combined.includes('마테오') || (combined.includes('상단') && combined.includes('행수'))) {
+    return {
+      motives: ['실리·상업', '독점 이권'],
+      innerThought: trust >= 60
+        ? '플레이어가 교단의 막대한 십일조와 재정을 쥐었으므로 동반자로서 독점 납품권을 영구 공고히 하려 함'
+        : '수익성 높은 교역로를 확보하기 위해 주교좌의 칙허와 후원을 적극적으로 타진함',
+      proactiveAction: '신규 교역로 개척 수익 및 희귀 향신료 진상, 독점 상업 특허권 갱신 청원'
+    };
+  }
+
+  if (combined.includes('베르나르도') || combined.includes('수호대장') || combined.includes('호위대장')) {
+    return {
+      motives: ['충의·명예', '군사 규율'],
+      innerThought: trust >= 60
+        ? '주군을 위해 목숨을 바칠 각오가 되어 있으며, 거점 방어와 순찰 기강을 빈틈없이 확립하고자 함'
+        : '병사들의 사기와 군수 보급 상태를 엄격히 점검하며 주군의 군령을 기다림',
+      proactiveAction: '주야 순찰 보고 및 의용 기사단 증원, 병영 무구 개편 건의'
+    };
+  }
+
+  // 2. 범용 인물 위계 및 직능 기반 동적 심리 산출
+  if (tierId === 'rival') {
+    return {
+      motives: ['정적 숙청', '위협 견제'],
+      innerThought: '플레이어의 급격한 위세 확장을 강하게 경계하며 흠결과 약점을 잡아 실각시킬 기회를 엿봄',
+      proactiveAction: '반대파 세력 규합 및 상위 제후/교황청에 비방 투서와 사문서 위조 공작 모의'
+    };
+  }
+
+  if (tierId === 'superior') {
+    return {
+      motives: ['권위 유지', '충성 시험'],
+      innerThought: '플레이어의 탁월한 능력을 주시하면서도, 자신을 위협하지 못하도록 공납과 서약을 지속 시험함',
+      proactiveAction: '교구 칙령 준수 여부 감찰 사절 파견 및 특별 십일조/의전 참석 명령'
+    };
+  }
+
+  if (tierId === 'patron') {
+    return {
+      motives: ['가문 보호', '상호 실리'],
+      innerThought: '자신의 영지와 재산을 지키기 위해 플레이어의 거대한 영적·정치적 영향력에 의탁하려 함',
+      proactiveAction: '특별 헌금 및 교회 기부금 전달, 가문 후계자에 대한 성별 강복 요청'
+    };
+  }
+
+  if (tierId === 'subordinate') {
+    return {
+      motives: ['가신 충성', '입신양명'],
+      innerThought: '주군의 총애를 받아 더 높은 직책과 장원 관리권을 하사받아 가문을 일으키고자 함',
+      proactiveAction: '거점 시설 관리 성과 보고 및 직속 자문관 승진 천거'
+    };
+  }
+
+  // Default: Peer
+  if (isRomance) {
+    return {
+      motives: ['애정·유대', '정치적 결속'],
+      innerThought: '엄격한 세속의 시선을 피해 플레이어와의 은밀하고 각별한 관계를 지속하고자 함',
+      proactiveAction: '은밀한 서신 교환 및 사적인 비밀 회동 약속 제안'
+    };
+  }
+
+  return {
+    motives: vocation === 'military' ? ['무훈·명예', '동료애'] : vocation === 'merchant' ? ['상업 실리', '교역 협력'] : vocation === 'clergy' ? ['교단 연대', '영적 구원'] : ['친선 유지', '정보 공유'],
+    innerThought: '플레이어와의 원만한 관계를 유지하여 지역 사회와 권역 내에서의 입지를 강화하려 함',
+    proactiveAction: '주변 제후들의 은밀한 동향 및 상업/교구 소문 정보 공유'
+  };
+}
+
 // 3. 2차원 매트릭스 기반 단일 인물 관계 파싱 함수
 export function parsePersonalRelation(
   rawRel: string, 
@@ -288,6 +412,8 @@ export function parsePersonalRelation(
   const isExplicitRival = explicitTag.includes('적대') || rawDescStr.includes('[적대]') || affStr.includes('숙적') || affStr.includes('라이벌');
   const isKeywordRival = combined.includes('숙적') || combined.includes('라이벌') || combined.includes('원한') || combined.includes('적대자');
   if (isExplicitRival || isKeywordRival) {
+    const tierId: RelationTierId = 'rival';
+    const agenda = deriveNPCAgenda(name, role, vocation, tierId, trust, affection, isRomance, rawDescStr);
     return {
       id: name,
       raw: rawRel,
@@ -301,7 +427,7 @@ export function parsePersonalRelation(
       affStage: isExplicitRival || isKeywordRival ? (combined.includes('라이벌') ? '라이벌' : '숙적') : affStage,
       descStr,
       rawDescStr,
-      tierId: 'rival',
+      tierId,
       tierLabel: '⚔️ 숙적 / 적대',
       tierColor: '#f87171',
       tierBg: 'rgba(239, 68, 68, 0.2)',
@@ -315,7 +441,8 @@ export function parsePersonalRelation(
       isPeer: false,
       isRival: true,
       isRomance,
-      isFriendship
+      isFriendship,
+      agenda
     };
   }
 
@@ -363,6 +490,8 @@ export function parsePersonalRelation(
   const isSuperior = !isBlockedFromSuperior && (hasExplicitSuperiorTag || ((isClergySuperior || isFeudalSuperior) && !explicitTag.includes('동료') && !explicitTag.includes('직속부하') && !explicitTag.includes('가신')));
 
   if (isSuperior) {
+    const tierId: RelationTierId = 'superior';
+    const agenda = deriveNPCAgenda(name, role, vocation, tierId, trust, affection, isRomance, rawDescStr);
     return {
       id: name,
       raw: rawRel,
@@ -376,7 +505,7 @@ export function parsePersonalRelation(
       affStage,
       descStr,
       rawDescStr,
-      tierId: 'superior',
+      tierId,
       tierLabel: '👑 상급자 / 주군',
       tierColor: '#fbbf24',
       tierBg: 'rgba(251, 191, 36, 0.2)',
@@ -390,7 +519,8 @@ export function parsePersonalRelation(
       isPeer: false,
       isRival: false,
       isRomance,
-      isFriendship
+      isFriendship,
+      agenda
     };
   }
 
@@ -414,6 +544,8 @@ export function parsePersonalRelation(
   const isPatron = !isMerchantPeer && (hasExplicitPatronTag || isPatronRole || (!isSuperior && (combined.includes('후원자') || combined.includes('신도'))));
 
   if (isPatron) {
+    const tierId: RelationTierId = 'patron';
+    const agenda = deriveNPCAgenda(name, role, vocation, tierId, trust, affection, isRomance, rawDescStr);
     return {
       id: name,
       raw: rawRel,
@@ -427,7 +559,7 @@ export function parsePersonalRelation(
       affStage,
       descStr,
       rawDescStr,
-      tierId: 'patron',
+      tierId,
       tierLabel: '📜 후원자 / 신도',
       tierColor: '#38bdf8',
       tierBg: 'rgba(56, 189, 248, 0.2)',
@@ -441,7 +573,8 @@ export function parsePersonalRelation(
       isPeer: false,
       isRival: false,
       isRomance,
-      isFriendship
+      isFriendship,
+      agenda
     };
   }
 
@@ -466,6 +599,8 @@ export function parsePersonalRelation(
       subLabel = '🛡️ 동행 제자 / 조력자';
     }
 
+    const tierId: RelationTierId = 'subordinate';
+    const agenda = deriveNPCAgenda(name, role, vocation, tierId, trust, affection, isRomance, rawDescStr);
     return {
       id: name,
       raw: rawRel,
@@ -479,7 +614,7 @@ export function parsePersonalRelation(
       affStage,
       descStr,
       rawDescStr,
-      tierId: 'subordinate',
+      tierId,
       tierLabel: subLabel,
       tierColor: '#a78bfa',
       tierBg: 'rgba(167, 139, 250, 0.2)',
@@ -493,11 +628,14 @@ export function parsePersonalRelation(
       isPeer: false,
       isRival: false,
       isRomance,
-      isFriendship
+      isFriendship,
+      agenda
     };
   }
 
   // 7단계: 기본값 대등한 동료 (Peer)
+  const tierId: RelationTierId = 'peer';
+  const agenda = deriveNPCAgenda(name, role, vocation, tierId, trust, affection, isRomance, rawDescStr);
   return {
     id: name,
     raw: rawRel,
@@ -511,7 +649,7 @@ export function parsePersonalRelation(
     affStage,
     descStr,
     rawDescStr,
-    tierId: 'peer',
+    tierId,
     tierLabel: '🤝 대등한 동료',
     tierColor: '#34d399',
     tierBg: 'rgba(52, 211, 153, 0.2)',
@@ -525,7 +663,8 @@ export function parsePersonalRelation(
     isPeer: true,
     isRival: false,
     isRomance,
-    isFriendship
+    isFriendship,
+    agenda
   };
 }
 
@@ -587,3 +726,29 @@ export function getCouncilVassals(
   const parsed = parseAllPersonalRelations(personalRels, playerArchetype);
   return parsed.filter(p => p.isSubordinate);
 }
+
+/**
+ * 7. LLM 프롬프트 주입용 주요 NPC 지능 및 능동적 아젠다 포맷터
+ * 등장인물들이 플레이어의 신분, 행동, 결단에 수동적으로 머무르지 않고
+ * 자신의 고유 동기에 따라 아첨, 청탁, 밀회, 견제 등의 자율적 행동을 하도록 유도합니다.
+ */
+export function formatNPCAgendasForPrompt(
+  personalRels: string[] = [],
+  playerArchetype: string = 'noble'
+): string {
+  const parsed = parseAllPersonalRelations(personalRels, playerArchetype);
+  if (parsed.length === 0) return '';
+
+  const lines = parsed.slice(0, 7).map(p => {
+    return `- [${p.fullName}] (${p.tierLabel} | ${p.affLabel} ${p.affection} [${p.affStage}], 신뢰 ${p.trust} [${p.trustStage}])
+  * 고유 동기: ${p.agenda.motives.join(', ')}
+  * 내면 심리: "${p.agenda.innerThought}"
+  * 능동적 의도 및 권고 행동: ${p.agenda.proactiveAction}`;
+  });
+
+  return `[주요 주변 인물들의 지능 및 능동적 심리 상태 (NPC Dynamic Agendas)]
+다음 인물들은 단순한 대화 상대가 아니라 각자의 정치적·개인적 야망과 이해관계를 가진 자율적 에이전트입니다.
+내러티브와 선택지 생성 시 이들의 고유 동기와 내면 심리, 능동적 행동을 적극 반영하세요:
+${lines.join('\n')}`;
+}
+

@@ -112,9 +112,13 @@ export function calculatePopulationGrowth(
 
   // 2. 거점 규모에 따른 정착민 유입 (Estate Holding Scale)
   let estateLv = 1;
-  if (estate?.level) {
-    const lvMatch = estate.level.match(/Lv\.?\s*(\d+)/i);
-    if (lvMatch) estateLv = parseInt(lvMatch[1], 10);
+  if (estate?.level !== undefined && estate?.level !== null) {
+    if (typeof estate.level === 'number') {
+      estateLv = estate.level;
+    } else {
+      const lvMatch = String(estate.level).match(/(?:Lv\.?|레벨)?\s*(\d+)/i);
+      if (lvMatch) estateLv = parseInt(lvMatch[1], 10);
+    }
   }
   const estateAdd = estateLv === 5 ? 10.0 : estateLv === 4 ? 5.0 : estateLv === 3 ? 2.5 : estateLv === 2 ? 1.2 : 0.5;
   const estateScaleName = `${estate?.type || '직할 거점'} 인프라 유입 (Lv.${estateLv})`;

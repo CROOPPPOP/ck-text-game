@@ -1208,9 +1208,13 @@ export function calculateTurnIncome(gameState: ParsedState): CKIncomeBreakdown {
   // 2. 직할 거점 및 생산 시설 수입 (Holding & Buildings)
   const estate = gameState.estate;
   let estateLevelNum = 1;
-  if (estate?.level) {
-    const lvMatch = estate.level.match(/(?:Lv\.?|레벨)\s*(\d+)/i);
-    if (lvMatch) estateLevelNum = parseInt(lvMatch[1], 10);
+  if (estate?.level !== undefined && estate?.level !== null) {
+    if (typeof estate.level === 'number') {
+      estateLevelNum = estate.level;
+    } else {
+      const lvMatch = String(estate.level).match(/(?:Lv\.?|레벨)?\s*(\d+)/i);
+      if (lvMatch) estateLevelNum = parseInt(lvMatch[1], 10);
+    }
   }
   const estateBaseAmount = Math.round(estateLevelNum * 1.5 * 10) / 10;
   incomeItems.push({
