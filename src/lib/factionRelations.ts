@@ -21,6 +21,7 @@ export interface ParsedFactionRelation {
   canonicalKey: string;   // 정규화된 고유 키 (예: '우르비노주교좌성당')
   status: string;         // 외교 상태 (예: '주종 관계(교구 재정관 겸 참사회 수석위원)')
   threat: string;         // 위협도 (예: '안전')
+  threatLevel: string;    // 위협도 별칭
   attitude: string;       // 태도 (예: '우호적')
   hostility: FactionHostility; // 5단계 적대도 및 정량 위기 지표
 }
@@ -37,6 +38,14 @@ export function calculateFactionHostility(
 ): FactionHostility {
   const combined = `${status} ${threat} ${attitude} ${rawText}`;
   
+  // 0. 범용 구조적·이념적 적대 세력 (Structural & Ideological Rivals) 판별
+  // 신성 로마 제국 황제파(기벨린), 이단, 대립 교황, 반란군, 약탈 도적단 등 역사적/이념적으로 양립 불가능한 대립 세력
+  const structuralRivalKeywords = [
+    '신성 로마 제국', '신성로마제국', '황제파', '기벨린', '이단', '이단심문', '대립 교황', '대립교황',
+    '반란군', '반역도당', '도적단', '해적단', '숙적', '철천지원수', '침략군', '토벌 대상'
+  ];
+  const isStructuralRival = structuralRivalKeywords.some(kw => combined.includes(kw));
+
   // 1. 명시적 숫자 추출 (예: '적대도 70', '적대: 80', '적대도: [65]')
   const explicitScoreMatch = combined.match(/적대(?:도)?\s*[:\s\[\(]?\s*(\d+)/);
   let score: number = 0;
@@ -55,7 +64,7 @@ export function calculateFactionHostility(
 
     // 태도
     if (attitude.includes('전쟁') || attitude.includes('교전') || attitude.includes('증오') || attitude.includes('극적대')) base += 40;
-    else if (attitude.includes('적대') || attitude.includes('원한') || attitude.includes('불신')) base += 25;
+    else if (attitude.includes('적대') || attitude.includes('원한') || attitude.includes('불신') || attitude.includes('적의')) base += 25;
     else if (attitude.includes('경계') || attitude.includes('냉담') || attitude.includes('냉정')) base += 10;
     else if (attitude.includes('우호') || attitude.includes('친선') || attitude.includes('동맹')) base -= 20;
 
@@ -65,6 +74,11 @@ export function calculateFactionHostility(
     else if (status.includes('동맹') || status.includes('주종') || status.includes('신종') || status.includes('조약')) base -= 20;
 
     score = Math.min(100, Math.max(0, base));
+  }
+
+  // 구조적 적대 세력 가드레일: 일시적으로 무력화되거나 도발을 포기했더라도 결코 평화·우호(Lv.0)가 될 수 없음 (최소 Lv.3 위기·적대 유지)
+  if (isStructuralRival) {
+    score = Math.max(score, 68);
   }
 
   // 3. 5단계 Tier 및 세부 메타 결정
@@ -84,14 +98,27 @@ export function calculateFactionHostility(
     borderColor = '#b91c1c';
     activeThreats = ['전면 침공 및 공성전 개시', '직할령 약탈 및 수확물 소각', '모든 무역로 즉각 차단'];
     mitigationTips = ['무조건 항복 또는 막대한 전시 배상금 지급', '교황청/상위 군주의 즉각 정전 중재 요청', '동맹군 긴급 구원 요청'];
-  } else if (score >= 65 || combined.includes('위기') || combined.includes('적대')) {
+  } else if (score >= 65 || combined.includes('위기') || combined.includes('적대') || isStructuralRival) {
     tier = 3;
     tierLabel = 'Lv.3 위기·적대';
     color = '#f97316';
     bgColor = 'rgba(249, 115, 22, 0.2)';
     borderColor = '#ea580c';
-    activeThreats = ['국경 지역 약탈 및 사병 도발', '상단 대상 통행세 폭리 부과', '암살 및 흑색선전 공작'];
-    mitigationTips = ['특사 파견 및 외교 선물 공여', '상호 불가침 밀약 체결', '교단 중재 및 영토 경계 협상'];
+    if (isStructuralRival) {
+      activeThreats = [
+        '잠복 중인 적대 세력의 재집결 및 기습 도발 위협',
+        '배후 제국/본진과의 내통 및 정적 규합 공작',
+        '교역로 및 국경 지대 잠재적 마찰'
+      ];
+      mitigationTips = [
+        '주요 국경 요충지 상시 경계 배치',
+        '교황청 및 마틸다 여백작과의 결속 공고화',
+        '적대 진영 내 온건파 및 반대파 분열 공작'
+      ];
+    } else {
+      activeThreats = ['국경 지역 약탈 및 사병 도발', '상단 대상 통행세 폭리 부과', '암살 및 흑색선전 공작'];
+      mitigationTips = ['특사 파견 및 외교 선물 공여', '상호 불가침 밀약 체결', '교단 중재 및 영토 경계 협상'];
+    }
   } else if (score >= 45 || combined.includes('긴장') || combined.includes('마찰')) {
     tier = 2;
     tierLabel = 'Lv.2 긴장·마찰';
@@ -221,7 +248,7 @@ export function parseFactionRelation(rel: string): ParsedFactionRelation {
   const rawName = match ? match[1].replace(/^[▶▷○•\s]+/, '').trim() : rel;
   const rest = match ? match[2].trim() : '';
   const pipeParts = rest.split('|').map(p => p.trim());
-  const status = pipeParts[0] || '미상';
+  let status = pipeParts[0] || '미상';
 
   let threat = '';
   let attitude = '';
@@ -232,6 +259,27 @@ export function parseFactionRelation(rel: string): ParsedFactionRelation {
 
   const cleanName = rawName.replace(/[\[\]]/g, '').trim();
   const canonicalKey = getCanonicalFactionKey(rawName);
+
+  // 구조적 대적 세력 가드레일 (신성 로마 제국 황제파, 이단, 반란군 등)
+  const combinedCheck = `${cleanName} ${status} ${threat} ${attitude} ${rel}`;
+  const structuralRivalKeywords = [
+    '신성 로마 제국', '신성로마제국', '황제파', '기벨린', '이단', '이단심문', '대립 교황', '대립교황',
+    '반란군', '반역도당', '도적단', '해적단', '숙적', '철천지원수'
+  ];
+  const isStructuralRival = structuralRivalKeywords.some(kw => combinedCheck.includes(kw));
+
+  if (isStructuralRival) {
+    if (attitude.includes('복종') || attitude.includes('우호') || !attitude) {
+      attitude = '적의 품음 (도발 억제)';
+    }
+    if (threat.includes('안전') || !threat) {
+      threat = '경계 (잠복)';
+    }
+    if (status.includes('완전 무력화') || status.includes('도발 포기')) {
+      status = '굴욕적 휴전 (토스카나 군세 전개에 따른 도발 억제)';
+    }
+  }
+
   const hostility = calculateFactionHostility(status, threat, attitude, rel);
 
   return {
@@ -241,6 +289,7 @@ export function parseFactionRelation(rel: string): ParsedFactionRelation {
     canonicalKey,
     status,
     threat,
+    threatLevel: threat,
     attitude,
     hostility
   };

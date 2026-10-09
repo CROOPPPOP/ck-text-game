@@ -21,7 +21,10 @@ export interface ParsedState {
   estate?: { 
     type: string; 
     level: string; 
-    buildings: { name: string; desc: string; level: number; tags: string[] }[]; 
+    buildings: { name: string; desc?: string; level: number; tags: string[] }[]; 
+    factionStats?: Record<string, string | undefined>;
+    isFactionActive?: boolean;
+    [key: string]: any;
   };
   buildOptions?: { 
     name: string; 

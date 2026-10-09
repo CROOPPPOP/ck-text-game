@@ -261,4 +261,145 @@ if (!parsedLLM.choices || parsedLLM.choices.length !== 2) {
 }
 
 console.log('✅ 출력 불안정성 및 오류 복원 테스트 통과!\n');
-console.log('🎉 모든 핵심 시스템 기능(승격 기준 명확화, NPC 지능 보강, 적대도 명확화, Vercel 세이브 파일 호환 치유, 출력 안정성)이 완벽히 검증되었습니다!');
+
+console.log('=== [6] 세력 적대도 왜곡 해결 (신성 로마 제국 황제파 & 구조적 대립 범용 규칙) 검증 ===');
+
+const distortedHREFactions = [
+  '[신성 로마 제국 황제파 세력] - 주종 관계(복종) | 위협도: 안전 | 태도: 복종 | 상태: 완전 무력화',
+  '[황제파 기벨린 연합군] - 일시적 패퇴 | 위협도: 보통 | 태도: 신중함',
+  '[밀라노 대립 교황 파벌] - 은밀한 교황청 전복 음모 | 위협도: 경계 | 태도: 반목'
+];
+
+distortedHREFactions.forEach(fStr => {
+  const parsed = parseFactionRelation(fStr);
+  const h = parsed.hostility;
+  console.log(`- ${parsed.cleanName}: [${h.tierLabel}] 점수: ${h.score}/100 | 태도: "${parsed.attitude}" | 위협도: "${parsed.threatLevel}"`);
+  console.log(`  * 직면 위협: ${h.activeThreats.join(' · ')}`);
+  
+  // 구조적 적대 세력은 절대로 Lv.0 평화나 안전/복종으로 왜곡되지 않고 최소 Lv.3(68점 이상) 보장 검증
+  if (h.tier < 3 || h.score < 68) {
+    throw new Error(`구조적 적대 세력(${parsed.cleanName}) 적대도 왜곡 방지 실패: 점수 ${h.score}, Tier ${h.tier}`);
+  }
+  if (parsed.attitude.includes('복종')) {
+    throw new Error(`구조적 적대 세력(${parsed.cleanName}) 태도 왜곡(복종) 정규화 실패: ${parsed.attitude}`);
+  }
+  if (parsed.threatLevel.includes('안전')) {
+    throw new Error(`구조적 적대 세력(${parsed.cleanName}) 위협도 왜곡(안전) 정규화 실패: ${parsed.threatLevel}`);
+  }
+});
+console.log('✅ 세력 적대도 왜곡 방지 및 구조적 대립 범용 규칙 검증 통과!\n');
+
+
+console.log('=== [7] 거점 대시보드 승격 로드맵 및 필요 건축 조건 (Holdings Advancement Roadmap) 검증 ===');
+
+import { getEstatePromotionMilestones } from './src/lib/estate';
+
+// 케이스 A: Lv.1 초기 거점, 건물 1동 (조건 미달)
+const underdevelopedBuildings = [
+  { name: '사제관 집무실', level: 1, tags: ['신앙', '행정'] }
+];
+const milestonesA = getEstatePromotionMilestones(1, underdevelopedBuildings, 'clergy');
+console.log('- [Lv.1 사제관] 승격 로드맵:');
+console.log(`  * 경로: ${milestonesA.currentTitle} ➔ ${milestonesA.nextTitle}`);
+console.log(`  * 전체 진행도: ${milestonesA.overallProgressPercent}% | 승격 가능 여부: ${milestonesA.canPromote}`);
+console.log(`  * 시설 수: ${milestonesA.buildingCount.current}/${milestonesA.buildingCount.required}동 (충족: ${milestonesA.buildingCount.met})`);
+console.log(`  * 레벨 합: ${milestonesA.levelSum.current}/${milestonesA.levelSum.required} (충족: ${milestonesA.levelSum.met})`);
+console.log(`  * 태그 수: ${milestonesA.tagDiversity.current}/${milestonesA.tagDiversity.required}종 (충족: ${milestonesA.tagDiversity.met})`);
+console.log(`  * 추천 결여 태그: [${milestonesA.tagDiversity.missingSuggestedTags.join(', ')}]`);
+console.log(`  * 가이드 팁: ${milestonesA.actionTips.join(' / ')}`);
+
+if (milestonesA.canPromote !== false || milestonesA.buildingCount.met !== false || milestonesA.overallProgressPercent >= 100) {
+  throw new Error('조건 미달 거점 승격 로드맵 판정 실패');
+}
+
+// 케이스 B: Lv.1 사제관, 조건 충족 완료 (건물 3동, 레벨합 3 이상, 태그 2종 이상)
+const readyBuildings = [
+  { name: '사제관 집무실', level: 1, tags: ['신앙', '행정'] },
+  { name: '약초원 및 구휼소', level: 1, tags: ['민생', '생산'] },
+  { name: '성당 경비 초소', level: 1, tags: ['군사', '치안'] }
+];
+const milestonesB = getEstatePromotionMilestones(1, readyBuildings, 'clergy');
+console.log('\n- [조건 충족 사제관] 승격 로드맵:');
+console.log(`  * 전체 진행도: ${milestonesB.overallProgressPercent}% | 승격 가능: ${milestonesB.canPromote}`);
+console.log(`  * 가이드 팁: ${milestonesB.actionTips[0]}`);
+
+if (!milestonesB.canPromote || milestonesB.overallProgressPercent !== 100) {
+  throw new Error('조건 충족 거점 승격 로드맵 판정 실패');
+}
+
+// 케이스 C: Lv.5 최고위 거점
+const milestonesC = getEstatePromotionMilestones(5, readyBuildings, 'clergy');
+console.log('\n- [최고위 Lv.5 거점] 승격 로드맵:');
+console.log(`  * 최고 레벨 여부: ${milestonesC.isMaxLevel} | 안내: ${milestonesC.actionTips[0]}`);
+
+if (!milestonesC.isMaxLevel) {
+  throw new Error('최고위 거점 도달 판정 실패');
+}
+console.log('✅ 거점 대시보드 승격 로드맵 및 필요 건축 조건 검증 통과!\n');
+
+
+console.log('=== [8] Vercel 로컬 저장 파일 거점 대시보드 및 왜곡 데이터 자가 치유 (Self-Healing) 검증 ===');
+
+const corruptedVercelSave: any = {
+  personalInfo: {
+    '신분': '주교',
+    '직위': '우르비노 주교좌 본당 주교',
+    '칭호': '막후의 지배자',
+    '교단 발언권': '10' // 고위 신분인데 과거 10점으로 왜곡된 데이터
+  },
+  stats: {
+    acquired: {
+      '신앙': '80',
+      '교단 발언권': '10' // 과거 왜곡
+    }
+  },
+  estate: {
+    level: 'Lv.2 장원',
+    buildings: [
+      { name: '[장원 올리브 압착장]', level: 1, desc: '나선식 압착기 가동 중', tags: ['생산', '산업'] },
+      { name: '[장원 올리브 압착장 Lv.2]', level: 2, desc: '중복 완공 시설', tags: ['생산'] },
+      { name: '거점 시설', level: 1, tags: ['군사 훈련장', '군사', '치안'] }, // 시설명이 태그로 쪼개진 구버전 오류
+      { name: '{소규모 사제관}', level: 1, tags: ['[신앙]', '행정'] }
+    ]
+  },
+  relationships: {
+    personal: [
+      '[베아트리체 (토착 장원 미망인)] | 관계: 상급자'
+    ],
+    faction: [
+      '[신성 로마 제국 황제파 세력] - 주종 관계(복종) | 위협도: 안전 | 태도: 복종 | 완전 무력화',
+      '[신성 로마 제국 황제파 세력] - 주종 관계(복종) | 위협도: 안전 | 태도: 복종' // 중복
+    ]
+  },
+  buildOptions: [
+    '장원 올리브 압착장 (Lv.1→2) 업그레이드' // 이미 완공된 중복 업그레이드 옵션
+  ]
+};
+
+const healedVercelSave8 = sanitizeEstateState(corruptedVercelSave);
+console.log('- 올리브 압착장 레벨 복원:', healedVercelSave8.estate.buildings.find((b: any) => b.name.includes('올리브'))?.level);
+console.log('- 복원된 시설 목록:', healedVercelSave8.estate.buildings.map((b: any) => `${b.name} (Lv.${b.level}) [${b.tags.join(', ')}]`).join(' / '));
+console.log('- 중복 업그레이드 옵션 제거 여부:', !healedVercelSave8.buildOptions.some((o: string) => o.includes('올리브')));
+console.log('- 베아트리체 관계 정정:', healedVercelSave8.relationships.personal[0]);
+console.log('- 황제파 세력 정정 결과:', healedVercelSave8.relationships.faction[0]);
+console.log('- 과거 10점 발언권 정리 여부:', healedVercelSave8.personalInfo['교단 발언권'] === undefined);
+
+// 검증 assertion
+const healedHRE = healedVercelSave8.relationships.faction[0];
+if (!healedHRE.includes('적의 품음') || !healedHRE.includes('경계') || healedHRE.includes('완전 무력화')) {
+  throw new Error('Vercel 세이브 파일 황제파 관계 자가 치유 실패: ' + healedHRE);
+}
+if (healedVercelSave8.relationships.faction.length !== 1) {
+  throw new Error('Vercel 세이브 파일 중복 세력 관계 단일화 실패');
+}
+const reconstructedBuilding = healedVercelSave8.estate.buildings.find((b: any) => b.name.includes('군사 훈련장'));
+if (!reconstructedBuilding) {
+  throw new Error('태그로 쪼개진 시설명 복원 실패');
+}
+if (healedVercelSave8.estate.buildings.filter((b: any) => b.name.includes('올리브')).length > 1) {
+  throw new Error('동일 시설명 중복 정리 실패');
+}
+
+console.log('✅ Vercel 로컬 저장 파일 자가 치유(Self-Healing) 및 출력 안전성 검증 통과!\n');
+
+console.log('🎉 [전체 검증 완료] 모든 요구사항(세력 적대도 왜곡 해결 범용 규칙, 거점 대시보드 승격 로드맵, Vercel 세이브 파일 호환 치유, 출력 안정성)이 완벽히 검증되었습니다!');

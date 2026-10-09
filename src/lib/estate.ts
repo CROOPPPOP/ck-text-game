@@ -4,7 +4,7 @@ import { normalizeParsedState } from './parser';
 
 export interface Building {
   name: string;
-  desc: string;
+  desc?: string;
   level: number;
   tags: string[];
 }
@@ -79,7 +79,7 @@ export function checkPromotion(
   // 3. 태그 다양성: ≥ min(N + 1, 4)종
   const requiredTagCount = Math.min(currentEstateLevel + 1, 4);
   const uniqueTags = new Set<string>();
-  buildings.forEach(b => b.tags.forEach(t => uniqueTags.add(t)));
+  buildings.forEach(b => (b.tags || []).forEach(t => uniqueTags.add(t)));
   if (uniqueTags.size < requiredTagCount) {
     reasons.push(`건물 효과 태그 다양성 부족 (현재: ${uniqueTags.size}종, 필요: ${requiredTagCount}종)`);
   }
@@ -88,12 +88,10 @@ export function checkPromotion(
   if (isFactionActive && factionStats) {
     if (nextLevel >= 3) {
       // 치안과 민심이 모두 '보통' 이상
-      const goodKeywords = ['보통', '안정', '좋음', '높음', '우수', '평온', '매우'];
-      const badKeywords = ['나쁨', '불안', '낮음', '악화', '위험', '폭동']; // 단순화를 위해 bad 키워드 없으면 통과로 처리하거나 good 포함 시 통과
-      
+      const badKeywords = ['나쁨', '불안', '낮음', '악화', '위험', '폭동', '파탄', '혼란'];
       const isGood = (val?: string) => {
         if (!val) return false;
-        return badKeywords.every(k => !val.includes(k)); // 나쁜 키워드가 없으면 보통 이상으로 간주
+        return badKeywords.every(k => !val.includes(k));
       };
 
       if (!isGood(factionStats.publicOrder)) reasons.push(`치안 상태가 '보통' 이상이어야 합니다.`);
@@ -102,7 +100,7 @@ export function checkPromotion(
     
     if (nextLevel >= 4) {
       // 개발도 '높음' 이상
-      const highKeywords = ['높음', '우수', '매우', '번영', '발달'];
+      const highKeywords = ['높음', '우수', '매우', '번영', '발달', '전성'];
       const isHigh = (val?: string) => {
         if (!val) return false;
         return highKeywords.some(k => val.includes(k));
@@ -114,6 +112,181 @@ export function checkPromotion(
   return {
     canPromote: reasons.length === 0,
     reasons
+  };
+}
+
+export interface PromotionRequirementDetail {
+  label: string;
+  current: number;
+  required: number;
+  met: boolean;
+  desc: string;
+}
+
+export interface EstatePromotionMilestone {
+  currentLevel: number;
+  currentTitle: string;
+  nextLevel: number;
+  nextTitle: string;
+  isMaxLevel: boolean;
+  canPromote: boolean;
+  overallProgressPercent: number;
+  buildingCount: PromotionRequirementDetail;
+  levelSum: PromotionRequirementDetail;
+  tagDiversity: PromotionRequirementDetail & {
+    existingTags: string[];
+    missingSuggestedTags: string[];
+  };
+  factionRequirements?: {
+    publicOrder?: { current: string; met: boolean; required: string };
+    publicSentiment?: { current: string; met: boolean; required: string };
+    development?: { current: string; met: boolean; required: string };
+    allMet: boolean;
+  };
+  actionTips: string[];
+}
+
+/**
+ * 거점 대시보드에서 승격에 필요한 건물 수, 레벨 합, 기능 태그 다양성 및 달성 팁을 산출합니다.
+ */
+export function getEstatePromotionMilestones(
+  currentEstateLevel: number,
+  buildings: Building[] = [],
+  archetype: any = 'noble',
+  factionStats?: FactionStats,
+  isFactionActive: boolean = false
+): EstatePromotionMilestone {
+  const safeCurrentLevel = Math.max(1, Math.min(5, typeof currentEstateLevel === 'number' ? currentEstateLevel : 1));
+  const isMaxLevel = safeCurrentLevel >= 5;
+  const nextLevel = Math.min(5, safeCurrentLevel + 1);
+
+  const getThemeTitle = (lvl: number) => {
+    const entry = ESTATE_LEVELS[lvl as keyof typeof ESTATE_LEVELS];
+    if (!entry) return `Lv.${lvl} 거점`;
+    if (archetype === 'clergy') return `Lv.${lvl} ${entry.parish}`;
+    if (archetype === 'company' || archetype === 'wanderer') return `Lv.${lvl} ${entry.camp}`;
+    return `Lv.${lvl} ${entry.manor}`;
+  };
+
+  const currentTitle = getThemeTitle(safeCurrentLevel);
+  const nextTitle = isMaxLevel ? '최대 규모 도달' : getThemeTitle(nextLevel);
+
+  if (isMaxLevel) {
+    return {
+      currentLevel: safeCurrentLevel,
+      currentTitle,
+      nextLevel: 5,
+      nextTitle,
+      isMaxLevel: true,
+      canPromote: false,
+      overallProgressPercent: 100,
+      buildingCount: { label: '보유 시설 수', current: buildings.length, required: buildings.length, met: true, desc: '최대 수용 규모 도달' },
+      levelSum: { label: '시설 레벨 합계', current: buildings.reduce((s, b) => s + (b.level || 1), 0), required: 0, met: true, desc: '최고 번영 거점' },
+      tagDiversity: { label: '기능 태그 다양성', current: 4, required: 4, met: true, desc: '완벽한 다원 인프라', existingTags: [], missingSuggestedTags: [] },
+      actionTips: ['이미 당대 최고위 거점에 도달했습니다. 더 이상의 거점 승격은 필요하지 않습니다.']
+    };
+  }
+
+  // 1. 보유 건물 수
+  const requiredBuildings = nextLevel + 1;
+  const currentBuildings = buildings.length;
+  const buildingMet = currentBuildings >= requiredBuildings;
+
+  // 2. 건물 레벨 합
+  const requiredLevelSum = safeCurrentLevel * 3;
+  const currentLevelSum = buildings.reduce((sum, b) => sum + Math.max(1, b.level || 1), 0);
+  const levelSumMet = currentLevelSum >= requiredLevelSum;
+
+  // 3. 태그 다양성
+  const requiredTagCount = Math.min(safeCurrentLevel + 1, 4);
+  const uniqueTags = new Set<string>();
+  buildings.forEach(b => (b.tags || []).forEach(t => uniqueTags.add(t)));
+  const existingTags = Array.from(uniqueTags);
+  const tagMet = existingTags.length >= requiredTagCount;
+
+  // 결여된 추천 태그 선별
+  const coreTagPool = ['생산', '군사', '치안', '행정', '신앙', '민생'];
+  const missingSuggestedTags = coreTagPool.filter(t => !existingTags.some(et => et.includes(t))).slice(0, 3);
+
+  // 4. 세력 조건 (활성 시)
+  let factionAllMet = true;
+  let factionReqs = undefined;
+  if (isFactionActive && factionStats) {
+    const badKeywords = ['나쁨', '불안', '낮음', '악화', '위험', '폭동', '파탄', '혼란'];
+    const isGood = (val?: string) => val ? badKeywords.every(k => !val.includes(k)) : false;
+
+    const poMet = nextLevel >= 3 ? isGood(factionStats.publicOrder) : true;
+    const psMet = nextLevel >= 3 ? isGood(factionStats.publicSentiment) : true;
+    const devMet = nextLevel >= 4 ? ['높음', '우수', '매우', '번영', '발달', '전성'].some(k => (factionStats.development || '').includes(k)) : true;
+
+    factionAllMet = poMet && psMet && devMet;
+    factionReqs = {
+      publicOrder: nextLevel >= 3 ? { current: factionStats.publicOrder || '미상', met: poMet, required: '보통 이상' } : undefined,
+      publicSentiment: nextLevel >= 3 ? { current: factionStats.publicSentiment || '미상', met: psMet, required: '보통 이상' } : undefined,
+      development: nextLevel >= 4 ? { current: factionStats.development || '미상', met: devMet, required: '높음 이상' } : undefined,
+      allMet: factionAllMet
+    };
+  }
+
+  // 5. 달성율 계산
+  const totalChecks = 3 + (isFactionActive ? 1 : 0);
+  let passedChecks = (buildingMet ? 1 : 0) + (levelSumMet ? 1 : 0) + (tagMet ? 1 : 0);
+  if (isFactionActive) passedChecks += (factionAllMet ? 1 : 0);
+  const overallProgressPercent = Math.round((passedChecks / totalChecks) * 100);
+
+  const canPromote = buildingMet && levelSumMet && tagMet && factionAllMet;
+
+  // 6. 구체적인 액션 조언 팁 도출
+  const actionTips: string[] = [];
+  if (!buildingMet) {
+    actionTips.push(`시설 수 부족: 신규 시설 ${requiredBuildings - currentBuildings}동을 추가 건설해야 합니다.`);
+  }
+  if (!levelSumMet) {
+    actionTips.push(`시설 등급 합 부족: 기존 건물을 증축하여 레벨 합계를 최소 ${requiredLevelSum - currentLevelSum} 더 올려야 합니다.`);
+  }
+  if (!tagMet) {
+    actionTips.push(`기능 다양성 부족: [${missingSuggestedTags.join(', ')}] 계열의 신규 시설을 건설하여 거점 기능을 다변화하세요.`);
+  }
+  if (isFactionActive && !factionAllMet) {
+    actionTips.push(`세력 안정도 부족: 거점의 치안과 민심을 안정시키고 영지 개발도를 높여야 합니다.`);
+  }
+  if (canPromote) {
+    actionTips.push(`모든 건축 및 영지 조건 충족 완료! 하단의 [⭐ 거점 승격 공사]를 착수하여 거점을 확장하세요.`);
+  }
+
+  return {
+    currentLevel: safeCurrentLevel,
+    currentTitle,
+    nextLevel,
+    nextTitle,
+    isMaxLevel: false,
+    canPromote,
+    overallProgressPercent,
+    buildingCount: {
+      label: '보유 시설 수',
+      current: currentBuildings,
+      required: requiredBuildings,
+      met: buildingMet,
+      desc: `${currentBuildings}동 / 필요 ${requiredBuildings}동 (${buildingMet ? '충족' : `${requiredBuildings - currentBuildings}동 부족`})`
+    },
+    levelSum: {
+      label: '시설 레벨 총합',
+      current: currentLevelSum,
+      required: requiredLevelSum,
+      met: levelSumMet,
+      desc: `합계 ${currentLevelSum} / 필요 ${requiredLevelSum} (${levelSumMet ? '충족' : `${requiredLevelSum - currentLevelSum} 부족`})`
+    },
+    tagDiversity: {
+      label: '기능 태그 다양성',
+      current: existingTags.length,
+      required: requiredTagCount,
+      met: tagMet,
+      desc: `${existingTags.length}종 / 필요 ${requiredTagCount}종 (${tagMet ? '충족' : `${requiredTagCount - existingTags.length}종 부족`})`,
+      existingTags,
+      missingSuggestedTags
+    },
+    factionRequirements: factionReqs,
+    actionTips
   };
 }
 
@@ -338,6 +511,70 @@ export function sanitizeEstateState<T extends Record<string, any>>(state: T): T 
         }
         return b;
       });
+
+      // 1-1. 거점 시설(estate.buildings) 형식 정규화 및 결함 복구 (Vercel 세이브 파일 호환)
+      const PURE_TAG_REGEX = /^(?:군사|생산|치안|행정|신앙|문화|민생|경제|특수|외교|방어|학문|종교|수익|산업)$/;
+      const isPureTag = (t: string) => PURE_TAG_REGEX.test((t || '').replace(/[\[\]\{\}]/g, '').trim());
+      const seenNames = new Map<string, any>();
+
+      cloned.estate.buildings.forEach((b: any) => {
+        if (!b) return;
+        let cleanName = (b.name || '')
+          .replace(/^[\[\{]+|[\]\}]+$/g, '')
+          .replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '')
+          .trim();
+
+        // 파서 결함으로 시설명이 태그로 쪼개져 저장된 경우 복원
+        if ((!cleanName || cleanName === '거점 시설') && Array.isArray(b.tags)) {
+          const nonTagWords = b.tags
+            .filter((t: string) => !isPureTag(t))
+            .map((t: string) => t.replace(/[\[\]\{\}]/g, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '').trim())
+            .filter(Boolean)
+            .join(' ');
+          if (nonTagWords) cleanName = nonTagWords;
+        }
+
+        if (!cleanName) cleanName = '거점 시설';
+
+        const rawLevel = typeof b.level === 'number' ? b.level : parseInt(String(b.level || '1').replace(/[^\d]/g, ''), 10) || 1;
+        const cleanLevel = Math.max(1, rawLevel);
+
+        // 유효 태그 추출 및 정제 (복원된 시설명 단어는 태그에서 제외)
+        const cleanedTags: string[] = [];
+        if (Array.isArray(b.tags)) {
+          b.tags.forEach((t: any) => {
+            if (typeof t === 'string') {
+              const stripped = t.replace(/[\[\]\{\}]/g, '').trim();
+              if (stripped && stripped !== cleanName && !cleanedTags.includes(stripped)) {
+                cleanedTags.push(stripped);
+              }
+            }
+          });
+        }
+        if (cleanedTags.length === 0) {
+          cleanedTags.push('생산');
+        }
+
+        const normalizedB = {
+          ...b,
+          name: cleanName,
+          level: cleanLevel,
+          tags: cleanedTags,
+          desc: b.desc || ''
+        };
+
+        // 중복 시설명 처리 (더 높은 레벨 유지)
+        if (seenNames.has(cleanName)) {
+          const existing = seenNames.get(cleanName);
+          if (cleanLevel > existing.level) {
+            seenNames.set(cleanName, normalizedB);
+          }
+        } else {
+          seenNames.set(cleanName, normalizedB);
+        }
+      });
+
+      cloned.estate.buildings = Array.from(seenNames.values());
     }
 
     // 2. buildOptions 내 올리브 압착장 중복 업그레이드(Lv.1→2) 제거
@@ -366,8 +603,24 @@ export function sanitizeEstateState<T extends Record<string, any>>(state: T): T 
       });
     }
 
-    // 4. relationships.faction 세력 관계 중복 쪼개짐(예: '우르비노 주교좌 성당' vs '우르비노 주교좌 대성당') 단일화 병합
+    // 4. relationships.faction 세력 관계 중복 쪼개짐 단일화 병합 및 대적 세력(신성 로마 제국 황제파 등) 왜곡 자동 정정
     if (cloned.relationships && Array.isArray(cloned.relationships.faction)) {
+      cloned.relationships.faction = cloned.relationships.faction.map((rel: string) => {
+        if (!rel || typeof rel !== 'string') return rel;
+        let fixedRel = rel;
+        if (fixedRel.includes('신성 로마 제국') || fixedRel.includes('신성로마제국') || fixedRel.includes('황제파') || fixedRel.includes('기벨린')) {
+          if (fixedRel.includes('복종')) {
+            fixedRel = fixedRel.replace(/태도:\s*복종/g, '태도: 적의 품음 (도발 억제)');
+          }
+          if (fixedRel.includes('위협도: 안전') || fixedRel.includes('위협도:안전')) {
+            fixedRel = fixedRel.replace(/위협도:\s*안전/g, '위협도: 경계 (잠복)');
+          }
+          if (fixedRel.includes('완전 무력화') || fixedRel.includes('도발 포기')) {
+            fixedRel = fixedRel.replace(/완전\s*무력화/g, '굴욕적 휴전');
+          }
+        }
+        return fixedRel;
+      });
       cloned.relationships.faction = mergeAndDeduplicateFactionRelations(cloned.relationships.faction);
     }
 

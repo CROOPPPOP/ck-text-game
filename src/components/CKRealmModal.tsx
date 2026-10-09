@@ -7,7 +7,8 @@ import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome } fro
 import { getCouncilVassals } from '@/lib/characterRelations';
 import { QueueItem, BuildOption, turnsLeft, sameBuildingName } from '@/lib/construction';
 import { getPlayerWealthAmount } from '@/lib/estateEconomy';
-import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle, Coins, TrendingUp, TrendingDown } from 'lucide-react';
+import { getEstatePromotionMilestones } from '@/lib/estate';
+import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle, Coins, TrendingUp, TrendingDown, Award } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -68,6 +69,18 @@ export default function CKRealmModal({
   const councilVassals = getCouncilVassals(gameState?.relationships?.personal, archetype);
   const playerCurrency = archetype === 'clergy' ? '은화' : archetype === 'wanderer' ? '동화' : '금화';
   const currentWealth = gameState ? getPlayerWealthAmount(gameState, playerCurrency) : 999;
+
+  const estateLevelRaw = gameState?.estate?.level;
+  const estateLevelNum = typeof estateLevelRaw === 'number'
+    ? estateLevelRaw
+    : parseInt(String(estateLevelRaw || '1').replace(/[^\d]/g, ''), 10) || 1;
+  const promotionMilestone = getEstatePromotionMilestones(
+    estateLevelNum,
+    gameState?.estate?.buildings || [],
+    archetype,
+    gameState?.estate?.factionStats,
+    gameState?.estate?.isFactionActive
+  );
 
   const getTagStyle = (t: string) => {
     if (t.includes('군사')) return { bg: 'rgba(239,68,68,0.2)', color: '#fca5a5', icon: '⚔️' };
@@ -424,6 +437,307 @@ export default function CKRealmModal({
               </div>
             )}
 
+            {/* 🏛️ 거점 승격 로드맵 및 필요 건축 조건 (Holdings Advancement Roadmap) */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(28, 22, 16, 0.95), rgba(18, 14, 11, 0.98))',
+              border: '1.5px solid rgba(200, 159, 60, 0.4)',
+              borderRadius: '10px',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.4)',
+              boxSizing: 'border-box'
+            }}>
+              {/* 로드맵 헤더: 현재 ➔ 목표 & 달성률 */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px',
+                borderBottom: '1px solid rgba(200, 159, 60, 0.2)',
+                paddingBottom: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <Award size={18} style={{ color: 'var(--gold-accent)' }} />
+                  <span style={{ fontWeight: 'bold', color: 'var(--gold-accent)', fontSize: '1rem' }}>
+                    🏛️ 거점 승격 로드맵 및 필요 건축 조건
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {promotionMilestone.isMaxLevel ? (
+                    <span style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      color: '#d8b4fe',
+                      background: 'rgba(168, 85, 247, 0.2)',
+                      padding: '3px 10px',
+                      borderRadius: '5px',
+                      border: '1px solid rgba(168, 85, 247, 0.4)'
+                    }}>
+                      👑 당대 최고위 거점 도달
+                    </span>
+                  ) : promotionMilestone.canPromote ? (
+                    <span style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      color: '#4ade80',
+                      background: 'rgba(34, 197, 94, 0.2)',
+                      padding: '3px 10px',
+                      borderRadius: '5px',
+                      border: '1px solid #16a34a'
+                    }}>
+                      ⭐ 승격 조건 완비 · 공사 착수 가능
+                    </span>
+                  ) : (
+                    <span style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      color: '#fbbf24',
+                      background: 'rgba(245, 158, 11, 0.15)',
+                      padding: '3px 10px',
+                      borderRadius: '5px',
+                      border: '1px solid rgba(245, 158, 11, 0.35)'
+                    }}>
+                      진행도: {promotionMilestone.overallProgressPercent}%
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* 승격 경로 표시 및 진행률 게이지 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontWeight: 'bold', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--gold-hover)' }}>{promotionMilestone.currentTitle}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>➔</span>
+                    <span style={{ color: promotionMilestone.isMaxLevel ? '#d8b4fe' : '#38bdf8' }}>
+                      {promotionMilestone.nextTitle}
+                    </span>
+                  </div>
+                  {!promotionMilestone.isMaxLevel && (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      건축 인프라 완성도: <strong style={{ color: 'var(--gold-accent)' }}>{promotionMilestone.overallProgressPercent}%</strong>
+                    </span>
+                  )}
+                </div>
+
+                {/* 게이지 바 */}
+                {!promotionMilestone.isMaxLevel && (
+                  <div style={{
+                    width: '100%',
+                    height: '8px',
+                    background: 'rgba(0,0,0,0.5)',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                    border: '1px solid rgba(255,255,255,0.08)'
+                  }}>
+                    <div style={{
+                      width: `${Math.min(100, Math.max(0, promotionMilestone.overallProgressPercent))}%`,
+                      height: '100%',
+                      background: promotionMilestone.canPromote
+                        ? 'linear-gradient(90deg, #10b981 0%, #34d399 100%)'
+                        : 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)',
+                      borderRadius: '4px',
+                      transition: 'width 0.4s ease'
+                    }} />
+                  </div>
+                )}
+              </div>
+
+              {/* 3대 핵심 승격 요건 카드 그리드 */}
+              {!promotionMilestone.isMaxLevel && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: '10px'
+                }}>
+                  {/* 요건 1: 시설 수 */}
+                  <div style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: `1px solid ${promotionMilestone.buildingCount.met ? 'rgba(74, 222, 128, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 'bold' }}>
+                        🏛️ {promotionMilestone.buildingCount.label}
+                      </span>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 'bold',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: promotionMilestone.buildingCount.met ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: promotionMilestone.buildingCount.met ? '#4ade80' : '#f87171'
+                      }}>
+                        {promotionMilestone.buildingCount.met ? '충족' : '부족'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: promotionMilestone.buildingCount.met ? '#4ade80' : '#fca5a5' }}>
+                      {promotionMilestone.buildingCount.current} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {promotionMilestone.buildingCount.required}동</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.3', wordBreak: 'keep-all' }}>
+                      {promotionMilestone.buildingCount.desc}
+                    </span>
+                  </div>
+
+                  {/* 요건 2: 시설 레벨 합계 */}
+                  <div style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: `1px solid ${promotionMilestone.levelSum.met ? 'rgba(74, 222, 128, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 'bold' }}>
+                        ⭐ {promotionMilestone.levelSum.label}
+                      </span>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 'bold',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: promotionMilestone.levelSum.met ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: promotionMilestone.levelSum.met ? '#4ade80' : '#f87171'
+                      }}>
+                        {promotionMilestone.levelSum.met ? '충족' : '부족'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: promotionMilestone.levelSum.met ? '#4ade80' : '#fca5a5' }}>
+                      Lv.{promotionMilestone.levelSum.current} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ 합계 {promotionMilestone.levelSum.required} 이상</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.3', wordBreak: 'keep-all' }}>
+                      {promotionMilestone.levelSum.desc}
+                    </span>
+                  </div>
+
+                  {/* 요건 3: 기능 다양성 */}
+                  <div style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: `1px solid ${promotionMilestone.tagDiversity.met ? 'rgba(74, 222, 128, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 'bold' }}>
+                        🏷️ {promotionMilestone.tagDiversity.label}
+                      </span>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 'bold',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: promotionMilestone.tagDiversity.met ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: promotionMilestone.tagDiversity.met ? '#4ade80' : '#f87171'
+                      }}>
+                        {promotionMilestone.tagDiversity.met ? '충족' : '부족'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: promotionMilestone.tagDiversity.met ? '#4ade80' : '#fca5a5' }}>
+                      {promotionMilestone.tagDiversity.current} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {promotionMilestone.tagDiversity.required}종 분야</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.3', wordBreak: 'keep-all' }}>
+                      {promotionMilestone.tagDiversity.desc}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 기능 태그 현황 및 추천 건설 분야 */}
+              {!promotionMilestone.isMaxLevel && (
+                <div style={{
+                  background: 'rgba(0,0,0,0.25)',
+                  borderRadius: '8px',
+                  padding: '10px 12px',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.82rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>보유 기능 태그:</span>
+                    {promotionMilestone.tagDiversity.existingTags.length > 0 ? (
+                      promotionMilestone.tagDiversity.existingTags.map((tag, ti) => {
+                        const st = getTagStyle(tag);
+                        return (
+                          <span key={ti} style={{
+                            fontSize: '0.75rem',
+                            background: st.bg,
+                            color: st.color,
+                            border: `1px solid ${st.color}33`,
+                            padding: '2px 7px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}>
+                            <span>{st.icon}</span> {tag}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>아직 등록된 태그 없음</span>
+                    )}
+                  </div>
+
+                  {promotionMilestone.tagDiversity.missingSuggestedTags.length > 0 && !promotionMilestone.tagDiversity.met && (
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>💡 승격 추천 결여 태그:</span>
+                      {promotionMilestone.tagDiversity.missingSuggestedTags.map((mt, mi) => (
+                        <span key={mi} style={{
+                          fontSize: '0.75rem',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: '#fde047',
+                          border: '1px solid rgba(245, 158, 11, 0.4)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 'bold',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🔨 [{mt}] 계열 시설 권장
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 실시간 승격 가이드 팁 */}
+              {promotionMilestone.actionTips && promotionMilestone.actionTips.length > 0 && (
+                <div style={{
+                  background: promotionMilestone.canPromote ? 'rgba(34, 197, 94, 0.1)' : 'rgba(200, 159, 60, 0.08)',
+                  border: `1px solid ${promotionMilestone.canPromote ? 'rgba(34, 197, 94, 0.3)' : 'rgba(200, 159, 60, 0.25)'}`,
+                  borderRadius: '8px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: promotionMilestone.canPromote ? '#86efac' : 'var(--gold-hover)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>💡</span> 거점 승격 가이드라인:
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.8rem', color: 'var(--text-main)', lineHeight: '1.45', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {promotionMilestone.actionTips.map((tip, ti) => (
+                      <li key={ti} style={{ wordBreak: 'keep-all' }}>{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
             {/* 현재 완공된 시설 목록 */}
             <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px' }}>
               <h3 style={{ color: 'var(--gold-accent)', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
@@ -438,21 +752,22 @@ export default function CKRealmModal({
                       .trim() || '거점 시설';
 
                     // 이전 파서 결함으로 시설명이 태그로 쪼개져 저장된 경우 복원
-                    const VALID_TAG_KEYWORD = /군사|생산|치안|행정|신앙|문화|민생|경제|특수|외교|방어|학문|종교/;
-                    if ((cleanName === '거점 시설' || !cleanName) && b.tags && b.tags.some(t => !VALID_TAG_KEYWORD.test(t))) {
+                    const PURE_TAG_REGEX = /^(?:군사|생산|치안|행정|신앙|문화|민생|경제|특수|외교|방어|학문|종교|수익|산업)$/;
+                    const isPureTag = (t: string) => PURE_TAG_REGEX.test((t || '').replace(/[\[\]\{\}]/g, '').trim());
+
+                    if ((cleanName === '거점 시설' || !cleanName) && b.tags && b.tags.some(t => !isPureTag(t))) {
                       const reconstructed = b.tags
-                        .filter(t => !VALID_TAG_KEYWORD.test(t))
-                        .join(' ')
-                        .replace(/[\[\]\{\}]/g, '')
-                        .replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '')
-                        .trim();
+                        .filter(t => !isPureTag(t))
+                        .map(t => t.replace(/[\[\]\{\}]/g, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+[\)\]\}]?/gi, '').trim())
+                        .filter(Boolean)
+                        .join(' ');
                       if (reconstructed) cleanName = reconstructed;
                     }
 
                     // 오직 유효한 기능 태그만 필터링하여 출력 (단어 쪼개짐 오염 완벽 차단)
                     const validTags = (b.tags || [])
                       .map(t => (t || '').replace(/[\[\]\{\}]/g, '').trim())
-                      .filter(t => VALID_TAG_KEYWORD.test(t));
+                      .filter(t => isPureTag(t) && t !== cleanName);
 
                     return (
                       <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -515,6 +830,30 @@ export default function CKRealmModal({
                 🏗️ 건설 가능 시설 및 승격 공사
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {!promotionOption && !promotionMilestone.isMaxLevel && (
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    border: '1px dashed rgba(200, 159, 60, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                      <strong style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
+                        🔒 {promotionMilestone.nextTitle} 승격 공사 (미해금)
+                      </strong>
+                      <span style={{ fontSize: '0.75rem', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                        로드맵 요건 {promotionMilestone.overallProgressPercent}% 달성 중
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      상단 로드맵의 시설 수, 시설 레벨 합계, 기능 다양성 조건을 모두 충족하면 승격 공사가 정식 해금됩니다.
+                    </div>
+                  </div>
+                )}
+
                 {promotionOption && (() => {
                   const promoCostNum = (promotionOption as any).costAmount || parseInt((promotionOption.cost || '').replace(/[^\d]/g, ''), 10) || 0;
                   const canAffordPromo = currentWealth === 0 || promoCostNum === 0 || currentWealth >= promoCostNum;
