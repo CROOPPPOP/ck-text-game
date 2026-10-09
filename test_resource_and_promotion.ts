@@ -195,4 +195,161 @@ const queueItem = {
 console.log('- 승격 공사 큐 등록:', queueItem.building, `(남은 턴: ${queueItem.turnsLeft})`);
 console.log('✅ [검증 3] Vercel 세이브 파일 호환성 및 승격 공사 큐 검증 성공!\n');
 
-console.log('🎉 모든 테스트가 성공적으로 완료되었습니다! 버그가 완벽히 수정되었습니다.');
+
+console.log('================================================================');
+console.log('🩺 [검증 4] 신체 상태 위험도 배지 자가 치유(Self-Healing) 및 신앙심 분리 검증');
+console.log('================================================================');
+
+import { normalizeParsedState } from './src/lib/parser';
+import { isMilitaryOrRetinueItem, calculateDynamicLevies } from './src/lib/ckVisuals';
+
+// 실제 유저 이미지 1에서 발생한 Vercel 로컬 스토리지 오염 데이터 모의
+const corruptedVercelSave: ParsedState = {
+  personalInfo: {
+    '이름': '기욤 드 바르',
+    '신분': '대사제',
+    '직위': '팔레르모 대주교'
+  },
+  playerStatus: [
+    { name: '건강', value: '100', risk: '위험', description: '위험도: 최상 — 완벽한 신체' },
+    { name: '체력', value: '98', risk: '위험', description: '위험도: 최상 — 지칠 줄 모르는 기력' },
+    { name: '통증', value: '0', risk: '위험', description: '위험도: 안전 — 고통 없음' },
+    { name: '허기', value: '0', risk: '위험', description: '위험도: 안전 — 대사제관의 식사' },
+    { name: '갈증', value: '0', risk: '위험', description: '위험도: 안전 — 해갈됨' },
+    { name: '피로', value: '5', risk: '위험', description: '위험도: 안전 — 상쾌함' },
+    { name: '신앙심', value: '130', risk: '안정', description: '성스러운 독실함' },
+  ],
+  inventory: {
+    '재산 및 병력': [
+      '성 미카엘 기사수도회 [76명] (팔레르모 성지 수호 및 정예 기사단)',
+      '암영 첩보대 [10명] (시칠리아 전역 비밀 정보 수집망)',
+      ': 은화 46.8닢'
+    ],
+    'equipment': ['장원 올리브 압착장 Lv.2', '대주교 성의']
+  },
+  estate: {
+    type: '대교구 장원',
+    level: 'Lv.2',
+    buildings: [
+      { name: '장원 올리브 압착장', level: 2, tags: ['산업'] },
+      { name: '성전 기사단 훈련소', level: 1, tags: ['군사'] }
+    ]
+  },
+  factionState: {
+    '병력': '수도사 12명',
+    '세력 재정': '은화 46.8닢'
+  }
+};
+
+// 1. normalizeParsedState 실행을 통한 세이브 데이터 자동 치유
+const healedState = normalizeParsedState(corruptedVercelSave);
+
+console.log('1) 세이브 로드 시 normalizeParsedState 자가 치유 결과:');
+const healedHealth = healedState.playerStatus!.find(s => s.name === '건강')!;
+const healedPain = healedState.playerStatus!.find(s => s.name === '통증')!;
+const healedHunger = healedState.playerStatus!.find(s => s.name === '허기')!;
+
+console.log(`   - 건강: 수치 ${healedHealth.value}, 위험도 배지: [${healedHealth.risk}], 설명문: "${healedHealth.description}"`);
+console.log(`   - 통증: 수치 ${healedPain.value}, 위험도 배지: [${healedPain.risk}], 설명문: "${healedPain.description}"`);
+console.log(`   - 허기: 수치 ${healedHunger.value}, 위험도 배지: [${healedHunger.risk}], 설명문: "${healedHunger.description}"`);
+
+if (healedHealth.risk !== '최상') {
+  throw new Error(`❌ 건강 상태 위험도 치유 실패! 기대값: '최상', 실제값: '${healedHealth.risk}'`);
+}
+if (!['최상', '안전'].includes(healedPain.risk)) {
+  throw new Error(`❌ 통증 상태 위험도 치유 실패! 기대값: '최상' 또는 '안전', 실제값: '${healedPain.risk}'`);
+}
+if (healedHealth.description.startsWith('위험도:')) {
+  throw new Error(`❌ 설명문 접두어 오염 미정제! "${healedHealth.description}"`);
+}
+
+// 2. 신체 상태에서 신앙심 분리 검증
+const physicalList = healedState.playerStatus!.filter(s => {
+  const n = s.name;
+  return !(n.includes('신앙') || n.includes('경건') || n.includes('위신') || n.includes('재정') || n.includes('명예') || n.includes('병력'));
+});
+
+console.log('2) 신체 상태 카드 필터링 결과:');
+console.log('   - 총 신체 항목 개수:', physicalList.length);
+console.log('   - 포함 항목:', physicalList.map(s => s.name).join(', '));
+
+if (physicalList.some(s => s.name.includes('신앙'))) {
+  throw new Error('❌ 신앙심이 여전히 신체 건강 상태에 포함되어 있음!');
+}
+console.log('✅ [검증 4] 신체 상태 위험도 배지 자가 치유 및 신앙심 분리 검증 성공!\n');
+
+
+console.log('================================================================');
+console.log('⚔️ [검증 5] 직속 병력 동적 산정 엔진(Dynamic Levies Engine) 및 소지품 분리 검증');
+console.log('================================================================');
+
+// 1. calculateDynamicLevies 실행
+const dynamicMilitary = calculateDynamicLevies(healedState);
+
+console.log('1) 동적 병력 계산 결과:');
+console.log('   - 총 병력 합계:', dynamicMilitary.totalLevies + '명');
+console.log('   - 신분 기본 상비군:', dynamicMilitary.baseLevies + '명');
+console.log('   - 거점 군사 인프라 가산:', dynamicMilitary.holdingBonus + '명');
+console.log('   - 직속 부대/수행단 인원:', dynamicMilitary.unitsBonus + '명');
+console.log('   - 감지된 군사 부대 목록:');
+dynamicMilitary.units.forEach(u => {
+  console.log(`     • ${u.icon} ${u.name}: ${u.count}명 (${u.type}, 사기: ${u.morale})`);
+});
+
+// 기사단 76명 + 첩보대 10명 = 86명
+if (dynamicMilitary.unitsBonus !== 86) {
+  throw new Error(`❌ 직속 부대 인원수 계산 오류: 실제 ${dynamicMilitary.unitsBonus} !== 기대값 86`);
+}
+// 직속 부대 2개 + 거점 직할 수비대 1개 = 총 3개 부대
+if (dynamicMilitary.units.length !== 3) {
+  throw new Error(`❌ 감지된 부대 개수 오류: 실제 ${dynamicMilitary.units.length} !== 기대값 3`);
+}
+if (dynamicMilitary.totalLevies < 86) {
+  throw new Error(`❌ 총 병력 합계 오류: ${dynamicMilitary.totalLevies}`);
+}
+
+// 2. parseCKResources 내 levies와 military 연동 검증
+const resWithMilitary = parseCKResources(healedState);
+console.log('2) parseCKResources 연동 결과:');
+console.log('   - 표기 병력 문자열:', resWithMilitary.levies);
+console.log('   - 연동된 military 총 병력:', resWithMilitary.military?.totalLevies + '명');
+
+if (!resWithMilitary.levies.includes(String(dynamicMilitary.totalLevies))) {
+  throw new Error(`❌ resources.levies에 동적 총 병력이 반영되지 않음: ${resWithMilitary.levies}`);
+}
+
+// 3. 소지품 내 군사 부대 판별 및 중복 제거 검증
+const rawItems = healedState.inventory!['재산 및 병력'] as string[];
+const filteredWealthItems = rawItems.filter(item => !isMilitaryOrRetinueItem(item));
+const militaryItems = rawItems.filter(item => isMilitaryOrRetinueItem(item));
+
+console.log('3) 소지품 내 군사/재산 분리 검증:');
+console.log('   - 분리된 군사 부대 아이템:', militaryItems);
+console.log('   - 순수 재산/화폐 아이템:', filteredWealthItems);
+
+if (militaryItems.length !== 2) {
+  throw new Error(`❌ isMilitaryOrRetinueItem 판별 실패: 실제 ${militaryItems.length} !== 2`);
+}
+if (filteredWealthItems.length !== 1 || !filteredWealthItems[0].includes('은화')) {
+  throw new Error(`❌ 순수 재산 아이템 필터링 실패: ${JSON.stringify(filteredWealthItems)}`);
+}
+
+// 4. 턴 경과 시 세력 병력 자동 동기화 검증
+const simulatedTurnAI: any = JSON.parse(JSON.stringify(healedState));
+simulatedTurnAI.dateLocation = '서기 1067년 가을 [턴 수: 4]';
+const nextTurnMilitaryState = applyTurnResourceAccumulation(simulatedTurnAI, healedState);
+
+console.log('4) 턴 경과 후 세력 병력 동기화 결과:');
+console.log('   - 이전 병력:', healedState.factionState!['병력']);
+console.log('   - 갱신된 세력 병력:', nextTurnMilitaryState.factionState!['병력']);
+
+if (!nextTurnMilitaryState.factionState!['병력'].includes(String(dynamicMilitary.totalLevies))) {
+  throw new Error(`❌ 턴 경과 후 factionState['병력']에 동적 병력이 동기화되지 않음!`);
+}
+
+console.log('✅ [검증 5] 직속 병력 동적 산정 엔진 및 소지품 분리/턴 동기화 검증 성공!\n');
+
+console.log('================================================================');
+console.log('🎉 [전체 검증 완료] 5대 핵심 기능 및 Vercel 로컬 세이브 완벽 호환 확인!');
+console.log('================================================================');
+

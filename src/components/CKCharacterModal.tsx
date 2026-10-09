@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails, parseCKResources } from '@/lib/ckVisuals';
+import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails, parseCKResources, isMilitaryOrRetinueItem } from '@/lib/ckVisuals';
 import { 
   TRAIT_CATEGORIES, 
   ORDERED_TRAIT_CATEGORY_KEYS, 
   groupTraitsBySession, 
   TraitCategoryKey 
 } from '@/lib/traitUtils';
-import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins, ChevronDown, ChevronUp, Compass } from 'lucide-react';
+import { Crown, Shield, Sword, Swords, Users, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins, ChevronDown, ChevronUp, Compass } from 'lucide-react';
 import { checkStatusPromotion, PromotionTarget } from '@/lib/statusPromotion';
 import { ALL_DECISIONS, PIETY_DECISIONS, PRESTIGE_DECISIONS, CKDecision, getAvailableDecisions } from '@/lib/ckDecisions';
 
@@ -1576,157 +1576,498 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
           </div>
         </div>
 
-        {/* 4. Vital Health & Physical Condition (건강 및 신체 상태) */}
-        {gameState.playerStatus && gameState.playerStatus.length > 0 && (
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              color: 'var(--gold-accent)',
-              marginBottom: '12px',
-              borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
-              paddingBottom: '8px'
-            }}>
-              <Activity size={18} />
-              <span>신체 및 생체 건강 상태 (Physical Condition)</span>
+        {/* 4. Vital Health & Physical Condition (신체 및 생체 건강 상태) */}
+        {gameState.playerStatus && gameState.playerStatus.length > 0 && (() => {
+          const physicalStatuses = gameState.playerStatus.filter(status => {
+            const n = status.name;
+            const isSpiritualOrResource = n.includes('신앙') || n.includes('경건') || n.includes('위신') || n.includes('재정') || n.includes('명예') || n.includes('병력');
+            return !isSpiritualOrResource;
+          });
+
+          if (physicalStatuses.length === 0) return null;
+
+          return (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                color: 'var(--gold-accent)',
+                marginBottom: '12px',
+                borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+                paddingBottom: '8px'
+              }}>
+                <Activity size={18} />
+                <span>신체 및 생체 건강 상태 (Physical Condition)</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+                {physicalStatuses.map((status, idx) => {
+                  const rawRisk = (status.risk || '').replace(/^(?:위험도|위험등급|위험)\s*[:：]?\s*/, '').trim();
+                  const desc = status.description || '';
+                  const valNum = parseInt(status.value.replace(/[^0-9]/g, ''), 10);
+                  
+                  // 수치 특성: 통증/허기/갈증/피로/출혈은 0이거나 낮을수록 안전, 건강/체력은 100에 가까울수록 최상
+                  const isInverse = status.name.includes('통증') || status.name.includes('허기') || status.name.includes('갈증') || status.name.includes('피로') || status.name.includes('출혈') || status.name.includes('부상') || status.name.includes('스트레스');
+
+                  const isBest = rawRisk.includes('최상') || rawRisk.includes('완벽') || desc.includes('최상') || (!isNaN(valNum) && !isInverse && valNum >= 95) || (!isNaN(valNum) && isInverse && valNum === 0);
+                  const isSafe = rawRisk.includes('안전') || rawRisk.includes('정상') || rawRisk.includes('양호') || rawRisk.includes('무사') || desc.includes('안전') || desc.includes('충만');
+                  const isMedium = rawRisk.includes('중간') || rawRisk.includes('주의') || rawRisk.includes('보통') || rawRisk.includes('경미') || desc.includes('주의');
+                  const isLethal = rawRisk.includes('치명') || rawRisk.includes('임계') || desc.includes('치명');
+                  const isDanger = (rawRisk.includes('위험') || rawRisk.includes('심각') || desc.includes('위험')) && !isBest && !isSafe;
+
+                  let badgeLabel = '안전';
+                  let statusColor = '#4ade80';
+                  let statusBg = 'rgba(74, 222, 128, 0.12)';
+                  let statusBorder = '#10b981';
+
+                  if (isLethal) {
+                    badgeLabel = '치명';
+                    statusColor = '#ef4444';
+                    statusBg = 'rgba(239, 68, 68, 0.15)';
+                    statusBorder = '#ef4444';
+                  } else if (isDanger) {
+                    badgeLabel = '위험';
+                    statusColor = '#f97316';
+                    statusBg = 'rgba(249, 115, 22, 0.15)';
+                    statusBorder = '#f97316';
+                  } else if (isMedium) {
+                    badgeLabel = '주의';
+                    statusColor = '#fbbf24';
+                    statusBg = 'rgba(251, 191, 36, 0.12)';
+                    statusBorder = '#fbbf24';
+                  } else if (isBest) {
+                    badgeLabel = '최상';
+                    statusColor = '#38bdf8';
+                    statusBg = 'rgba(56, 189, 248, 0.15)';
+                    statusBorder = '#0284c7';
+                  } else if (isSafe) {
+                    badgeLabel = '안전';
+                    statusColor = '#4ade80';
+                    statusBg = 'rgba(74, 222, 128, 0.12)';
+                    statusBorder = '#10b981';
+                  }
+
+                  const iconMap: Record<string, string> = {
+                    '건강': '❤️',
+                    '체력': '🏃',
+                    '통증': '⚡',
+                    '허기': '🍖',
+                    '갈증': '💧',
+                    '피로': '💤',
+                    '체온': '🌡️',
+                    '스트레스': '💢',
+                    '출혈': '🩸',
+                    '부상': '🩹'
+                  };
+                  const matchedKey = Object.keys(iconMap).find(k => status.name.includes(k));
+                  const metricIcon = matchedKey ? iconMap[matchedKey] : '📊';
+
+                  // 설명문 내 중복 접두어 정제
+                  const cleanDesc = desc.replace(/^(?:최상|안전|주의|위험|치명)\s*[-—–~:]\s*/, '').trim() || desc;
+
+                  return (
+                    <div
+                      key={idx}
+                      title={`${status.description}\n상태등급: [${badgeLabel}]`}
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.35)',
+                        border: `1px solid ${statusBorder}44`,
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.86rem', fontWeight: 'bold', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span>{metricIcon}</span>
+                          <span>{status.name}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '3px' }}>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            padding: '1px 6px',
+                            borderRadius: '3px',
+                            background: statusBg,
+                            border: `1px solid ${statusColor}55`,
+                            color: statusColor,
+                            fontWeight: 'bold'
+                          }}>
+                            {badgeLabel}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px' }}>
+                            {cleanDesc}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{
+                        fontWeight: 'bold',
+                        fontSize: '1rem',
+                        color: statusColor,
+                        marginLeft: '8px'
+                      }}>
+                        {status.value}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          );
+        })()}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
-              {gameState.playerStatus.map((status, idx) => {
-                const isLethal = status.risk.includes('치명');
-                const isDanger = status.risk.includes('위험') && !status.risk.includes('안전');
-                const isMedium = status.risk.includes('중간') || status.risk.includes('주의');
-                const isBest = status.risk.includes('최상');
+        {/* 4.5 Dedicated Military & Forces (⚔️ 직속 병력 및 군사 조직 전용 카드) */}
+        {(() => {
+          const military = resources.military;
+          const units = military?.units || [];
+          const totalLevies = military?.totalLevies || 0;
+          const combatReadiness = military?.combatReadiness || 100;
 
-                const statusColor = isLethal ? '#ef4444' : isDanger ? '#f97316' : isMedium ? '#fbbf24' : isBest ? '#38bdf8' : '#4ade80';
-                const statusBg = isLethal ? 'rgba(239, 68, 68, 0.15)' : isDanger ? 'rgba(249, 115, 22, 0.15)' : isMedium ? 'rgba(251, 191, 36, 0.12)' : isBest ? 'rgba(56, 189, 248, 0.15)' : 'rgba(74, 222, 128, 0.12)';
-                const statusBorder = isLethal ? '#ef4444' : isDanger ? '#f97316' : isMedium ? '#fbbf24' : isBest ? '#0284c7' : '#10b981';
+          return (
+            <div style={{
+              marginBottom: '24px',
+              background: 'linear-gradient(135deg, rgba(28, 18, 18, 0.65), rgba(15, 23, 42, 0.65))',
+              border: '1.5px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '12px',
+              padding: '16px 18px',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)'
+            }}>
+              {/* Header */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '8px',
+                marginBottom: '14px',
+                borderBottom: '1px solid rgba(239, 68, 68, 0.25)',
+                paddingBottom: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Swords size={20} style={{ color: '#f87171' }} />
+                  <div>
+                    <h2 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fecaca', margin: 0 }}>
+                      직속 병력 및 군사 조직 (Military & Standing Forces)
+                    </h2>
+                    <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                      편성된 정예 부대 · 첩보단 · 거점 군사 인프라 기반 동적 병력 산정
+                    </span>
+                  </div>
+                </div>
 
-                const iconMap: Record<string, string> = {
-                  '건강': '❤️',
-                  '체력': '🏃',
-                  '통증': '⚡',
-                  '허기': '🍖',
-                  '갈증': '💧',
-                  '피로': '💤',
-                  '체온': '🌡️',
-                  '스트레스': '💢',
-                  '출혈': '🩸',
-                  '부상': '🩹'
-                };
-                const matchedKey = Object.keys(iconMap).find(k => status.name.includes(k));
-                const metricIcon = matchedKey ? iconMap[matchedKey] : '📊';
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: '0.82rem',
+                    background: 'rgba(239, 68, 68, 0.18)',
+                    color: '#fca5a5',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    <Users size={14} />
+                    총 가용 병력: <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{totalLevies}명</strong>
+                  </span>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#6ee7b7',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    fontWeight: 'bold'
+                  }}>
+                    전투 준비도: {combatReadiness}% (완전 동원)
+                  </span>
+                </div>
+              </div>
 
-                return (
+              {/* Units Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+                {units.map((unit, uIdx) => (
                   <div
-                    key={idx}
-                    title={`${status.description}\n위험도: [${status.risk}]`}
+                    key={uIdx}
                     style={{
-                      background: 'rgba(0, 0, 0, 0.35)',
-                      border: `1px solid ${statusBorder}44`,
+                      background: 'rgba(10, 10, 15, 0.6)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
                       borderRadius: '8px',
-                      padding: '10px 12px',
+                      padding: '12px 14px',
                       display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
+                      flexDirection: 'column',
+                      gap: '6px'
                     }}
                   >
-                    <div>
-                      <div style={{ fontSize: '0.86rem', fontWeight: 'bold', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span>{metricIcon}</span>
-                        <span>{status.name}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>{unit.icon}</span>
+                        <strong style={{ fontSize: '0.92rem', color: '#fef2f2' }}>{unit.name}</strong>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
-                        <span style={{
-                          fontSize: '0.68rem',
-                          padding: '1px 5px',
-                          borderRadius: '3px',
-                          background: statusBg,
-                          border: `1px solid ${statusColor}55`,
-                          color: statusColor,
-                          fontWeight: 'bold'
-                        }}>
-                          {status.risk}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px' }}>
-                          {status.description}
-                        </span>
-                      </div>
+                      <span style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        color: '#f87171',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(239, 68, 68, 0.35)'
+                      }}>
+                        {unit.count}명
+                      </span>
                     </div>
-                    <div style={{
-                      fontWeight: 'bold',
-                      fontSize: '1rem',
-                      color: statusColor,
-                      marginLeft: '8px'
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem' }}>
+                      <span style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        color: '#cbd5e1',
+                        padding: '1px 6px',
+                        borderRadius: '3px',
+                        border: '1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        {unit.type}
+                      </span>
+                      <span style={{ color: '#94a3b8' }}>
+                        사기: <strong style={{ color: '#4ade80' }}>{unit.morale}</strong>
+                      </span>
+                    </div>
+
+                    {unit.description && (
+                      <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.35', marginTop: '2px' }}>
+                        {unit.description}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* 거점 직할 수비대 / 경비병 상비군 카드 */}
+                {((military?.baseLevies || 0) + (military?.holdingBonus || 0) > 0) && (
+                  <div style={{
+                    background: 'rgba(10, 10, 15, 0.45)',
+                    border: '1px dashed rgba(239, 68, 68, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🏰</span>
+                        <strong style={{ fontSize: '0.92rem', color: '#fef2f2' }}>거점 상비 수비대 및 경비병</strong>
+                      </div>
+                      <span style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        color: '#f87171',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                      }}>
+                        {(military?.baseLevies || 0) + (military?.holdingBonus || 0)}명
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem' }}>
+                      <span style={{ background: 'rgba(255,255,255,0.06)', color: '#cbd5e1', padding: '1px 6px', borderRadius: '3px' }}>
+                        거점 방위군
+                      </span>
+                      <span style={{ color: '#94a3b8' }}>
+                        사기: <strong style={{ color: '#4ade80' }}>높음</strong>
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.35', marginTop: '2px' }}>
+                      신분 직속 가신({military?.baseLevies || 0}명) 및 거점 인프라 훈련소/병영 시설(+{military?.holdingBonus || 0}명) 상시 주둔 병력
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 동적 계산 산식 안내 */}
+              <div style={{
+                marginTop: '12px',
+                padding: '8px 12px',
+                background: 'rgba(0, 0, 0, 0.35)',
+                borderRadius: '6px',
+                fontSize: '0.73rem',
+                color: '#cbd5e1',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '6px'
+              }}>
+                <span>
+                  💡 <strong>동적 병력 산식:</strong> 직속 제대({military?.unitsBonus || 0}명) + 거점 군사 인프라({military?.holdingBonus || 0}명) + 직위 기본 상비군({military?.baseLevies || 0}명) = <strong style={{ color: '#f87171' }}>총 {totalLevies}명</strong>
+                </span>
+                <span style={{ color: '#a7f3d0' }}>
+                  턴 경과 및 부대 확충/손실 시 실시간 동기화
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* 5. Inventory & Possessions (소지품 및 자원 - 재산/장비/군사 분리 정제) */}
+        {gameState.inventory && Object.keys(gameState.inventory).length > 0 && (() => {
+          // 군사 부대 및 수행단 아이템은 상단 군사 섹션에서 이미 단독 카드로 렌더링되므로 소지품에서 중복 배제
+          const cleanInventory: Record<string, string[]> = {};
+          let rawWealthItems: string[] = [];
+
+          Object.entries(gameState.inventory).forEach(([category, items]) => {
+            if (!items || !Array.isArray(items)) return;
+            const isWealthCat = category === 'wealth' || category === '재산 및 병력' || category === '재산' || category.includes('재산');
+
+            items.forEach(rawItem => {
+              if (typeof rawItem !== 'string') return;
+              // 콜론 또는 불필요한 접두어 정제
+              const cleanItem = rawItem.replace(/^[:：\s▶•\-]+/, '').trim();
+              if (!cleanItem) return;
+
+              // 군사 부대 판별
+              if (isMilitaryOrRetinueItem(cleanItem)) {
+                return; // 군사 카드에서 이미 표시되므로 중복 배제
+              }
+
+              if (isWealthCat) {
+                rawWealthItems.push(cleanItem);
+              } else {
+                if (!cleanInventory[category]) cleanInventory[category] = [];
+                cleanInventory[category].push(cleanItem);
+              }
+            });
+          });
+
+          return (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                color: 'var(--gold-accent)',
+                marginBottom: '12px',
+                borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+                paddingBottom: '8px'
+              }}>
+                <Package size={18} />
+                <span>소지품 및 보유 자원 (Inventory & Wealth)</span>
+              </div>
+
+              {/* 5-1. 재산 및 금고 (Treasury & Wealth) 독립 카드 */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(35, 28, 10, 0.5), rgba(15, 23, 42, 0.6))',
+                padding: '14px 16px',
+                borderRadius: '10px',
+                border: '1px solid rgba(251, 191, 36, 0.3)',
+                marginBottom: '14px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ color: '#fcd34d', fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Coins size={16} />
+                    <span>보유 재산 및 금고 (Treasury & Wealth)</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span style={{
+                      background: 'rgba(251, 191, 36, 0.15)',
+                      border: '1px solid rgba(251, 191, 36, 0.35)',
+                      color: '#fef08a',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.82rem',
+                      fontWeight: 'bold'
                     }}>
-                      {status.value}
-                    </div>
+                      보유 잔고: {resources.wealth || resources.gold}
+                    </span>
+                    <span style={{
+                      background: 'rgba(52, 211, 153, 0.15)',
+                      border: '1px solid rgba(52, 211, 153, 0.35)',
+                      color: '#6ee7b7',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.78rem',
+                      fontWeight: 'bold'
+                    }}>
+                      순수익: {resources.wealthGain?.formattedNet || resources.income?.formattedNet || '+0.0닢/턴'}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                </div>
 
-        {/* 5. Inventory & Possessions (소지품 및 자원) */}
-        {gameState.inventory && Object.keys(gameState.inventory).length > 0 && (
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              color: 'var(--gold-accent)',
-              marginBottom: '12px',
-              borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
-              paddingBottom: '8px'
-            }}>
-              <Package size={18} />
-              <span>소지품 및 자원 (Inventory & Possessions)</span>
-            </div>
+                {rawWealthItems.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
+                    {rawWealthItems.map((item, idx) => {
+                      const match = item.match(/\[(.*?)\]\s*(.*)/);
+                      const name = match ? match[1].trim() : item;
+                      const desc = match ? match[2].trim() : '';
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {Object.entries(gameState.inventory).map(([category, items]) => {
-                if (!items || (items as string[]).length === 0) return null;
-                const catName = category === 'equipment' ? '장비 및 거점' : category === 'wealth' ? '재산 및 병력' : category;
-                const isWealth = category === 'wealth';
-
-                return (
-                  <div key={category} style={{ background: 'rgba(0,0,0,0.25)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ color: isWealth ? '#fcd34d' : '#7dd3fc', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {isWealth ? <Coins size={14} /> : <Package size={14} />}
-                      <span>{catName}</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
-                      {(items as string[]).map((item, idx) => {
-                        const match = item.match(/\[(.*?)\]\s*(.*)/);
-                        const name = match ? match[1].trim() : item;
-                        const desc = match ? match[2].trim() : '';
-
-                        return (
-                          <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                              {name}
-                            </div>
-                            {desc && (
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: '1.3' }}>
-                                {desc}
-                              </div>
-                            )}
+                      return (
+                        <div key={idx} style={{ background: 'rgba(0,0,0,0.4)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(251, 191, 36, 0.15)' }}>
+                          <div style={{ fontWeight: 'bold', color: '#fef08a', fontSize: '0.88rem' }}>
+                            {name}
                           </div>
-                        );
-                      })}
-                    </div>
+                          {desc && (
+                            <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '2px', lineHeight: '1.3' }}>
+                              {desc}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                ) : (
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                    기본 금고 잔고 외에 별도 등록된 상업 지분이나 특수 재화가 없습니다.
+                  </div>
+                )}
+              </div>
+
+              {/* 5-2. 기타 장비, 거점, 서적, 유물 목록 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {Object.entries(cleanInventory).map(([category, items]) => {
+                  if (!items || items.length === 0) return null;
+                  const catName = category === 'equipment' ? '장비 및 소지품' : category;
+
+                  return (
+                    <div key={category} style={{ background: 'rgba(0,0,0,0.25)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ color: '#7dd3fc', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Package size={14} />
+                        <span>{catName}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
+                        {items.map((item, idx) => {
+                          const match = item.match(/\[(.*?)\]\s*(.*)/);
+                          const name = match ? match[1].trim() : item;
+                          const desc = match ? match[2].trim() : '';
+
+                          return (
+                            <div key={idx} style={{ background: 'rgba(0,0,0,0.35)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                                {name}
+                              </div>
+                              {desc && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: '1.3' }}>
+                                  {desc}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 6. Long-Term Plans & Standing Policies (장기 국정 과업 및 상설 정책 - 보강 7-1 표준) */}
         {((gameState.longTermPlans && gameState.longTermPlans.length > 0) || gameState.longTermPlan) && (

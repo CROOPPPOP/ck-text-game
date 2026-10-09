@@ -161,22 +161,50 @@ export function parseLLMResponse(text: string): ParsedState {
     const lines = playerStatusMatch.split('\n');
     lines.forEach(line => {
       // em-dash(—), en-dash(–), hyphen(-), colon(:) 모두 지원
-      const match = line.match(/\[(.*?)\]\((.*?),\s*([^\s—–\-:]+)\s*[\—\–\-:]\s*(.*?)\)/);
-      if (match) {
-        let risk = match[3].trim();
-        // 5대 표준 위험도 (치명 / 위험 / 중간 / 안전 / 최상) 정규화
-        if (risk.includes('치명') || risk.includes('위중') || risk.includes('치사')) risk = '치명';
-        else if (risk.includes('위험') || risk.includes('심각') || risk.includes('경고')) risk = '위험';
-        else if (risk.includes('중간') || risk.includes('보통') || risk.includes('주의')) risk = '중간';
-        else if (risk.includes('최상') || risk.includes('탁월') || risk.includes('완벽')) risk = '최상';
-        else if (risk.includes('안전') || risk.includes('양호') || risk.includes('정상')) risk = '안전';
+      // 예: [건강](100, 최상 — 완벽한 신체) 또는 [건강](100, 위험도: 최상 — 완벽한 신체)
+      const cleanLine = line.trim();
+      const statusMatch = cleanLine.match(/\[(.*?)\]\((.*?)\)/);
+      if (statusMatch) {
+        const name = statusMatch[1].trim();
+        const inner = statusMatch[2].trim();
+        const commaIdx = inner.indexOf(',');
+        if (commaIdx !== -1) {
+          const value = inner.slice(0, commaIdx).trim();
+          let rest = inner.slice(commaIdx + 1).trim();
 
-        result.playerStatus!.push({
-          name: match[1].trim(),
-          value: match[2].trim(),
-          risk,
-          description: match[4].trim()
-        });
+          // "위험도:" 또는 "위험:" 또는 "위험등급:" 접두어 제거
+          rest = rest.replace(/^(?:위험도|위험등급|위험)\s*[:：]?\s*/i, '');
+
+          // 구분자(—, –, -, :)로 위험도와 설명 분리
+          const splitMatch = rest.match(/^([^\s—–\-:：]+)\s*[\—\–\-:：]\s*(.*)$/);
+          let rawRisk = '';
+          let desc = '';
+          if (splitMatch) {
+            rawRisk = splitMatch[1].trim();
+            desc = splitMatch[2].trim();
+          } else {
+            rawRisk = rest;
+            desc = rest;
+          }
+
+          // 5대 표준 위험도 (치명 / 위험 / 중간 / 안전 / 최상) 정규화
+          let risk = '안전';
+          if (rawRisk.includes('치명') || rawRisk.includes('위중') || rawRisk.includes('치사')) risk = '치명';
+          else if (rawRisk.includes('최상') || rawRisk.includes('탁월') || rawRisk.includes('완벽')) risk = '최상';
+          else if (rawRisk.includes('안전') || rawRisk.includes('양호') || rawRisk.includes('정상')) risk = '안전';
+          else if (rawRisk.includes('중간') || rawRisk.includes('보통') || rawRisk.includes('주의')) risk = '중간';
+          else if (rawRisk.includes('위험') || rawRisk.includes('심각') || rawRisk.includes('경고')) risk = '위험';
+
+          // desc 앞머리에 남아있는 중복 위험도 키워드 정제
+          desc = desc.replace(/^(?:최상|안전|중간|주의|보통|위험|치명)\s*[\—\–\-:：]\s*/i, '').trim();
+
+          result.playerStatus!.push({
+            name,
+            value,
+            risk,
+            description: desc
+          });
+        }
       }
     });
   }
@@ -669,23 +697,35 @@ export function normalizeParsedState(state: ParsedState): ParsedState {
         const tempMatch = existing.value.match(/(\d+(?:\.\d+)?)\s*°?C?/i);
         const tempVal = tempMatch ? `${tempMatch[1]}°C` : '36.7°C';
         let risk = existing.risk || '안전';
-        if (!['안전', '중간', '위험', '치명', '최상'].some(r => risk.includes(r))) {
+        if (risk === '위험' && (existing.description?.includes('안전') || existing.description?.includes('정상'))) {
+          risk = '안전';
+        } else if (!['안전', '중간', '위험', '치명', '최상'].some(r => risk.includes(r))) {
           risk = '안전';
         }
         normalizedStatus.push({
           name: metric.name,
           value: tempVal,
           risk,
-          description: existing.description || metric.defaultDesc
+          description: (existing.description || metric.defaultDesc)
+            .replace(/^(?:위험도|위험등급)\s*[:：]?\s*/i, '')
+            .replace(/^(?:최상|안전|중간|주의|보통|위험|치명)\s*[\—\–\-:：]\s*/i, '')
+            .trim() || metric.defaultDesc
         });
       } else {
         let numVal = 50;
         const match = existing.value.match(/(\d+)/);
         if (match) numVal = Math.max(0, Math.min(100, parseInt(match[1], 10)));
 
-        // 5대 표준 위험도 (치명 / 위험 / 중간 / 안전 / 최상) 보정
+        // 5대 표준 위험도 (치명 / 위험 / 중간 / 안전 / 최상) 보정 및 자가 치유
         let risk = existing.risk || metric.defaultRisk;
-        if (!['안전', '중간', '위험', '치명', '최상'].some(r => risk.includes(r))) {
+        const rawDesc = existing.description || '';
+        if (risk === '위험') {
+          if (rawDesc.includes('최상') || (!metric.isNegative && numVal >= 80) || (metric.isNegative && numVal <= 10)) {
+            risk = '최상';
+          } else if (rawDesc.includes('안전') || rawDesc.includes('양호') || (!metric.isNegative && numVal >= 60) || (metric.isNegative && numVal <= 30)) {
+            risk = '안전';
+          }
+        } else if (!['안전', '중간', '위험', '치명', '최상'].some(r => risk.includes(r))) {
           if (metric.isNegative) {
             risk = numVal >= 80 ? '치명' : numVal >= 60 ? '위험' : numVal >= 40 ? '중간' : numVal >= 20 ? '안전' : '최상';
           } else {
@@ -697,7 +737,10 @@ export function normalizeParsedState(state: ParsedState): ParsedState {
           name: metric.name,
           value: existing.value.includes('%') ? `${numVal}%` : `${numVal}`,
           risk,
-          description: existing.description || metric.defaultDesc
+          description: rawDesc
+            .replace(/^(?:위험도|위험등급)\s*[:：]?\s*/i, '')
+            .replace(/^(?:최상|안전|중간|주의|보통|위험|치명)\s*[\—\–\-:：]\s*/i, '')
+            .trim() || metric.defaultDesc
         });
       }
     } else {
@@ -724,7 +767,7 @@ export function normalizeParsedState(state: ParsedState): ParsedState {
     Object.entries(state.inventory).forEach(([rawCat, items]) => {
       const cleanCat = rawCat.replace(/[▶▷<>:•\-\[\]]/g, '').trim();
       const cleanItems = items
-        .map(i => i.replace(/^[○•\-\*▶▷]\s*/, '').trim())
+        .map(i => i.replace(/^[:：\s○•\-\*▶▷]+/, '').trim())
         .filter(Boolean);
       if (cleanItems.length > 0) {
         cleanedInventory[cleanCat] = cleanItems;
