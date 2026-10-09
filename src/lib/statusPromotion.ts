@@ -298,32 +298,18 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
     }
   }
 
-  // 2. 명성 / 위신 수치 추출
-  let playerPrestige = 30;
-  const rawPrestige = gameState.stats?.acquired?.['명성'] || gameState.personalInfo?.['명성'];
-  if (rawPrestige) {
-    playerPrestige = extractNumericValue(rawPrestige);
-  } else {
-    const attr = calculateCKAttributes(gameState);
-    playerPrestige = Math.min(100, Math.round(attr.diplomacy.value * 2.0 + attr.martial.value * 1.5 + attr.prowess.value * 1.5));
-  }
-  const prestigeTrait = gameState.traits?.find(t => t.name.includes('명성') || t.name.includes('위신') || t.name.includes('영웅'));
-  if (prestigeTrait) {
-    playerPrestige = Math.min(100, playerPrestige + 25);
+  // 2. 명성 / 위신 수치 추출 (SSOT parseCKResources 완전 일치 연동)
+  let playerPrestige = resources.prestigeScore || 30;
+  if (!playerPrestige) {
+    const rawPrestige = gameState.stats?.acquired?.['명성'] || gameState.personalInfo?.['명성'];
+    if (rawPrestige) playerPrestige = extractNumericValue(rawPrestige);
   }
 
-  // 3. 신앙 / 경건 수치 추출
-  let playerPiety = 30;
-  const pietyStatus = gameState.playerStatus?.find(s => s.name.includes('신앙') || s.name.includes('경건'));
-  if (pietyStatus) {
-    playerPiety = extractNumericValue(pietyStatus.value);
-  } else {
-    const attr = calculateCKAttributes(gameState);
-    playerPiety = Math.min(100, Math.round(attr.learning.value * 3.5));
-  }
-  const pietyTrait = gameState.traits?.find(t => t.name.includes('신앙') || t.name.includes('성직') || t.name.includes('독실') || t.name.includes('순례'));
-  if (pietyTrait) {
-    playerPiety = Math.min(100, playerPiety + 25);
+  // 3. 신앙 / 경건 수치 추출 (SSOT parseCKResources 완전 일치 연동)
+  let playerPiety = resources.pietyScore || 30;
+  if (!playerPiety) {
+    const pietyStatus = gameState.playerStatus?.find(s => s.name.includes('신앙') || s.name.includes('경건'));
+    if (pietyStatus) playerPiety = extractNumericValue(pietyStatus.value);
   }
 
   // 거점 레벨 추출

@@ -1,5 +1,6 @@
 import { ESTATE_LEVELS } from './estateTheme';
 import { mergeAndDeduplicateFactionRelations } from './factionRelations';
+import { normalizeParsedState } from './parser';
 
 export interface Building {
   name: string;
@@ -311,7 +312,7 @@ export function sanitizeEstateState<T extends Record<string, any>>(state: T): T 
   if (!state) return state;
 
   try {
-    const cloned = JSON.parse(JSON.stringify(state));
+    let cloned = JSON.parse(JSON.stringify(state));
 
     let olivePressRestoredToLv2 = false;
 
@@ -420,6 +421,9 @@ export function sanitizeEstateState<T extends Record<string, any>>(state: T): T 
         return fixed;
       });
     }
+
+    // 6. 보강 7-1 표준 규격(7대 생체 지표, 5대 표준 위험도, 장기 계획 등) 누락 세이브 자동 정규화 (Self-Healing)
+    cloned = normalizeParsedState(cloned);
 
     return cloned;
   } catch (err) {

@@ -372,26 +372,60 @@ export default function CKTopHud({
           <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
 
           {/* 👑 Prestige / Standing */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.prestigeLabel}>
+          <div 
+            onClick={onOpenCharacter}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', cursor: 'pointer' }} 
+            title={`${resources.labels.prestigeLabel}: ${resources.prestigeScore}/100 (${resources.prestigeLevel})\n클릭하여 인물 상세 시트 및 위신 내역 확인`}
+          >
             <Crown size={16} style={{ color: 'var(--gold-accent)' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.prestigeLabel}</span>
-              <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)', fontWeight: 'bold' }}>
-                {resources.prestige}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)', fontWeight: 'bold' }}>
+                  {resources.prestigeScore}점
+                </span>
+                <span style={{
+                  fontSize: '0.65rem',
+                  padding: '0 4px',
+                  borderRadius: '3px',
+                  background: 'rgba(192, 132, 252, 0.2)',
+                  border: '1px solid rgba(192, 132, 252, 0.4)',
+                  color: '#e9d5ff',
+                  fontWeight: '600'
+                }}>
+                  {resources.prestigeLevel}
+                </span>
+              </div>
             </div>
           </div>
 
           <div style={{ width: '1px', height: '16px', background: 'rgba(200, 159, 60, 0.25)' }} />
 
           {/* 🕊️ Piety / Morale */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px' }} title={resources.labels.pietyLabel}>
-            <Sparkles size={16} style={{ color: '#d8b4fe' }} />
+          <div 
+            onClick={onOpenCharacter}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', cursor: 'pointer' }} 
+            title={`${resources.labels.pietyLabel}: ${resources.pietyScore}/100 (${resources.pietyLevel})\n클릭하여 인물 상세 시트 및 신앙 내역 확인`}
+          >
+            <Sparkles size={16} style={{ color: '#34d399' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.pietyLabel}</span>
-              <span style={{ fontSize: '0.85rem', color: '#f3e8ff', fontWeight: 'bold' }}>
-                {resources.piety}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#a7f3d0', fontWeight: 'bold' }}>
+                  {resources.pietyScore}점
+                </span>
+                <span style={{
+                  fontSize: '0.65rem',
+                  padding: '0 4px',
+                  borderRadius: '3px',
+                  background: 'rgba(52, 211, 153, 0.2)',
+                  border: '1px solid rgba(52, 211, 153, 0.4)',
+                  color: '#6ee7b7',
+                  fontWeight: '600'
+                }}>
+                  {resources.pietyLevel}
+                </span>
+              </div>
             </div>
           </div>
 

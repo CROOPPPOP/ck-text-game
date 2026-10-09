@@ -32,21 +32,27 @@ function parseGaugeValue(val: string): { percent: number; label: string; color: 
     return getColorAndGrade(num, val);
   }
 
-  // 서술형 등급 매핑
-  if (val.includes('재앙') || val.includes('매우 낮음') || val.includes('폭동') || val.includes('붕괴') || val.includes('위태')) {
-    return { percent: 15, label: val, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' };
+  // 보강 7-1의 8대 표준 상태어 (전성, 번영, 양호, 보통, 정체, 혼란, 파탄, 붕괴) 및 서술형 등급 매핑
+  if (val.includes('전성')) {
+    return { percent: 98, label: val, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' };
   }
-  if (val.includes('낮음') || val.includes('불안') || val.includes('위험') || val.includes('미흡')) {
-    return { percent: 35, label: val, color: '#f87171', bg: 'rgba(248, 113, 113, 0.2)' };
+  if (val.includes('번영') || val.includes('매우 높음') || val.includes('탁월') || val.includes('철통')) {
+    return { percent: 85, label: val, color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' };
+  }
+  if (val.includes('양호') || val.includes('높음') || val.includes('안정') || val.includes('우호')) {
+    return { percent: 70, label: val, color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)' };
   }
   if (val.includes('보통') || val.includes('유지') || val.includes('평이') || val.includes('적정')) {
     return { percent: 55, label: val, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)' };
   }
-  if (val.includes('높음') || val.includes('안정') || val.includes('우호') || val.includes('충만')) {
-    return { percent: 75, label: val, color: '#34d399', bg: 'rgba(52, 211, 153, 0.2)' };
+  if (val.includes('정체')) {
+    return { percent: 40, label: val, color: '#fb923c', bg: 'rgba(251, 146, 60, 0.2)' };
   }
-  if (val.includes('매우 높음') || val.includes('탁월') || val.includes('극한') || val.includes('철통') || val.includes('완벽')) {
-    return { percent: 95, label: val, color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' };
+  if (val.includes('혼란') || val.includes('낮음') || val.includes('불안') || val.includes('위험') || val.includes('미흡')) {
+    return { percent: 25, label: val, color: '#f87171', bg: 'rgba(248, 113, 113, 0.2)' };
+  }
+  if (val.includes('붕괴') || val.includes('파탄') || val.includes('재앙') || val.includes('매우 낮음') || val.includes('폭동') || val.includes('위태')) {
+    return { percent: 10, label: val, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' };
   }
 
   return { percent: 50, label: val, color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.2)' };
@@ -65,6 +71,80 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
   const archetype = gameState ? detectPlayerArchetype(gameState) : 'noble';
   const resources = gameState ? parseCKResources(gameState, gameState.previousPopulation) : null;
   const isNoneFaction = !factionState || factionState.none;
+
+  const renderLongTermPlans = () => {
+    const plans = gameState?.longTermPlans && gameState.longTermPlans.length > 0
+      ? gameState.longTermPlans
+      : gameState?.longTermPlan ? [gameState.longTermPlan] : [];
+    
+    if (plans.length === 0) return null;
+
+    return (
+      <div style={{
+        background: 'rgba(20, 16, 12, 0.75)',
+        border: '1px solid rgba(200, 159, 60, 0.3)',
+        borderRadius: '10px',
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(200, 159, 60, 0.2)', paddingBottom: '8px' }}>
+          <div style={{ color: 'var(--gold-accent)', fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>📜</span>
+            <span>장기 국정 과업 및 상설 정책 (Goals & Policies)</span>
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            총 {plans.length}건 시행 중
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px' }}>
+          {plans.map((planStr, pIdx) => {
+            const isPolicy = planStr.includes('[정책]') || planStr.includes('정책:');
+            const isPlan = planStr.includes('[장기 계획]') || planStr.includes('장기 계획:') || planStr.includes('목표:');
+            const cleanStr = planStr.replace(/^[▶▷○•\-]\s*/, '').trim();
+            const badgeText = isPolicy ? '📜 상설 정책' : isPlan ? '🎯 장기 계획' : '📌 국정 과업';
+            const badgeColor = isPolicy ? '#34d399' : isPlan ? 'var(--gold-hover)' : '#38bdf8';
+            const badgeBg = isPolicy ? 'rgba(52, 211, 153, 0.15)' : isPlan ? 'rgba(212, 175, 55, 0.15)' : 'rgba(56, 189, 248, 0.15)';
+            const badgeBorder = isPolicy ? 'rgba(52, 211, 153, 0.4)' : isPlan ? 'rgba(212, 175, 55, 0.4)' : 'rgba(56, 189, 248, 0.4)';
+
+            return (
+              <div
+                key={pIdx}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  border: `1px solid ${badgeBorder}`,
+                  borderRadius: '6px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}
+              >
+                <div>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 'bold',
+                    color: badgeColor,
+                    background: badgeBg,
+                    border: `1px solid ${badgeBorder}`,
+                    padding: '2px 6px',
+                    borderRadius: '4px'
+                  }}>
+                    {badgeText}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#f5ecd8', lineHeight: '1.4', wordBreak: 'break-word', marginTop: '2px' }}>
+                  {cleanStr}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const renderPopulationModal = () => {
     if (!showPopModal || !resources?.populationGrowth) return null;
@@ -421,6 +501,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           <strong>💡 방랑자 활동 지침: </strong>
           현재 통치하는 고정 영지가 없는 1인칭 방랑 신분입니다. 여관이나 산길에서 마을 촌장 및 상인들의 의뢰를 수주하여 보수와 명성을 획득하십시오. 유력 영주의 눈에 띄어 가신이나 호위 기사로 등용되거나 독자적인 성채를 하사받아 영주로 승격할 수 있습니다.
         </div>
+
+        {/* Long Term Plans & Policies */}
+        {renderLongTermPlans()}
       </div>
     );
   }
@@ -626,6 +709,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           <strong>⚠️ 용병단 지휘 지침: </strong>
           매 턴마다 단원 주급(급료)과 식량 보급 유지비가 지출됩니다. 군자금이 고갈되면 사기 폭락 및 반란/탈영이 일어날 수 있으므로 제후들의 참전 계약을 수주하고 전리품을 분배하십시오.
         </div>
+
+        {/* Long Term Plans & Policies */}
+        {renderLongTermPlans()}
 
         {/* Population Modal */}
         {renderPopulationModal()}
@@ -835,6 +921,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
           독신 서약과 금욕 규율을 준수하며 교구민의 고해성사를 듣고 성경을 필사합니다. 십일조를 모아 구빈원/약초원을 확장하고 세속 영주와의 과세 갈등을 신성 권위로 방어하십시오.
         </div>
 
+        {/* Long Term Plans & Policies */}
+        {renderLongTermPlans()}
+
         {/* Population Modal */}
         {renderPopulationModal()}
       </div>
@@ -1004,6 +1093,9 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
             ))}
         </div>
       )}
+
+      {/* 4. Long Term Plans & Policies */}
+      {renderLongTermPlans()}
 
       {/* Population Modal */}
       {renderPopulationModal()}

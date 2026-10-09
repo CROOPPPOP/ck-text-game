@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails } from '@/lib/ckVisuals';
+import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails, parseCKResources } from '@/lib/ckVisuals';
 import { 
   TRAIT_CATEGORIES, 
   ORDERED_TRAIT_CATEGORY_KEYS, 
   groupTraitsBySession, 
   TraitCategoryKey 
 } from '@/lib/traitUtils';
-import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins, ChevronDown, ChevronUp } from 'lucide-react';
+import { Crown, Shield, Sword, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins, ChevronDown, ChevronUp, Compass } from 'lucide-react';
 import { checkStatusPromotion, PromotionTarget } from '@/lib/statusPromotion';
 
 interface Props {
@@ -38,6 +38,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
   const attributes = calculateCKAttributes(gameState);
   const stress = parseCKStress(gameState);
   const archetypeDetails = getArchetypeDetails(gameState);
+  const resources = parseCKResources(gameState);
   const emblem = getHeraldryEmblem(rulerName, culture, archetypeDetails.archetype);
   const groupedTraits = groupTraitsBySession(gameState.traits || []);
   const totalTraitsCount = (gameState.traits || []).length;
@@ -621,24 +622,89 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
             background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(15, 23, 42, 0.6))',
             border: '1px solid rgba(212, 175, 55, 0.3)',
             borderRadius: '8px',
-            padding: '10px 14px',
+            padding: '12px 16px',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
+            flexDirection: 'column',
             gap: '10px',
             fontSize: '0.82rem'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
-              <Sparkles size={15} />
-              <span>능력치 ⮂ 거점/영지/자원 일관성 연동 현황</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                <Sparkles size={15} />
+                <span>능력치 ⮂ 거점/영지/자원 일관성 연동 현황</span>
+              </div>
+              <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', color: '#e2e8f0', alignItems: 'center' }}>
+                <span>🏰 직할 영지 한계: <strong style={{ color: '#38bdf8' }}>{attributes.synergies.domainLimit}개소</strong></span>
+                <span>🪙 재정 수입: <strong style={{ color: '#fbbf24' }}>+{attributes.synergies.goldIncomeModifier}%</strong></span>
+                <span>⚔️ 징집 병력: <strong style={{ color: '#ef4444' }}>+{attributes.synergies.levyModifier}%</strong></span>
+                <span title={`위신 점수: ${resources.prestigeScore}/100\n단계: Lv.${resources.prestigeTier} ${resources.prestigeLevel}\n외교/군사 시너지: +${attributes.synergies.prestigeModifier}% 획득 증폭`}>
+                  👑 위신: <strong style={{ color: '#c084fc' }}>{resources.prestigeScore}점</strong>{' '}
+                  <span style={{ fontSize: '0.74rem', color: '#e9d5ff', background: 'rgba(192, 132, 252, 0.18)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(192, 132, 252, 0.3)' }}>
+                    Lv.{resources.prestigeTier} {resources.prestigeLevel}
+                  </span>{' '}
+                  <small style={{ color: '#c084fc', fontWeight: 'bold' }}>(+{attributes.synergies.prestigeModifier}%)</small>
+                </span>
+                <span title={`신앙 점수: ${resources.pietyScore}/100\n단계: Lv.${resources.pietyTier} ${resources.pietyLevel}\n영성/학문 시너지: +${attributes.synergies.pietyModifier}% 획득 증폭`}>
+                  🕊️ {resources.labels.pietyLabel}: <strong style={{ color: '#34d399' }}>{resources.pietyScore}점</strong>{' '}
+                  <span style={{ fontSize: '0.74rem', color: '#a7f3d0', background: 'rgba(52, 211, 153, 0.18)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(52, 211, 153, 0.3)' }}>
+                    Lv.{resources.pietyTier} {resources.pietyLevel}
+                  </span>{' '}
+                  <small style={{ color: '#34d399', fontWeight: 'bold' }}>(+{attributes.synergies.pietyModifier}%)</small>
+                </span>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: '#e2e8f0' }}>
-              <span>🏰 직할 영지 한계: <strong style={{ color: '#38bdf8' }}>{attributes.synergies.domainLimit}개소</strong></span>
-              <span>🪙 재정 수입: <strong style={{ color: '#fbbf24' }}>+{attributes.synergies.goldIncomeModifier}%</strong></span>
-              <span>⚔️ 징집 병력: <strong style={{ color: '#ef4444' }}>+{attributes.synergies.levyModifier}%</strong></span>
-              <span>👑 위신 획득: <strong style={{ color: '#c084fc' }}>+{attributes.synergies.prestigeModifier}%</strong></span>
-              <span>🕊️ 신앙 획득: <strong style={{ color: '#34d399' }}>+{attributes.synergies.pietyModifier}%</strong></span>
+
+            {/* 위신 & 신앙 진행 게이지 바 */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '10px',
+              paddingTop: '8px',
+              borderTop: '1px dashed rgba(212, 175, 55, 0.2)'
+            }}>
+              {/* 위신 게이지 */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(192, 132, 252, 0.25)',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                  <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>👑 위신 (Prestige / Fame)</span>
+                    <span style={{ fontSize: '0.7rem', color: '#c084fc' }}>Lv.{resources.prestigeTier} {resources.prestigeLevel}</span>
+                  </span>
+                  <span style={{ fontWeight: 'bold', color: '#c084fc' }}>{resources.prestigeScore} / 100</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${resources.prestigeScore}%`, height: '100%', background: 'linear-gradient(90deg, #9333ea, #c084fc)' }} />
+                </div>
+              </div>
+
+              {/* 신앙 게이지 */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(52, 211, 153, 0.25)',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                  <span style={{ color: '#a7f3d0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>🕊️ {resources.labels.pietyLabel}</span>
+                    <span style={{ fontSize: '0.7rem', color: '#34d399' }}>Lv.{resources.pietyTier} {resources.pietyLevel}</span>
+                  </span>
+                  <span style={{ fontWeight: 'bold', color: '#34d399' }}>{resources.pietyScore} / 100</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${resources.pietyScore}%`, height: '100%', background: 'linear-gradient(90deg, #059669, #34d399)' }} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1080,16 +1146,44 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                               </div>
                             </div>
 
-                            {/* Trait Name */}
+                            {/* Trait Name & Adaptation Status Badges */}
                             <div style={{
                               fontSize: '1.02rem',
                               fontWeight: 'bold',
                               color: '#fff',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'space-between'
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '6px'
                             }}>
-                              <span>{trait.name}</span>
+                              <span>{trait.name.replace(/\((?:개선 중|강화 중)\)/g, '').trim()}</span>
+                              {(trait.name.includes('개선 중') || trait.originalCategory?.includes('개선')) && (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(34, 197, 94, 0.2)',
+                                  border: '1px solid #22c55e',
+                                  color: '#86efac',
+                                  fontWeight: 'bold'
+                                }}>
+                                  🌱 개선 중
+                                </span>
+                              )}
+                              {(trait.name.includes('강화 중') || trait.originalCategory?.includes('강화')) && (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(168, 85, 247, 0.2)',
+                                  border: '1px solid #a855f7',
+                                  color: '#d8b4fe',
+                                  fontWeight: 'bold'
+                                }}>
+                                  ⚡ 강화 중
+                                </span>
+                              )}
                             </div>
 
                             {/* 5-Pip Growth Tier Gauge */}
@@ -1216,17 +1310,39 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
               <span>신체 및 생체 건강 상태 (Physical Condition)</span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
               {gameState.playerStatus.map((status, idx) => {
+                const isLethal = status.risk.includes('치명');
                 const isDanger = status.risk.includes('위험') && !status.risk.includes('안전');
-                const isWarning = status.risk.includes('주의');
+                const isMedium = status.risk.includes('중간') || status.risk.includes('주의');
+                const isBest = status.risk.includes('최상');
+
+                const statusColor = isLethal ? '#ef4444' : isDanger ? '#f97316' : isMedium ? '#fbbf24' : isBest ? '#38bdf8' : '#4ade80';
+                const statusBg = isLethal ? 'rgba(239, 68, 68, 0.15)' : isDanger ? 'rgba(249, 115, 22, 0.15)' : isMedium ? 'rgba(251, 191, 36, 0.12)' : isBest ? 'rgba(56, 189, 248, 0.15)' : 'rgba(74, 222, 128, 0.12)';
+                const statusBorder = isLethal ? '#ef4444' : isDanger ? '#f97316' : isMedium ? '#fbbf24' : isBest ? '#0284c7' : '#10b981';
+
+                const iconMap: Record<string, string> = {
+                  '건강': '❤️',
+                  '체력': '🏃',
+                  '통증': '⚡',
+                  '허기': '🍖',
+                  '갈증': '💧',
+                  '피로': '💤',
+                  '체온': '🌡️',
+                  '스트레스': '💢',
+                  '출혈': '🩸',
+                  '부상': '🩹'
+                };
+                const matchedKey = Object.keys(iconMap).find(k => status.name.includes(k));
+                const metricIcon = matchedKey ? iconMap[matchedKey] : '📊';
+
                 return (
                   <div
                     key={idx}
-                    title={`${status.description} (위험도: ${status.risk})`}
+                    title={`${status.description}\n위험도: [${status.risk}]`}
                     style={{
-                      background: 'rgba(0, 0, 0, 0.3)',
-                      border: isDanger ? '1px solid #ef4444' : isWarning ? '1px solid #f97316' : '1px solid rgba(255, 255, 255, 0.08)',
+                      background: 'rgba(0, 0, 0, 0.35)',
+                      border: `1px solid ${statusBorder}44`,
                       borderRadius: '8px',
                       padding: '10px 12px',
                       display: 'flex',
@@ -1235,17 +1351,32 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                        {status.name}
+                      <div style={{ fontSize: '0.86rem', fontWeight: 'bold', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span>{metricIcon}</span>
+                        <span>{status.name}</span>
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        위험도: {status.risk}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          background: statusBg,
+                          border: `1px solid ${statusColor}55`,
+                          color: statusColor,
+                          fontWeight: 'bold'
+                        }}>
+                          {status.risk}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px' }}>
+                          {status.description}
+                        </span>
                       </div>
                     </div>
                     <div style={{
                       fontWeight: 'bold',
-                      fontSize: '0.95rem',
-                      color: isDanger ? '#ef4444' : isWarning ? '#f97316' : 'var(--gold-accent)'
+                      fontSize: '1rem',
+                      color: statusColor,
+                      marginLeft: '8px'
                     }}>
                       {status.value}
                     </div>
@@ -1258,7 +1389,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
 
         {/* 5. Inventory & Possessions (소지품 및 자원) */}
         {gameState.inventory && Object.keys(gameState.inventory).length > 0 && (
-          <div>
+          <div style={{ marginBottom: '24px' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1305,6 +1436,75 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 6. Long-Term Plans & Standing Policies (장기 국정 과업 및 상설 정책 - 보강 7-1 표준) */}
+        {((gameState.longTermPlans && gameState.longTermPlans.length > 0) || gameState.longTermPlan) && (
+          <div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              color: 'var(--gold-accent)',
+              marginBottom: '12px',
+              borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+              paddingBottom: '8px'
+            }}>
+              <Compass size={18} />
+              <span>장기 국정 과업 및 상설 정책 (Long-Term Plans & Standing Policies)</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px' }}>
+              {(gameState.longTermPlans && gameState.longTermPlans.length > 0
+                ? gameState.longTermPlans
+                : [gameState.longTermPlan!]
+              ).map((planStr, pIdx) => {
+                const isPolicy = planStr.includes('[정책]') || planStr.includes('정책:');
+                const isPlan = planStr.includes('[장기 계획]') || planStr.includes('장기 계획:') || planStr.includes('목표:');
+                
+                // 태그 및 본문 분리
+                const cleanStr = planStr.replace(/^[▶▷○•\-]\s*/, '').trim();
+                const badgeText = isPolicy ? '📜 상설 정책' : isPlan ? '🎯 장기 계획' : '📌 국정 과업';
+                const badgeColor = isPolicy ? '#34d399' : isPlan ? 'var(--gold-hover)' : '#38bdf8';
+                const badgeBg = isPolicy ? 'rgba(52, 211, 153, 0.15)' : isPlan ? 'rgba(212, 175, 55, 0.15)' : 'rgba(56, 189, 248, 0.15)';
+                const badgeBorder = isPolicy ? 'rgba(52, 211, 153, 0.4)' : isPlan ? 'rgba(212, 175, 55, 0.4)' : 'rgba(56, 189, 248, 0.4)';
+
+                return (
+                  <div
+                    key={pIdx}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.35)',
+                      border: `1px solid ${badgeBorder}`,
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 'bold',
+                        color: badgeColor,
+                        background: badgeBg,
+                        border: `1px solid ${badgeBorder}`,
+                        padding: '2px 8px',
+                        borderRadius: '4px'
+                      }}>
+                        {badgeText}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', lineHeight: '1.45', wordBreak: 'break-word' }}>
+                      {cleanStr}
                     </div>
                   </div>
                 );
