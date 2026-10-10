@@ -1,7 +1,8 @@
 // Crusader Kings 3 Style Visual & Attribute Calculation Helpers
 import { ParsedState } from './parser';
 import { parsePersonalRelation } from './characterRelations';
-import { calculatePopulationGrowth, PopulationGrowthBreakdown } from './populationEconomy';
+import { calculatePopulationGrowth, PopulationGrowthBreakdown, parsePopulationCount } from './populationEconomy';
+import { parseTurnNumber } from './construction';
 
 export interface CKAttributeDetail {
   value: number;
@@ -631,7 +632,12 @@ export function parseCKStress(gameState: ParsedState): CKStressState {
     } else if (rawVal.includes('%')) {
       stressVal = Math.min(100, Math.max(0, num));
     } else {
-      stressVal = Math.min(100, Math.max(0, num * 5)); // 10점 척도일 경우 대비
+      // 10점 만점 척도(예: 3/10)일 경우에만 * 10, 그 외 0~100 스케일은 원본 보존
+      if (num <= 10 && !rawVal.includes('100') && !rawVal.includes('점')) {
+        stressVal = Math.min(100, Math.max(0, num * 10));
+      } else {
+        stressVal = Math.min(100, Math.max(0, num));
+      }
     }
   }
 
@@ -1791,7 +1797,18 @@ export function applyTurnResourceAccumulation(
     if (newState.inventory) {
       const origWealth: any = newState.inventory.wealth;
       if (Array.isArray(origWealth) && origWealth.length > 0) {
-        newState.inventory.wealth = origWealth.map(w => updateWealthString(String(w), netIncome));
+        let updated = false;
+        newState.inventory.wealth = origWealth.map(w => {
+          const str = String(w);
+          if (!updated && (str.includes(currencyName) || origWealth.length === 1)) {
+            updated = true;
+            return updateWealthString(str, netIncome);
+          }
+          return str;
+        });
+        if (!updated && origWealth.length > 0) {
+          newState.inventory.wealth[0] = updateWealthString(String(origWealth[0]), netIncome);
+        }
       } else if (typeof origWealth === 'string' && origWealth.trim()) {
         newState.inventory.wealth = [updateWealthString(origWealth.trim(), netIncome)];
       } else {
@@ -1874,6 +1891,187 @@ export function applyTurnResourceAccumulation(
         newState.factionState['병력'] = dynamicMilitary.formattedTotal;
       }
     }
+
+    // 5. 동적 인구 (Population Growth) 갱신 동기화
+    if (newState.factionState && !newState.factionState.none) {
+      const popKey = ['인구', '단원', '단원 수', '영지민'].find(k => newState.factionState?.[k] !== undefined)
+        || ['인구', '단원', '단원 수', '영지민'].find(k => prevState.factionState?.[k] !== undefined)
+        || '인구';
+
+      const prevPopRaw = prevState.factionState?.[popKey] || newState.factionState?.[popKey] || '';
+      const prevCount = parsePopulationCount(prevPopRaw);
+
+      if (prevCount > 0) {
+        const curPopRaw = newState.factionState[popKey] || prevPopRaw;
+        const currentParsed = parsePopulationCount(curPopRaw);
+
+        // AI가 수치를 갱신하지 않고 직전 턴 값을 그대로 복사한 경우 턴당 순성장률 적용
+        if (currentParsed === prevCount) {
+          const popGrowth = calculatePopulationGrowth(prevState, prevState.previousPopulation);
+          const growthRate = popGrowth.growthRate; // e.g. +6.5
+
+          let netDelta = Math.round(growthRate);
+          if (growthRate > 0 && netDelta === 0) netDelta = 1;
+          if (growthRate < 0 && netDelta === 0) netDelta = -1;
+
+          const newCount = Math.max(0, prevCount + netDelta);
+          if (curPopRaw.match(/\d+\s*명/)) {
+            newState.factionState[popKey] = curPopRaw.replace(/\d+(\s*명)/, `${newCount}$1`);
+          } else if (curPopRaw.match(/\d+/)) {
+            newState.factionState[popKey] = curPopRaw.replace(/\d+/, `${newCount}`);
+          } else {
+            newState.factionState[popKey] = `영지민 ${newCount}명(안정)`;
+          }
+          newState.previousPopulation = prevCount;
+        } else {
+          newState.previousPopulation = prevCount;
+        }
+      }
+    }
+
+    // 6. 4턴당 1년 나이 (Character Aging) 진척 (1년 = 4계절 = 4턴)
+    const prevTurn = parseTurnNumber(prevState.dateLocation) || 1;
+    const newTurn = parseTurnNumber(newState.dateLocation) || (prevTurn + 1);
+    const prevYearStep = Math.floor(prevTurn / 4);
+    const newYearStep = Math.floor(newTurn / 4);
+    const yearsPassed = Math.max(0, newYearStep - prevYearStep);
+
+    if (yearsPassed > 0 && newState.personalInfo) {
+      const rawAgeStr = prevState.personalInfo?.['나이'] || newState.personalInfo?.['나이'] || '';
+      const m = rawAgeStr.match(/(\d+)/);
+      if (m) {
+        const prevAge = parseInt(m[1], 10);
+        const curAgeInNew = parseInt(newState.personalInfo['나이']?.match(/(\d+)/)?.[1] || '0', 10);
+        if (curAgeInNew <= prevAge) {
+          newState.personalInfo['나이'] = `${prevAge + yearsPassed}세`;
+        }
+      }
+    }
+
+    // 7. 동적 스트레스 (Dynamic CK Stress) 시뮬레이션
+    if (!Array.isArray(newState.playerStatus)) {
+      newState.playerStatus = [];
+    }
+
+    const prevStressStatus = prevState.playerStatus?.find(s => s && s.name && (s.name.includes('스트레스') || s.name.includes('정신') || s.name.includes('압박')));
+    const prevStressVal = prevStressStatus ? extractNumericValue(prevStressStatus.value, 15) : parseCKStress(prevState).value;
+
+    const narrative = (newState.narrative || '').toLowerCase();
+    const judgmentResult = (newState.judgment?.result || '').toLowerCase();
+    const judgmentText = `${newState.judgment?.positive || ''} ${newState.judgment?.negative || ''}`.toLowerCase();
+    const latestChronicle = (newState.chronicle?.[newState.chronicle.length - 1]?.summary || '').toLowerCase();
+    const fullContext = `${narrative} ${judgmentResult} ${judgmentText} ${latestChronicle}`;
+
+    let stressDelta = 0;
+
+    // 위기/전투/실패 요인
+    if (fullContext.includes('대실패') || fullContext.includes('치명적 실패') || fullContext.includes('파문') || fullContext.includes('참패')) {
+      stressDelta += 15;
+    } else if (fullContext.includes('실패') || fullContext.includes('위기') || fullContext.includes('암살') || fullContext.includes('습격') || fullContext.includes('배신') || fullContext.includes('부상')) {
+      stressDelta += 8;
+    } else if (fullContext.includes('전투') || fullContext.includes('긴장') || fullContext.includes('갈등') || fullContext.includes('음모') || fullContext.includes('위협')) {
+      stressDelta += 4;
+    }
+
+    // 안도/성공/종교/휴식 요인
+    if (fullContext.includes('대성공') || fullContext.includes('성지') || fullContext.includes('사면') || fullContext.includes('축제') || fullContext.includes('대승')) {
+      stressDelta -= 12;
+    } else if (fullContext.includes('성공') || fullContext.includes('기도') || fullContext.includes('예배') || fullContext.includes('휴식') || fullContext.includes('수면') || fullContext.includes('연회') || fullContext.includes('만찬')) {
+      stressDelta -= 7;
+    }
+
+    // 성격 특성 및 시너지 보정
+    const attributes = calculateCKAttributes(prevState);
+    const stressResist = attributes.synergies.stressResistance || 0;
+    if (stressDelta > 0 && stressResist > 0) {
+      stressDelta = Math.max(1, Math.round(stressDelta * (1 - stressResist / 100)));
+    }
+
+    const traits = newState.traits || prevState.traits || [];
+    if (traits.some(t => t.name.includes('침착') || t.name.includes('인내') || t.name.includes('절제') || t.name.includes('만족') || t.name.includes('순례'))) {
+      stressDelta -= 2;
+    }
+    if (traits.some(t => t.name.includes('불안') || t.name.includes('편집증') || t.name.includes('분노') || t.name.includes('겁쟁이'))) {
+      if (stressDelta > 0) stressDelta += 3;
+    }
+
+    // 평온한 턴 자연 회복 (자연 감쇠: 15점 평상치 수렴)
+    if (stressDelta === 0) {
+      if (prevStressVal > 20) {
+        stressDelta = -3;
+      }
+    }
+
+    const simulatedStress = Math.min(100, Math.max(0, prevStressVal + stressDelta));
+
+    let curStressIdx = newState.playerStatus.findIndex(s => s && s.name && (s.name.includes('스트레스') || s.name.includes('정신') || s.name.includes('압박')));
+    if (curStressIdx !== -1) {
+      const aiVal = extractNumericValue(newState.playerStatus[curStressIdx].value, -1);
+      // AI가 직전 턴과 명확히 다른 수치를 능동 생성한 경우가 아니면 시뮬레이션 결과 반영
+      const finalStress = (aiVal !== -1 && aiVal !== prevStressVal && aiVal !== 15) ? Math.min(100, Math.max(0, aiVal)) : simulatedStress;
+      const risk = finalStress >= 90 ? '치명' : finalStress >= 65 ? '위험' : finalStress >= 35 ? '중간' : finalStress >= 20 ? '안전' : '최상';
+      const desc = finalStress >= 90 ? '붕괴 직전의 극단적 정신적 공황 및 광기 위기' :
+                   finalStress >= 65 ? '심각한 중압감과 신경 쇠약 위험' :
+                   finalStress >= 35 ? '경미한 정세 불안 및 긴장감 누적' : '정신적으로 평온하고 안정된 상태';
+      newState.playerStatus[curStressIdx] = {
+        name: '스트레스',
+        value: `${finalStress}`,
+        risk,
+        description: desc
+      };
+    } else {
+      const risk = simulatedStress >= 90 ? '치명' : simulatedStress >= 65 ? '위험' : simulatedStress >= 35 ? '중간' : simulatedStress >= 20 ? '안전' : '최상';
+      const desc = simulatedStress >= 90 ? '붕괴 직전의 극단적 정신적 공황 및 광기 위기' :
+                   simulatedStress >= 65 ? '심각한 중압감과 신경 쇠약 위험' :
+                   simulatedStress >= 35 ? '경미한 정세 불안 및 긴장감 누적' : '정신적으로 평온하고 안정된 상태';
+      newState.playerStatus.push({
+        name: '스트레스',
+        value: `${simulatedStress}`,
+        risk,
+        description: desc
+      });
+    }
+
+    // 8. 자연 신진대사 및 생체 수치 (Metabolic Survival Dynamics) 시뮬레이션
+    const updateSurvivalMetric = (
+      name: string,
+      isNegative: boolean,
+      naturalChange: number,
+      reliefKeys: string[],
+      reliefChange: number,
+      strainKeys: string[],
+      strainChange: number
+    ) => {
+      if (!newState.playerStatus) return;
+      const prevMetric = prevState.playerStatus?.find(s => s && s.name && s.name.includes(name));
+      const curMetricIdx = newState.playerStatus.findIndex(s => s && s.name && s.name.includes(name));
+      if (!prevMetric || curMetricIdx === -1) return;
+
+      const prevNum = extractNumericValue(prevMetric.value, 20);
+      const curNum = extractNumericValue(newState.playerStatus[curMetricIdx].value, 20);
+
+      // AI가 수치를 갱신하지 않고 똑같은 값을 반복한 경우에만 자연 대사 적용
+      if (curNum === prevNum) {
+        let delta = naturalChange;
+        if (reliefKeys.some(k => fullContext.includes(k))) delta = reliefChange;
+        else if (strainKeys.some(k => fullContext.includes(k))) delta = strainChange;
+
+        const updatedVal = Math.min(100, Math.max(0, prevNum + delta));
+        let risk = '안전';
+        if (isNegative) {
+          risk = updatedVal >= 80 ? '치명' : updatedVal >= 60 ? '위험' : updatedVal >= 40 ? '중간' : updatedVal >= 20 ? '안전' : '최상';
+        } else {
+          risk = updatedVal <= 20 ? '치명' : updatedVal <= 40 ? '위험' : updatedVal <= 60 ? '중간' : updatedVal <= 80 ? '안전' : '최상';
+        }
+        newState.playerStatus[curMetricIdx].value = `${updatedVal}`;
+        newState.playerStatus[curMetricIdx].risk = risk;
+      }
+    };
+
+    updateSurvivalMetric('허기', true, 4, ['식사', '빵', '연회', '만찬', '고기', '음식', '식량', '식음'], -20, ['단식', '기근', '굶주림'], 8);
+    updateSurvivalMetric('갈증', true, 5, ['물', '우물', '음료', '포도주', '샘', '마시', '급수'], -25, ['폭염', '탈수', '사막'], 10);
+    updateSurvivalMetric('피로', true, 4, ['수면', '취침', '휴식', '요양', '정양', '잠'], -25, ['전투', '훈련', '행군', '도주', '노동'], 12);
+    updateSurvivalMetric('통증', true, -3, ['치료', '의술', '약초', '붕대', '정양'], -12, ['부상', '골절', '출혈', '자상', '피격'], 20);
   } catch (err) {
     console.error('applyTurnResourceAccumulation error:', err);
   }

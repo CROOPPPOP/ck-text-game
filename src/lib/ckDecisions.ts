@@ -475,16 +475,42 @@ export function executeDecisionLocalEffects(
     }
   };
 
-  if (decision.id === 'piety_consecrate_bloodline') {
+  if (decision.id === 'piety_absolution') {
+    let stressIdx = newState.playerStatus?.findIndex(s => s && s.name && s.name.includes('스트레스')) ?? -1;
+    let curStress = 15;
+    if (stressIdx !== -1 && newState.playerStatus) {
+      curStress = extractNumericValue(newState.playerStatus[stressIdx].value, 15);
+      const newStress = Math.max(0, curStress - 35);
+      newState.playerStatus[stressIdx].value = `${newStress}`;
+      newState.playerStatus[stressIdx].risk = newStress >= 90 ? '치명' : newStress >= 65 ? '위험' : newStress >= 35 ? '중간' : newStress >= 20 ? '안전' : '최상';
+      newState.playerStatus[stressIdx].description = '교황청 사면령과 영적 참회로 내면의 스트레스가 크게 완화됨';
+    } else {
+      if (!Array.isArray(newState.playerStatus)) newState.playerStatus = [];
+      newState.playerStatus.push({
+        name: '스트레스',
+        value: '0',
+        risk: '최상',
+        description: '교황청 사면령과 영적 참회로 내면의 스트레스가 정화됨'
+      });
+    }
+  } else if (decision.id === 'piety_consecrate_bloodline') {
     addTraitIfMissing('성스러운 혈통 (Consecrated Bloodline)', '잠재/혈통', '강한 특성 (Lv.5)', '가문 전체가 성령의 축복을 받아 신앙과 정통성이 자손 대대로 영구 계승되는 신성 혈통');
   } else if (decision.id === 'piety_grand_pilgrimage') {
     addTraitIfMissing('순례자 (Pilgrim)', '일시/상태', '확립된 특성 (Lv.4)', '성지 순례를 성공적으로 완수하여 온 대륙의 신도들에게 흠모를 받는 경건한 순례자');
     // 스트레스 완전 제거
-    const stressIdx = newState.playerStatus?.findIndex(s => s.name.includes('스트레스'));
-    if (stressIdx !== undefined && stressIdx !== -1 && newState.playerStatus) {
+    const stressIdx = newState.playerStatus?.findIndex(s => s && s.name && s.name.includes('스트레스')) ?? -1;
+    if (stressIdx !== -1 && newState.playerStatus) {
       newState.playerStatus[stressIdx].value = '0';
       newState.playerStatus[stressIdx].risk = '최상';
       newState.playerStatus[stressIdx].description = '성지 순례의 거룩한 은총으로 완전한 평온 도달';
+    } else {
+      if (!Array.isArray(newState.playerStatus)) newState.playerStatus = [];
+      newState.playerStatus.push({
+        name: '스트레스',
+        value: '0',
+        risk: '최상',
+        description: '성지 순례의 거룩한 은총으로 완전한 평온 도달'
+      });
     }
   } else if (decision.id === 'piety_reform_faith') {
     addTraitIfMissing('신앙의 개혁자 (Reformer of Faith)', '잠재/혈통', '강한 특성 (Lv.5)', '기존 교단의 부패를 혁신하고 독자적 교리를 반포하여 종교 역사를 바꾼 위대한 개혁자');

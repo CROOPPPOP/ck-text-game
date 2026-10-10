@@ -58,18 +58,18 @@ export function getEstatePopulationCapacity(estateLevelInput?: string | number):
   if (typeof estateLevelInput === 'number') {
     lv = estateLevelInput;
   } else if (typeof estateLevelInput === 'string') {
-    const m = estateLevelInput.match(/Lv\.?\s*(\d+)/i);
+    const m = estateLevelInput.match(/(?:Lv\.?|레벨)?\s*(\d+)/i);
     if (m) lv = parseInt(m[1], 10);
   }
 
   switch (lv) {
-    case 5: return 10000;
-    case 4: return 2500;
-    case 3: return 800;
-    case 2: return 300;
+    case 5: return 12000;
+    case 4: return 4000;
+    case 3: return 1500;
+    case 2: return 600;
     case 1:
     default:
-      return 100;
+      return 250;
   }
 }
 

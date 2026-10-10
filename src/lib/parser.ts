@@ -771,7 +771,7 @@ export function sanitizeInventoryAndMilitary(
  * 4. 선택지 식별자 및 번호 일관성 보정
  */
 export function normalizeParsedState(state: ParsedState): ParsedState {
-  // 1. 플레이어 7대 고정 생존 수치 정규화 (보강 7-1 표준: 건강 → 체력 → 통증 → 허기 → 갈증 → 피로 → 체온)
+  // 1. 플레이어 8대 고정 생존 및 심리 수치 정규화 (보강 7-1 표준: 건강 → 체력 → 통증 → 허기 → 갈증 → 피로 → 체온 → 스트레스)
   const CORE_METRICS = [
     { name: '건강', defaultVal: '85', defaultRisk: '최상', defaultDesc: '기력 양호하며 즉각적 위험 낮음', isNegative: false, isTemp: false },
     { name: '체력', defaultVal: '80', defaultRisk: '최상', defaultDesc: '활동 능력 양호', isNegative: false, isTemp: false },
@@ -779,7 +779,8 @@ export function normalizeParsedState(state: ParsedState): ParsedState {
     { name: '허기', defaultVal: '25', defaultRisk: '안전', defaultDesc: '충분히 식사함', isNegative: true, isTemp: false },
     { name: '갈증', defaultVal: '20', defaultRisk: '안전', defaultDesc: '수분 충분', isNegative: true, isTemp: false },
     { name: '피로', defaultVal: '30', defaultRisk: '안전', defaultDesc: '경미한 피로', isNegative: true, isTemp: false },
-    { name: '체온', defaultVal: '36.7°C', defaultRisk: '안전', defaultDesc: '정상 체온 범위', isNegative: false, isTemp: true }
+    { name: '체온', defaultVal: '36.7°C', defaultRisk: '안전', defaultDesc: '정상 체온 범위', isNegative: false, isTemp: true },
+    { name: '스트레스', defaultVal: '15', defaultRisk: '최상', defaultDesc: '정신적으로 평온하고 안정된 상태', isNegative: true, isTemp: false }
   ];
 
   const currentStatus = state.playerStatus || [];
@@ -822,7 +823,9 @@ export function normalizeParsedState(state: ParsedState): ParsedState {
             risk = '안전';
           }
         } else if (!['안전', '중간', '위험', '치명', '최상'].some(r => risk.includes(r))) {
-          if (metric.isNegative) {
+          if (metric.name === '스트레스') {
+            risk = numVal >= 90 ? '치명' : numVal >= 65 ? '위험' : numVal >= 35 ? '중간' : numVal >= 20 ? '안전' : '최상';
+          } else if (metric.isNegative) {
             risk = numVal >= 80 ? '치명' : numVal >= 60 ? '위험' : numVal >= 40 ? '중간' : numVal >= 20 ? '안전' : '최상';
           } else {
             risk = numVal <= 20 ? '치명' : numVal <= 40 ? '위험' : numVal <= 60 ? '중간' : numVal <= 80 ? '안전' : '최상';
