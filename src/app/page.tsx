@@ -7,7 +7,7 @@ import { calculateEstatePromotionCost, getPlayerWealthAmount } from '@/lib/estat
 import { parsePopulationCount } from '@/lib/populationEconomy';
 import { calculateCKAttributes, detectPlayerArchetype, applyTurnResourceAccumulation } from '@/lib/ckVisuals';
 import { getCouncilVassals, sanitizeNameAndRole } from '@/lib/characterRelations';
-import { ParsedState, ChronicleItem, parseLLMResponse } from '@/lib/parser';
+import { ParsedState, ChronicleItem, parseLLMResponse, normalizeParsedState } from '@/lib/parser';
 import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
 import CKTopHud from '@/components/CKTopHud';
 import CKCharacterModal from '@/components/CKCharacterModal';
@@ -248,7 +248,7 @@ export default function Home() {
 
   // 저장 데이터 복원 (건설 큐/턴 포함, 구버전 {building, turnsLeft} 호환)
   const restoreSave = (loaded: any) => {
-    const sanitized = sanitizeEstateState(loaded);
+    const sanitized: any = normalizeParsedState(sanitizeEstateState(loaded));
     const { _constructionQueue, _turn, ...rest } = sanitized;
     const t = parseTurnNumber(rest.dateLocation) ?? (typeof _turn === 'number' ? _turn : 0);
     setGameState(rest);

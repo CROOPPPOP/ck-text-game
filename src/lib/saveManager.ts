@@ -1,6 +1,6 @@
 "use client";
 
-import { ParsedState } from './parser';
+import { ParsedState, normalizeParsedState } from './parser';
 import { parseCKResources, detectPlayerArchetype } from './ckVisuals';
 import { sanitizeEstateState } from './estate';
 
@@ -87,7 +87,7 @@ export function listSaveSlots(): Array<{ id: string; defaultTitle: string; data:
       if (!raw) return { id: slot.id, defaultTitle: slot.defaultTitle, data: null };
       const parsed = JSON.parse(raw);
       if (parsed && parsed.gameState) {
-        parsed.gameState = sanitizeEstateState(parsed.gameState);
+        parsed.gameState = normalizeParsedState(sanitizeEstateState(parsed.gameState));
       }
       return { id: slot.id, defaultTitle: slot.defaultTitle, data: parsed as SaveSlotData };
     } catch {
@@ -106,7 +106,7 @@ export function saveToSlot(
 ): boolean {
   if (typeof window === 'undefined' || !gameState) return false;
   try {
-    const sanitizedState = sanitizeEstateState(gameState);
+    const sanitizedState = normalizeParsedState(sanitizeEstateState(gameState));
     const stateToSave = {
       ...sanitizedState,
       _constructionQueue: constructionQueue,
@@ -129,7 +129,7 @@ export function loadFromSlot(slotId: string): SaveSlotData | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SaveSlotData;
     if (parsed && parsed.gameState) {
-      parsed.gameState = sanitizeEstateState(parsed.gameState);
+      parsed.gameState = normalizeParsedState(sanitizeEstateState(parsed.gameState));
     }
     return parsed;
   } catch (err) {
@@ -277,7 +277,10 @@ export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
         const slotData = JSON.parse(raw);
         if (slotData && slotData.gameState) {
           const originalStr = JSON.stringify(slotData.gameState);
-          slotData.gameState = sanitizeEstateState(slotData.gameState);
+          slotData.gameState = normalizeParsedState(sanitizeEstateState(slotData.gameState));
+          const updatedResources = parseCKResources(slotData.gameState);
+          slotData.levies = updatedResources.levies;
+          slotData.gold = updatedResources.gold;
           if (JSON.stringify(slotData.gameState) !== originalStr) {
             localStorage.setItem(storageKey, JSON.stringify(slotData));
             count++;
@@ -292,7 +295,7 @@ export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
       try {
         const parsed = JSON.parse(legacyAuto);
         const originalStr = JSON.stringify(parsed);
-        const sanitized = sanitizeEstateState(parsed);
+        const sanitized = normalizeParsedState(sanitizeEstateState(parsed));
         if (JSON.stringify(sanitized) !== originalStr) {
           localStorage.setItem('ck_auto_save', JSON.stringify(sanitized));
           count++;
@@ -310,7 +313,7 @@ export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
           stack.forEach((item: any) => {
             if (item && item.gameState) {
               const orig = JSON.stringify(item.gameState);
-              item.gameState = sanitizeEstateState(item.gameState);
+              item.gameState = normalizeParsedState(sanitizeEstateState(item.gameState));
               if (JSON.stringify(item.gameState) !== orig) {
                 stackChanged = true;
               }

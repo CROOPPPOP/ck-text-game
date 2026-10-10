@@ -668,9 +668,105 @@ export function parseLLMResponse(text: string): ParsedState {
 }
 
 /**
+ * 범용 소지품 및 군사 데이터 자가 치유(Self-Healing) 엔진
+ * - 기밀 문서/서적(치부 문서록 등)이 군사/병력 항목으로 오분류되는 것을 원천 차단하여 '기밀 및 서적'으로 자동 재분류
+ * - 영지/장원/시설(Lv.2 요새 병영 등)이 소지품 내 병력으로 둔갑하는 것을 방지하여 '장비 및 영지'로 재분류
+ * - 부대 명칭 내 인원수 불일치([25명] vs 총 76명 등)를 실제 완편 총 인원(총 76명)으로 일치 정규화
+ */
+export function sanitizeInventoryAndMilitary(
+  inventory: Record<string, string[]>,
+  _state?: ParsedState
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  const docKeywords = [
+    '문서', '문서록', '문서철', '치부', '치부책', '서적', '책', '일지', '장부',
+    '기록', '서찰', '비망록', '원고', '성경', '고문서', '원본', '양피지', '계약서', '밀서', '칙서', '교서'
+  ];
+  const estateKeywords = [
+    '장원', '영지', '거점', '별장', '공방', '서재', '식료창고', '조제실',
+    '시장', '대시장', '성당 건물', '대사제관', '본당', '압착장', '방앗간', '대장간', '안치실'
+  ];
+
+  Object.entries(inventory).forEach(([rawCat, items]) => {
+    if (!items || !Array.isArray(items)) return;
+    const cleanCat = rawCat.replace(/[▶▷<>:•\-\[\]]/g, '').trim();
+    const isWealthMilCat = cleanCat === '재산 및 병력' || cleanCat === 'wealth' || cleanCat === '재산' || cleanCat.includes('재산') || cleanCat.includes('병력');
+
+    items.forEach(rawItem => {
+      if (typeof rawItem !== 'string') return;
+      let item = rawItem.replace(/^[:：\s○•\-\*▶▷]+/, '').trim();
+      if (!item) return;
+
+      // 1) 항목 이름 추출 (대괄호 또는 콜론 분리)
+      let itemName = item;
+      const bracketMatch = item.match(/^\[(.*?)\]/);
+      if (bracketMatch) {
+        itemName = bracketMatch[1].trim();
+      } else if (item.includes(':') || item.includes('：')) {
+        itemName = item.split(/[:：]/)[0].trim();
+      } else if (item.includes('(')) {
+        itemName = item.split('(')[0].trim();
+      }
+      itemName = itemName.replace(/^[:：\s▶•\-○]+/, '').trim();
+
+      // 2) 문서/서적 판별: 이름에 문서 키워드가 있는 경우 무조건 '기밀 및 서적' 카테고리로 격리
+      const isDoc = docKeywords.some(k => itemName.includes(k));
+      if (isDoc) {
+        // [1명] 같은 잘못된 병력 단위가 붙어있다면 제거
+        const cleanedDocItem = item.replace(/\[\s*\d+\s*(?:명|인|기|대)\s*\]/g, '').trim();
+        const catKey = '기밀 및 서적';
+        if (!result[catKey]) result[catKey] = [];
+        result[catKey].push(cleanedDocItem);
+        return;
+      }
+
+      // 3) 영지/장원/건물 시설 판별: 소지품 내 병력으로 잘못 들어갔을 때 '장비 및 영지'로 격리
+      const isEstate = estateKeywords.some(k => itemName.includes(k));
+      if (isEstate) {
+        const cleanedEstateItem = item.replace(/\[\s*\d+\s*(?:명|인|기|대)\s*\]/g, '').trim();
+        const catKey = cleanCat === 'equipment' ? 'equipment' : '장비 및 영지';
+        if (!result[catKey]) result[catKey] = [];
+        result[catKey].push(cleanedEstateItem);
+        return;
+      }
+
+      // 4) 군사 부대 인원수 불일치 자가 치유
+      // 예: [성 미카엘 기사수도회 25명] 총 76명... 또는 [성 미카엘 기사수도회] 25명 (총 76명...)
+      const totalMatch = item.match(/총\s*(\d+)\s*(?:명|인|기|대)/);
+      if (totalMatch) {
+        const totalNum = totalMatch[1];
+        // 앞부분에 다른 인원수가 적혀있는 경우 (예: [부대명 25명] 또는 [부대명] 25명)
+        const frontMatch = item.match(/^\[(.*?)\]\s*(?:(\d+)\s*(?:명|인|기|대))?/);
+        if (frontMatch) {
+          const bracketInner = frontMatch[1];
+          const innerCountMatch = bracketInner.match(/(\d+)\s*(?:명|인|기|대)/);
+          const outerCount = frontMatch[2];
+          const hasDifferentFrontCount = (innerCountMatch && innerCountMatch[1] !== totalNum) || (outerCount && outerCount !== totalNum);
+
+          if (hasDifferentFrontCount) {
+            const cleanUnitName = bracketInner.replace(/\d+\s*(?:명|인|기|대)/g, '').trim();
+            // 총 인원수로 앞머리 부대명 정규화
+            item = item.replace(/^\[.*?\]\s*(?:\d+\s*(?:명|인|기|대))?/, `[${cleanUnitName}]`).trim();
+          }
+        }
+      }
+
+      // 5) 정상 분류 보존
+      const targetCat = isWealthMilCat
+        ? (cleanCat === 'wealth' ? 'wealth' : '재산 및 병력')
+        : cleanCat;
+      if (!result[targetCat]) result[targetCat] = [];
+      result[targetCat].push(item);
+    });
+  });
+
+  return result;
+}
+
+/**
  * AI 환각 방지 및 UI 안정성을 위한 파서 정규화 엔진
  * 1. 7대 플레이어 기본 생존 수치(건강, 체력, 통증, 허기, 갈증, 피로, 체온) 보장 및 클램핑
- * 2. 소지품 / 자원 서식 정규화
+ * 2. 소지품 / 자원 서식 정규화 및 군사/문서/영지 자가 치유 (Universal Self-Healing)
  * 3. 세력 상태 수치 규격화
  * 4. 선택지 식별자 및 번호 일관성 보정
  */
@@ -761,19 +857,10 @@ export function normalizeParsedState(state: ParsedState): ParsedState {
   });
   state.playerStatus = normalizedStatus;
 
-  // 2. 소지품 / 자원 서식 정규화
+  // 2. 소지품 / 자원 서식 정규화 및 군사/문서/영지 자동 분류 자가 치유 (Universal Self-Healing)
   if (state.inventory) {
-    const cleanedInventory: Record<string, string[]> = {};
-    Object.entries(state.inventory).forEach(([rawCat, items]) => {
-      const cleanCat = rawCat.replace(/[▶▷<>:•\-\[\]]/g, '').trim();
-      const cleanItems = items
-        .map(i => i.replace(/^[:：\s○•\-\*▶▷]+/, '').trim())
-        .filter(Boolean);
-      if (cleanItems.length > 0) {
-        cleanedInventory[cleanCat] = cleanItems;
-      }
-    });
-    state.inventory = Object.keys(cleanedInventory).length > 0 ? cleanedInventory : undefined;
+    const healedInventory = sanitizeInventoryAndMilitary(state.inventory, state);
+    state.inventory = Object.keys(healedInventory).length > 0 ? healedInventory : undefined;
   }
 
   // 3. 선택지 번호 및 서식 일관화

@@ -110,6 +110,7 @@ export interface CKDynamicLeviesBreakdown {
   units: CKMilitaryUnit[];
   garrisonCount: number;
   retinueCount: number;
+  combatTroopsCount?: number;
   rankBaseCount: number;
   // UI 호환 별칭 속성
   totalLevies: number;
@@ -953,20 +954,76 @@ export function calculateTurnPietyGain(gameState: ParsedState, pietyTier: number
   };
 }
 
-// 군사 부대 및 수행단 아이템 판별 헬퍼
+// 군사 부대 및 수행단 아이템 판별 헬퍼 (엄격 판별 및 문서/영지/소지품 오분류 방지)
 export function isMilitaryOrRetinueItem(name: string, desc: string = ''): boolean {
   const cleanName = (name || '').trim();
   if (!cleanName || cleanName === '재산' || cleanName.includes('은화') || cleanName.includes('금화') || cleanName.includes('동화')) {
     return false;
   }
-  const combined = `${cleanName} ${desc}`;
-  const keywords = [
-    '기사', '기사단', '수도회', '수도보병', '보병', '궁수', '기병', '상비군', '민병',
-    '용병', '군단', '부대', '전투원', '사병', '경비', '호위', '호위대', '수비대',
-    '첩보', '첩보대', '밀정', '밀정단', '공작원', '정찰',
-    '수사', '서기', '복사', '산파', '장인 길드'
+
+  // 1. 헤더/이름 추출 (콜론, 대괄호, 괄호 분리)
+  let itemName = cleanName;
+  const bracketMatch = cleanName.match(/^\[(.*?)\]/);
+  if (bracketMatch) {
+    itemName = bracketMatch[1].trim();
+  } else if (cleanName.includes(':') || cleanName.includes('：')) {
+    itemName = cleanName.split(/[:：]/)[0].trim();
+  } else if (cleanName.includes('(')) {
+    itemName = cleanName.split('(')[0].trim();
+  }
+  itemName = itemName.replace(/^[:：\s▶•\-○]+/, '').trim();
+
+  // 2. 비군사 / 비부대 아이템 엄격 제외 키워드 (Exclusion Rules)
+  // 1) 기밀 문서, 서적, 일지, 기록물 (절대 병력/수행단이 아님)
+  const documentKeywords = [
+    '문서', '문서록', '문서철', '치부', '치부책', '서적', '책', '일지', '장부',
+    '기록', '서찰', '비망록', '원고', '성경', '고문서', '원본', '양피지', '계약서', '밀서', '칙서', '교서'
   ];
-  return keywords.some(k => combined.includes(k));
+  if (documentKeywords.some(k => itemName.includes(k))) {
+    return false;
+  }
+
+  // 2) 영지, 장원, 건물, 시설 (건물/인프라는 garrison/estate로 별도 처리)
+  const estateKeywords = [
+    '장원', '영지', '거점', '별장', '공방', '서재', '식료창고', '조제실',
+    '시장', '대시장', '성당 건물', '대사제관', '본당', '압착장', '방앗간', '대장간', '안치실'
+  ];
+  if (estateKeywords.some(k => itemName.includes(k))) {
+    return false;
+  }
+
+  // 3) 재화, 화폐, 원자재
+  const wealthKeywords = ['재산', '은화', '금화', '동화', '화폐', '금괴', '식량', '목재', '석재', '자금', '닢'];
+  if (wealthKeywords.some(k => itemName.includes(k))) {
+    return false;
+  }
+
+  // 4) 장비, 성물, 의복
+  const equipKeywords = ['성의', '성물', '유물', '갑옷', '투구', '방패', '십자가', '성배', '반지', '지팡이', '유골', '유품'];
+  if (equipKeywords.some(k => itemName.includes(k)) && !itemName.includes('기사') && !itemName.includes('보병') && !itemName.includes('수비')) {
+    return false;
+  }
+
+  // 3. 군사 부대 및 가신 수행단 키워드 매칭
+  // 주의: 설명문(desc)에 단순 언급된 부대명(예: "밀정단이 수집한 문서")으로 인한 오판 방지를 위해
+  // 아이템 이름(itemName) 또는 대괄호 안의 명칭을 1차 기준으로 검사합니다.
+  const militaryKeywords = [
+    '기사', '기사단', '수도회', '수도보병', '보병', '궁수', '기병', '상비군', '민병',
+    '용병', '군단', '부대', '전투원', '사병', '경비', '경비대', '호위', '호위대', '수비대', '방위군',
+    '결사대', '친위대', '척후', '척후병',
+    '첩보', '첩보대', '밀정', '밀정단', '공작원', '암영',
+    '수사', '수도사', '서기', '복사', '산파', '산파단', '장인 길드'
+  ];
+
+  // 이름 자체가 군사/수행단 키워드를 가지고 있는지 확인
+  const isNameMilitary = militaryKeywords.some(k => itemName.includes(k));
+  if (isNameMilitary) return true;
+
+  // 이름에 인원수(예: 76명, 10인 등)가 명시되어 있고 설명문에 부대 키워드가 포함된 경우 허용
+  const hasCount = /\d+\s*(?:명|인|기|대)/.test(itemName);
+  const isDescMilitary = militaryKeywords.some(k => desc.includes(k));
+
+  return hasCount && isDescMilitary;
 }
 
 // 동적 병력 산정 엔진 (Dynamic Levies Engine)
@@ -989,15 +1046,25 @@ export function calculateDynamicLevies(gameState: ParsedState): CKDynamicLeviesB
     if (!raw) return;
 
     if (isMilitaryOrRetinueItem(raw)) {
-      // 1) 인원수 추출 (예: [76명], 76명, 10인 등)
+      // 1) 인원수 추출 (총 X명 최우선 인식)
       let count = 0;
-      const countMatch = raw.match(/\[?(\d+)\s*(?:명|인|기|대)\]?/);
-      if (countMatch) {
-        count = parseInt(countMatch[1], 10);
+      const totalMatch = raw.match(/총\s*(\d+)\s*(?:명|인|기|대)/);
+      if (totalMatch) {
+        count = parseInt(totalMatch[1], 10);
+      } else {
+        const bracketMatch = raw.match(/\[\s*(\d+)\s*(?:명|인|기|대)\s*\]/);
+        if (bracketMatch) {
+          count = parseInt(bracketMatch[1], 10);
+        } else {
+          const numMatch = raw.match(/(\d+)\s*(?:명|인|기|대)/);
+          if (numMatch) {
+            count = parseInt(numMatch[1], 10);
+          }
+        }
       }
       if (count === 0) count = 1;
 
-      // 2) 괄호 안의 설명문 분리 (예: (팔레르모 성지 수호 및 정예 기사단))
+      // 2) 괄호 안의 설명문 분리
       let uDesc = '';
       const parenMatch = raw.match(/\((.*?)\)/);
       if (parenMatch) {
@@ -1009,18 +1076,28 @@ export function calculateDynamicLevies(gameState: ParsedState): CKDynamicLeviesB
       const leadBracket = raw.match(/^\[(.*?)\]\s*(.*)/);
       if (leadBracket && !/^\d+\s*(?:명|인|기|대)$/.test(leadBracket[1].trim())) {
         uName = leadBracket[1].trim();
+        // 대괄호 안에 부대명과 인원수가 함께 들어있다면 인원수 제거 (예: [성 미카엘 기사수도회 25명] -> 성 미카엘 기사수도회)
+        uName = uName.replace(/\d+\s*(?:명|인|기|대)/g, '').trim();
         if (!uDesc && leadBracket[2]) uDesc = leadBracket[2].replace(/\(.*?\)/, '').trim();
       } else {
         // [76명] 패턴 및 괄호 제거 후 이름 추출
         uName = raw
           .replace(/\[\d+\s*(?:명|인|기|대)\]/g, '')
           .replace(/\(.*?\)/g, '')
-          .replace(/^[:：\s▶•\-]+/, '')
+          .replace(/^[:：\s▶•\-○]+/, '')
           .trim();
-        // 뒤쪽에 남은 "76명" 등의 인원수 제거
         uName = uName.replace(/\d+\s*(?:명|인|기|대)/g, '').trim();
+        if (uName.includes(':') || uName.includes('：')) {
+          const parts = uName.split(/[:：]/);
+          uName = parts[0].trim();
+          if (!uDesc && parts[1]) uDesc = parts[1].trim();
+        }
       }
-      if (!uName) uName = raw.split(/[:：(]/)[0].trim() || '직속 부대';
+      if (!uName) uName = raw.split(/[:：(]/)[0].replace(/^[:：\s▶•\-○]+/, '').trim() || '직속 부대';
+
+      if (uDesc.startsWith(':') || uDesc.startsWith('：')) {
+        uDesc = uDesc.slice(1).trim();
+      }
 
       let category: CKMilitaryUnit['category'] = 'retinue';
       let badge = '🛡️ 직속 조직';
@@ -1028,7 +1105,7 @@ export function calculateDynamicLevies(gameState: ParsedState): CKDynamicLeviesB
       let type = '직속 제대';
       let morale = '높음 (사기 충만)';
 
-      if (uName.includes('기사') || uDesc.includes('기사') || uName.includes('보병') || uDesc.includes('보병') || uName.includes('수도회')) {
+      if (uName.includes('기사') || uDesc.includes('기사') || uName.includes('보병') || uDesc.includes('보병') || uName.includes('수도회') || uName.includes('군단') || uName.includes('용병')) {
         category = 'knight';
         badge = '⚔️ 정예 군단';
         icon = '⚔️';
@@ -1039,16 +1116,18 @@ export function calculateDynamicLevies(gameState: ParsedState): CKDynamicLeviesB
         icon = '🗡️';
         type = '특수 첩보단';
         morale = '신중 (비밀 공작)';
-      } else if (uName.includes('수비') || uName.includes('경비') || uName.includes('순찰')) {
+      } else if (uName.includes('수비') || uName.includes('경비') || uName.includes('순찰') || uName.includes('방위')) {
         category = 'garrison';
         badge = '🏹 방어 병력';
         icon = '🏹';
         type = '거점 수비대';
+        morale = '보통 (상비 주둔)';
       } else {
         category = 'retinue';
-        badge = '📜 직속 수행단';
+        badge = '📜 가신 수행단';
         icon = '📜';
         type = '가신 수행단';
+        morale = '높음 (사기 충만)';
       }
 
       units.push({
@@ -1077,8 +1156,13 @@ export function calculateDynamicLevies(gameState: ParsedState): CKDynamicLeviesB
   });
 
   if (garrisonCount > 0) {
+    const rawEstateType = gameState.estate?.type || '거점';
+    const cleanEstateType = rawEstateType
+      .replace(/\(.*?\)/g, '')
+      .replace(/\[.*?\]/g, '')
+      .trim() || '거점';
     units.push({
-      name: `${gameState.estate?.type || '거점'} 직할 수비대`,
+      name: `${cleanEstateType} 직할 수비대`,
       count: garrisonCount,
       category: 'garrison',
       desc: '영지 군사 훈련소 및 성벽에 주둔하는 상비 징집 경비병',
@@ -1112,6 +1196,7 @@ export function calculateDynamicLevies(gameState: ParsedState): CKDynamicLeviesB
   const eliteCount = units.filter(u => u.category === 'knight').reduce((acc, u) => acc + u.count, 0);
   const scoutCount = units.filter(u => u.category === 'scout').reduce((acc, u) => acc + u.count, 0);
   const retinueTotal = units.filter(u => u.category === 'retinue').reduce((acc, u) => acc + u.count, 0);
+  const combatTroopsCount = eliteCount + scoutCount + units.filter(u => u.category === 'infantry' || u.category === 'cavalry').reduce((acc, u) => acc + u.count, 0);
 
   let formattedTotal = `총 ${totalCount}명`;
   if (eliteCount > 0 && scoutCount > 0) {
@@ -1135,6 +1220,7 @@ export function calculateDynamicLevies(gameState: ParsedState): CKDynamicLeviesB
     units,
     garrisonCount,
     retinueCount: retinueTotal,
+    combatTroopsCount,
     rankBaseCount,
     breakdownText: `직속 제대(${unitsBonus}명) + 거점 군사 시설(${holdingBonus}명) + 신분 상비군(${baseLevies}명) = 총 ${totalLevies}명`
   };

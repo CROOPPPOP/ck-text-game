@@ -1791,65 +1791,120 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
 
               {/* Units Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
-                {units.map((unit, uIdx) => (
-                  <div
-                    key={uIdx}
-                    style={{
-                      background: 'rgba(10, 10, 15, 0.6)',
-                      border: '1px solid rgba(239, 68, 68, 0.25)',
-                      borderRadius: '8px',
-                      padding: '12px 14px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px'
-                    }}
-                  >
+                {units.map((unit, uIdx) => {
+                  const isKnight = unit.category === 'knight';
+                  const isScout = unit.category === 'scout';
+                  const isGarrison = unit.category === 'garrison';
+                  const isRetinue = unit.category === 'retinue';
+
+                  const badgeColor = isKnight ? '#f87171' : isScout ? '#c084fc' : isGarrison ? '#fbbf24' : isRetinue ? '#38bdf8' : '#f87171';
+                  const badgeBg = isKnight ? 'rgba(239, 68, 68, 0.2)' : isScout ? 'rgba(168, 85, 247, 0.2)' : isGarrison ? 'rgba(245, 158, 11, 0.2)' : isRetinue ? 'rgba(56, 189, 248, 0.18)' : 'rgba(239, 68, 68, 0.2)';
+                  const cardBorder = isKnight ? 'rgba(239, 68, 68, 0.3)' : isScout ? 'rgba(168, 85, 247, 0.3)' : isGarrison ? 'rgba(245, 158, 11, 0.3)' : isRetinue ? 'rgba(56, 189, 248, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+
+                  return (
+                    <div
+                      key={uIdx}
+                      style={{
+                        background: 'rgba(10, 10, 15, 0.6)',
+                        border: `1px solid ${cardBorder}`,
+                        borderRadius: '8px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '1.1rem' }}>{unit.icon}</span>
+                          <strong style={{ fontSize: '0.92rem', color: '#fef2f2' }}>{unit.name}</strong>
+                        </div>
+                        <span style={{
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          color: badgeColor,
+                          background: badgeBg,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          border: `1px solid ${cardBorder}`
+                        }}>
+                          {unit.count}명
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem' }}>
+                        <span style={{
+                          background: 'rgba(255,255,255,0.06)',
+                          color: '#cbd5e1',
+                          padding: '1px 6px',
+                          borderRadius: '3px',
+                          border: '1px solid rgba(255,255,255,0.1)'
+                        }}>
+                          {unit.type}
+                        </span>
+                        <span style={{ color: '#94a3b8' }}>
+                          사기: <strong style={{ color: '#4ade80' }}>{unit.morale || '높음 (사기 충만)'}</strong>
+                        </span>
+                      </div>
+
+                      {unit.description && (
+                        <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.35', marginTop: '2px' }}>
+                          {unit.description}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* units에 거점 수비대가 아직 누락된 경우에만 보조 거점 방위군 카드 표시 */}
+                {!units.some(u => u.category === 'garrison') && (military?.holdingBonus || 0) > 0 && (
+                  <div style={{
+                    background: 'rgba(10, 10, 15, 0.5)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '1.1rem' }}>{unit.icon}</span>
-                        <strong style={{ fontSize: '0.92rem', color: '#fef2f2' }}>{unit.name}</strong>
+                        <span style={{ fontSize: '1.1rem' }}>🏹</span>
+                        <strong style={{ fontSize: '0.92rem', color: '#fef2f2' }}>거점 군사 인프라 수비대</strong>
                       </div>
                       <span style={{
                         fontSize: '0.8rem',
                         fontWeight: 'bold',
-                        color: '#f87171',
-                        background: 'rgba(239, 68, 68, 0.2)',
+                        color: '#fbbf24',
+                        background: 'rgba(245, 158, 11, 0.2)',
                         padding: '2px 8px',
                         borderRadius: '4px',
-                        border: '1px solid rgba(239, 68, 68, 0.35)'
+                        border: '1px solid rgba(245, 158, 11, 0.35)'
                       }}>
-                        {unit.count}명
+                        {military?.holdingBonus || 0}명
                       </span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem' }}>
-                      <span style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        color: '#cbd5e1',
-                        padding: '1px 6px',
-                        borderRadius: '3px',
-                        border: '1px solid rgba(255,255,255,0.1)'
-                      }}>
-                        {unit.type}
+                      <span style={{ background: 'rgba(255,255,255,0.06)', color: '#cbd5e1', padding: '1px 6px', borderRadius: '3px' }}>
+                        거점 방위군
                       </span>
                       <span style={{ color: '#94a3b8' }}>
-                        사기: <strong style={{ color: '#4ade80' }}>{unit.morale}</strong>
+                        사기: <strong style={{ color: '#4ade80' }}>보통 (상비 주둔)</strong>
                       </span>
                     </div>
 
-                    {unit.description && (
-                      <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.35', marginTop: '2px' }}>
-                        {unit.description}
-                      </div>
-                    )}
+                    <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.35', marginTop: '2px' }}>
+                      영지 내 병영, 훈련소 및 성벽 방어 시설 상시 주둔 경비병
+                    </div>
                   </div>
-                ))}
+                )}
 
-                {/* 거점 직할 수비대 / 경비병 상비군 카드 */}
-                {((military?.baseLevies || 0) + (military?.holdingBonus || 0) > 0) && (
+                {/* 직위/신분 기본 상비군 카드 (거점 수비대와 중복되지 않는 순수 직위 가신 상비군 전용 카드) */}
+                {(military?.baseLevies || 0) > 0 && (
                   <div style={{
                     background: 'rgba(10, 10, 15, 0.45)',
-                    border: '1px dashed rgba(239, 68, 68, 0.3)',
+                    border: '1px dashed rgba(239, 68, 68, 0.35)',
                     borderRadius: '8px',
                     padding: '12px 14px',
                     display: 'flex',
@@ -1859,7 +1914,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '1.1rem' }}>🏰</span>
-                        <strong style={{ fontSize: '0.92rem', color: '#fef2f2' }}>거점 상비 수비대 및 경비병</strong>
+                        <strong style={{ fontSize: '0.92rem', color: '#fef2f2' }}>직위 기본 상비군 및 친위 가신</strong>
                       </div>
                       <span style={{
                         fontSize: '0.8rem',
@@ -1870,21 +1925,21 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                         borderRadius: '4px',
                         border: '1px solid rgba(239, 68, 68, 0.3)'
                       }}>
-                        {(military?.baseLevies || 0) + (military?.holdingBonus || 0)}명
+                        {military?.baseLevies || 0}명
                       </span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem' }}>
                       <span style={{ background: 'rgba(255,255,255,0.06)', color: '#cbd5e1', padding: '1px 6px', borderRadius: '3px' }}>
-                        거점 방위군
+                        직위 상비군
                       </span>
                       <span style={{ color: '#94a3b8' }}>
-                        사기: <strong style={{ color: '#4ade80' }}>높음</strong>
+                        사기: <strong style={{ color: '#4ade80' }}>높음 (사기 충만)</strong>
                       </span>
                     </div>
 
                     <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.35', marginTop: '2px' }}>
-                      신분 직속 가신({military?.baseLevies || 0}명) 및 거점 인프라 훈련소/병영 시설(+{military?.holdingBonus || 0}명) 상시 주둔 병력
+                      신분 및 직위에 따라 상시 소집·호위 가능한 직속 친위 경비대
                     </div>
                   </div>
                 )}
@@ -1906,6 +1961,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
               }}>
                 <span>
                   💡 <strong>동적 병력 산식:</strong> 직속 제대({military?.unitsBonus || 0}명) + 거점 군사 인프라({military?.holdingBonus || 0}명) + 직위 기본 상비군({military?.baseLevies || 0}명) = <strong style={{ color: '#f87171' }}>총 {totalLevies}명</strong>
+                  {((military?.retinueCount || 0) > 0) && (
+                    <span style={{ color: '#93c5fd', marginLeft: '6px' }}>
+                      (가신 수행단 {military?.retinueCount}명 포함)
+                    </span>
+                  )}
                 </span>
                 <span style={{ color: '#a7f3d0' }}>
                   턴 경과 및 부대 확충/손실 시 실시간 동기화
