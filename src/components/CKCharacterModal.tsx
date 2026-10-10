@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails, parseCKResources, isMilitaryOrRetinueItem } from '@/lib/ckVisuals';
+import { calculateCKAttributes, parseCKStress, getHeraldryEmblem, getArchetypeDetails, parseCKResources, isMilitaryOrRetinueItem, formatDecimal } from '@/lib/ckVisuals';
 import { 
   TRAIT_CATEGORIES, 
   ORDERED_TRAIT_CATEGORY_KEYS, 
@@ -12,6 +12,7 @@ import {
 import { Crown, Shield, Sword, Swords, Users, Scroll, BookOpen, Eye, Award, Flame, Activity, Sparkles, X, Lock, Package, Coins, ChevronDown, ChevronUp, Compass } from 'lucide-react';
 import { checkStatusPromotion, PromotionTarget } from '@/lib/statusPromotion';
 import { ALL_DECISIONS, PIETY_DECISIONS, PRESTIGE_DECISIONS, CKDecision, getAvailableDecisions } from '@/lib/ckDecisions';
+import { getCongenitalBadgeStyle, isCongenitalTrait } from '@/lib/geneticEngine';
 
 interface Props {
   isOpen: boolean;
@@ -19,9 +20,19 @@ interface Props {
   gameState: ParsedState;
   onPetitionPromotion?: (target: PromotionTarget) => void;
   onExecuteDecision?: (command: string) => void;
+  onSelectPromotion?: (target: PromotionTarget) => void;
+  onSelectDecision?: (decision: CKDecision) => void;
 }
 
-export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitionPromotion, onExecuteDecision }: Props) {
+export default function CKCharacterModal({ 
+  isOpen, 
+  onClose, 
+  gameState, 
+  onPetitionPromotion, 
+  onExecuteDecision,
+  onSelectPromotion,
+  onSelectDecision
+}: Props) {
   const [selectedCategory, setSelectedCategory] = useState<'all' | TraitCategoryKey>('all');
   const [decisionCategory, setDecisionCategory] = useState<'all' | 'piety' | 'prestige'>('all');
   const [showEmptySessions, setShowEmptySessions] = useState(true);
@@ -401,7 +412,10 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                   {target.canPromote ? (
                     <button
                       onClick={() => {
-                        if (confirm(`'${target.ceremonyName}' 의식을 거행하고 정식 '${target.targetRank}'(으)로 승격을 공식 청원하시겠습니까?`)) {
+                        if (onSelectPromotion) {
+                          onClose();
+                          onSelectPromotion(target);
+                        } else if (confirm(`'${target.ceremonyName}' 의식을 거행하고 정식 '${target.targetRank}'(으)로 승격을 공식 청원하시겠습니까?`)) {
                           onClose();
                           onPetitionPromotion?.(target);
                         }
@@ -467,7 +481,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                 ⚡ 즉시 발동 가능: {decisionStatus.available.length}개
               </span>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                보유 점수: <strong style={{ color: '#c084fc' }}>👑 위신 {resources.prestigeScore}점</strong> / <strong style={{ color: '#34d399' }}>🕊️ 신앙 {resources.pietyScore}점</strong>
+                보유 점수: <strong style={{ color: '#c084fc' }}>👑 위신 {formatDecimal(resources.prestigeScore)}점</strong> / <strong style={{ color: '#34d399' }}>🕊️ 신앙 {formatDecimal(resources.pietyScore)}점</strong>
               </span>
             </div>
           </div>
@@ -537,7 +551,7 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
 
               let lockedReason = '';
               if (!hasTier) lockedReason = `${dec.costType} Lv.${dec.requiredTier}단계 이상 필요 (현재 Lv.${currentTier})`;
-              else if (!hasCost) lockedReason = `${dec.costType} ${dec.cost - currentScore}점 부족 (${currentScore}/${dec.cost})`;
+              else if (!hasCost) lockedReason = `${dec.costType} ${formatDecimal(Math.max(0, dec.cost - currentScore))}점 부족 (${formatDecimal(currentScore)}/${dec.cost})`;
 
               return (
                 <div key={dec.id} style={{
@@ -620,7 +634,10 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                   {canExecute ? (
                     <button
                       onClick={() => {
-                        if (confirm(`'${dec.title}' 결단을 발동하시겠습니까?\n\n소모: ${dec.costType} ${dec.cost}점 (현재 ${currentScore}점 보유)\n(도달한 영구 단계는 유지됩니다)`)) {
+                        if (onSelectDecision) {
+                          onClose();
+                          onSelectDecision(dec);
+                        } else if (confirm(`'${dec.title}' 결단을 발동하시겠습니까?\n\n소모: ${dec.costType} ${dec.cost}점 (현재 ${formatDecimal(currentScore)}점 보유)\n(도달한 영구 단계는 유지됩니다)`)) {
                           onClose();
                           onExecuteDecision?.(dec.actionCommand);
                         }
@@ -892,15 +909,15 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                 <span>🏰 직할 영지 한계: <strong style={{ color: '#38bdf8' }}>{attributes.synergies.domainLimit}개소</strong></span>
                 <span>🪙 재정 수입: <strong style={{ color: '#fbbf24' }}>+{attributes.synergies.goldIncomeModifier}%</strong></span>
                 <span>⚔️ 징집 병력: <strong style={{ color: '#ef4444' }}>+{attributes.synergies.levyModifier}%</strong></span>
-                <span title={`소모 가능 위신: ${resources.prestigeScore}점\n영구 단계: Lv.${resources.prestigeTier} ${resources.prestigeLevel}\n턴 당 획득: ${resources.prestigeGain?.formattedGain || '+0.0/턴'}`}>
-                  👑 위신: <strong style={{ color: '#c084fc' }}>{resources.prestigeScore}점</strong>{' '}
+                <span title={`소모 가능 위신: ${formatDecimal(resources.prestigeScore)}점\n영구 단계: Lv.${resources.prestigeTier} ${resources.prestigeLevel}\n턴 당 획득: ${resources.prestigeGain?.formattedGain || '+0.0/턴'}`}>
+                  👑 위신: <strong style={{ color: '#c084fc' }}>{formatDecimal(resources.prestigeScore)}점</strong>{' '}
                   <span style={{ fontSize: '0.74rem', color: '#e9d5ff', background: 'rgba(192, 132, 252, 0.18)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(192, 132, 252, 0.3)' }}>
                     Lv.{resources.prestigeTier} {resources.prestigeLevel}
                   </span>{' '}
                   <small style={{ color: '#c084fc', fontWeight: 'bold' }}>({resources.prestigeGain?.formattedGain || '+0.0/턴'})</small>
                 </span>
-                <span title={`소모 가능 신앙: ${resources.pietyScore}점\n영구 단계: Lv.${resources.pietyTier} ${resources.pietyLevel}\n턴 당 획득: ${resources.pietyGain?.formattedGain || '+0.0/턴'}`}>
-                  🕊️ {resources.labels.pietyLabel}: <strong style={{ color: '#34d399' }}>{resources.pietyScore}점</strong>{' '}
+                <span title={`소모 가능 신앙: ${formatDecimal(resources.pietyScore)}점\n영구 단계: Lv.${resources.pietyTier} ${resources.pietyLevel}\n턴 당 획득: ${resources.pietyGain?.formattedGain || '+0.0/턴'}`}>
+                  🕊️ {resources.labels.pietyLabel}: <strong style={{ color: '#34d399' }}>{formatDecimal(resources.pietyScore)}점</strong>{' '}
                   <span style={{ fontSize: '0.74rem', color: '#a7f3d0', background: 'rgba(52, 211, 153, 0.18)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(52, 211, 153, 0.3)' }}>
                     Lv.{resources.pietyTier} {resources.pietyLevel}
                   </span>{' '}
@@ -933,11 +950,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
                       <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>👑 위신 (소모 가능: {resources.prestigeScore}점)</span>
+                        <span>👑 위신 (소모 가능: {formatDecimal(resources.prestigeScore)}점)</span>
                         <span style={{ fontSize: '0.7rem', color: '#c084fc' }}>Lv.{resources.prestigeTier} {resources.prestigeLevel} [영구]</span>
                       </span>
                       <span style={{ fontWeight: 'bold', color: '#c084fc', fontSize: '0.72rem' }}>
-                        {resources.prestigeTier >= 5 ? '최고 단계 도달' : `다음 단계: ${resources.prestigeScore} / ${nextThreshold}점`}
+                        {resources.prestigeTier >= 5 ? '최고 단계 도달' : `다음 단계: ${formatDecimal(resources.prestigeScore)} / ${nextThreshold}점`}
                       </span>
                     </div>
                     <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -967,11 +984,11 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
                       <span style={{ color: '#a7f3d0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>🕊️ {resources.labels.pietyLabel} (소모 가능: {resources.pietyScore}점)</span>
+                        <span>🕊️ {resources.labels.pietyLabel} (소모 가능: {formatDecimal(resources.pietyScore)}점)</span>
                         <span style={{ fontSize: '0.7rem', color: '#34d399' }}>Lv.{resources.pietyTier} {resources.pietyLevel} [영구]</span>
                       </span>
                       <span style={{ fontWeight: 'bold', color: '#34d399', fontSize: '0.72rem' }}>
-                        {resources.pietyTier >= 5 ? '최고 단계 도달' : `다음 단계: ${resources.pietyScore} / ${nextThreshold}점`}
+                        {resources.pietyTier >= 5 ? '최고 단계 도달' : `다음 단계: ${formatDecimal(resources.pietyScore)} / ${nextThreshold}점`}
                       </span>
                     </div>
                     <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -1442,6 +1459,26 @@ export default function CKCharacterModal({ isOpen, onClose, gameState, onPetitio
                               gap: '6px'
                             }}>
                               <span>{trait.name.replace(/\((?:개선 중|강화 중)\)/g, '').trim()}</span>
+                              {isCongenitalTrait(trait.name) && (() => {
+                                const cBadge = getCongenitalBadgeStyle(trait.name);
+                                return (
+                                  <span style={{
+                                    fontSize: '0.68rem',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: cBadge.bgColor,
+                                    border: `1px solid ${cBadge.borderColor}`,
+                                    color: cBadge.color,
+                                    fontWeight: 'bold',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}>
+                                    <span>{cBadge.icon}</span>
+                                    <span>{cBadge.isBloodline ? '신성 혈통' : `선천 유전 ${cBadge.tierStars}`}</span>
+                                  </span>
+                                );
+                              })()}
                               {(trait.name.includes('개선 중') || trait.originalCategory?.includes('개선')) && (
                                 <span style={{
                                   fontSize: '0.68rem',

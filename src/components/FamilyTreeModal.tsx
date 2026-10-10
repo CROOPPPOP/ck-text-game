@@ -3,6 +3,7 @@
 import React from "react";
 import { ParsedState } from "@/lib/parser";
 import { detectPlayerArchetype, getArchetypeDetails } from "@/lib/ckVisuals";
+import { isCongenitalTrait, getCongenitalBadgeStyle } from "@/lib/geneticEngine";
 
 interface Props {
   isOpen: boolean;
@@ -133,6 +134,39 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
           <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
             {rulerName} &bull; {rulerStatus} &bull; <span style={{ color: '#60a5fa' }}>📜 {successionLaw}</span>
           </div>
+
+          {/* Active Dynastic Bloodlines & Genetic Traits */}
+          {gameState.traits?.some(t => isCongenitalTrait(t.name)) && (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '12px'
+            }}>
+              {gameState.traits.filter(t => isCongenitalTrait(t.name)).map((t, idx) => {
+                const b = getCongenitalBadgeStyle(t.name);
+                return (
+                  <div key={idx} style={{
+                    background: b.bgColor,
+                    border: `1px solid ${b.borderColor}`,
+                    color: b.color,
+                    padding: '3px 10px',
+                    borderRadius: '20px',
+                    fontSize: '0.78rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <span>{b.icon}</span>
+                    <span>{t.name}</span>
+                    <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>({b.tierStars})</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Tab Navigation */}

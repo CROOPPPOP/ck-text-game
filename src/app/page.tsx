@@ -17,6 +17,9 @@ import CKRelationsModal from '@/components/CKRelationsModal';
 import ChronicleModal from '@/components/ChronicleModal';
 import CKSaveModal from '@/components/CKSaveModal';
 import CKSettingsModal from '@/components/CKSettingsModal';
+import CKEventModal, { EventOutcomeData } from '@/components/CKEventModal';
+import { CKDecision } from '@/lib/ckDecisions';
+import { PromotionTarget } from '@/lib/statusPromotion';
 import {
   pushUndoState,
   popUndoState,
@@ -25,6 +28,7 @@ import {
   quickLoad,
   loadUXSettings,
   autoMigrateAndSanitizeStorage,
+  saveToSlot,
   UserUXSettings,
   SaveSlotData
 } from '@/lib/saveManager';
@@ -153,10 +157,28 @@ export default function Home() {
   const [uxSettings, setUxSettings] = useState<UserUXSettings>(loadUXSettings());
   const [canUndo, setCanUndo] = useState(false);
   const [quickNotice, setQuickNotice] = useState<string | null>(null);
+  const [activeEvent, setActiveEvent] = useState<{
+    type: 'decision' | 'promotion';
+    decision?: CKDecision;
+    promotionTarget?: PromotionTarget;
+  } | null>(null);
 
   const showQuickNotice = (msg: string) => {
     setQuickNotice(msg);
     setTimeout(() => setQuickNotice(null), 3000);
+  };
+
+  const handleConfirmEventOutcome = (updatedState: ParsedState, outcome: EventOutcomeData) => {
+    setGameState(updatedState);
+    saveToSlot('autosave', updatedState, turn, constructionQueue);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ck_auto_save', JSON.stringify({ ...updatedState, _constructionQueue: constructionQueue, _turn: turn }));
+    }
+    setActiveEvent(null);
+    showQuickNotice(outcome.type === 'decision' 
+      ? `✨ '${outcome.data.title}' 칙령이 성공적으로 영지에 반포되었습니다! (턴 ${turn} 유지)`
+      : `👑 '${outcome.data.newRank}'(으)로 승격되었습니다! (턴 ${turn} 유지)`
+    );
   };
 
   const getFontSizeStyle = (size: string) => {
@@ -1008,12 +1030,32 @@ export default function Home() {
           isOpen={true}
           onClose={() => setActiveModal(null)}
           gameState={gameState}
+          onSelectPromotion={(target) => {
+            setActiveModal(null);
+            setActiveEvent({ type: 'promotion', promotionTarget: target });
+          }}
+          onSelectDecision={(dec) => {
+            setActiveModal(null);
+            setActiveEvent({ type: 'decision', decision: dec });
+          }}
           onPetitionPromotion={(target) => {
-            handleAction(`[신분 승격 청원] 모든 승격 요건을 완비하였으므로, '${target.ceremonyName}' 의식을 공식 거행하고 정식 '${target.targetRank}'(으)로 승격을 청원하는 공식 서임 절차를 진행합니다.`);
+            setActiveModal(null);
+            setActiveEvent({ type: 'promotion', promotionTarget: target });
           }}
           onExecuteDecision={(command) => {
             handleAction(command);
           }}
+        />
+      )}
+
+      {activeEvent && gameState && (
+        <CKEventModal
+          isOpen={true}
+          onClose={() => setActiveEvent(null)}
+          gameState={gameState}
+          turn={turn}
+          eventPayload={activeEvent}
+          onConfirmOutcome={handleConfirmEventOutcome}
         />
       )}
 

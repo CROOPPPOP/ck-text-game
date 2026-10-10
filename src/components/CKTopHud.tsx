@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ParsedState } from '@/lib/parser';
-import { parseCKResources, parseCKStress, getHeraldryEmblem } from '@/lib/ckVisuals';
+import { parseCKResources, parseCKStress, getHeraldryEmblem, formatDecimal } from '@/lib/ckVisuals';
 import { checkStatusPromotion } from '@/lib/statusPromotion';
 import { getHighestThreatFaction } from '@/lib/factionRelations';
 import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X, Swords } from 'lucide-react';
@@ -388,7 +388,7 @@ export default function CKTopHud({
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.prestigeLabel}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '0.85rem', color: 'var(--gold-hover)', fontWeight: 'bold' }}>
-                  {resources.prestigeScore}점
+                  {formatDecimal(resources.prestigeScore)}점
                 </span>
                 <span style={{
                   fontSize: '0.65rem',
@@ -486,7 +486,7 @@ export default function CKTopHud({
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{resources.labels.pietyLabel}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '0.85rem', color: '#a7f3d0', fontWeight: 'bold' }}>
-                  {resources.pietyScore}점
+                  {formatDecimal(resources.pietyScore)}점
                 </span>
                 <span style={{
                   fontSize: '0.65rem',

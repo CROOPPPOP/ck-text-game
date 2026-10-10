@@ -120,6 +120,18 @@ export interface CKDynamicLeviesBreakdown {
   breakdownText?: string;
 }
 
+/**
+ * 부동소수점 연산 오차 방지 및 점수/수치 포맷터 (IEEE 754 보정)
+ * 예: 36.599999999999994 -> '36.6', 30.0 -> '30', 100.19999999999999 -> '100.2'
+ */
+export function formatDecimal(val: number | string | undefined | null): string {
+  if (val === undefined || val === null) return '0';
+  const num = typeof val === 'number' ? val : parseFloat(String(val));
+  if (isNaN(num)) return '0';
+  const rounded = Math.round(num * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+}
+
 export interface CKResources {
   gold: string;
   wealth?: string;             // UI 호환 별칭 (보유 재산 문자열)
