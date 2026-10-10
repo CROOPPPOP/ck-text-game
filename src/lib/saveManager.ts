@@ -3,6 +3,7 @@
 import { ParsedState, normalizeParsedState } from './parser';
 import { parseCKResources, detectPlayerArchetype } from './ckVisuals';
 import { sanitizeEstateState } from './estate';
+import { parsePopulationCount } from './populationEconomy';
 
 export interface SaveSlotData {
   id: string; // 'slot_1', 'slot_2', 'slot_3', 'slot_4', 'slot_5', 'autosave', 'quicksave'
@@ -278,9 +279,13 @@ export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
         if (slotData && slotData.gameState) {
           const originalStr = JSON.stringify(slotData.gameState);
           slotData.gameState = normalizeParsedState(sanitizeEstateState(slotData.gameState));
+          if (!slotData.gameState.previousPopulation && slotData.gameState.factionState?.['인구']) {
+            slotData.gameState.previousPopulation = parsePopulationCount(slotData.gameState.factionState['인구']);
+          }
           const updatedResources = parseCKResources(slotData.gameState);
           slotData.levies = updatedResources.levies;
           slotData.gold = updatedResources.gold;
+          slotData.characterStatus = slotData.gameState.personalInfo?.['신분'] || slotData.characterStatus || '귀족';
           if (JSON.stringify(slotData.gameState) !== originalStr) {
             localStorage.setItem(storageKey, JSON.stringify(slotData));
             count++;
@@ -296,6 +301,9 @@ export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
         const parsed = JSON.parse(legacyAuto);
         const originalStr = JSON.stringify(parsed);
         const sanitized = normalizeParsedState(sanitizeEstateState(parsed));
+        if (!sanitized.previousPopulation && sanitized.factionState?.['인구']) {
+          sanitized.previousPopulation = parsePopulationCount(sanitized.factionState['인구']);
+        }
         if (JSON.stringify(sanitized) !== originalStr) {
           localStorage.setItem('ck_auto_save', JSON.stringify(sanitized));
           count++;

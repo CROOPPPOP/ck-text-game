@@ -813,6 +813,13 @@ export function normalizeParsedState(state: ParsedState): ParsedState {
         const match = existing.value.match(/(\d+)/);
         if (match) numVal = Math.max(0, Math.min(100, parseInt(match[1], 10)));
 
+        // 스트레스: 과거 배수 버그(num * 5)로 인해 100점으로 비정상 팽창되었던 기존 세이브 슬롯 자가 치유
+        if (metric.name === '스트레스') {
+          if (numVal >= 80 && (existing.description?.includes('평온') || existing.description?.includes('안정') || existing.description?.includes('양호') || existing.description?.includes('기본') || existing.risk?.includes('최상') || existing.risk?.includes('안전'))) {
+            numVal = 15;
+          }
+        }
+
         // 5대 표준 위험도 (치명 / 위험 / 중간 / 안전 / 최상) 보정 및 자가 치유
         let risk = existing.risk || metric.defaultRisk;
         const rawDesc = existing.description || '';
