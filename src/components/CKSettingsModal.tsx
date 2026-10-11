@@ -203,6 +203,61 @@ export default function CKSettingsModal({
             </div>
           </div>
 
+          {/* 2.5 Simulation Engine Mode */}
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '10px',
+            padding: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fbbf24', fontWeight: 'bold', marginBottom: '10px', fontSize: '0.95rem' }}>
+              <Settings size={18} />
+              <span>시뮬레이션 구동 엔진 (Simulation Engine)</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button
+                onClick={() => handleUpdate({ simulationMode: 'rule_engine' })}
+                style={{
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: settings.simulationMode !== 'gemini' ? '2px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
+                  background: settings.simulationMode !== 'gemini' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(0,0,0,0.2)',
+                  color: settings.simulationMode !== 'gemini' ? 'var(--gold-hover)' : 'var(--text-muted)',
+                  fontWeight: settings.simulationMode !== 'gemini' ? 'bold' : 'normal',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  textAlign: 'left'
+                }}
+              >
+                <span>⚡ 룰 기반 엔진 (권장)</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>비용 0원 · 무환각 · 0.01초 즉시 반응</span>
+              </button>
+              <button
+                onClick={() => handleUpdate({ simulationMode: 'gemini' })}
+                style={{
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: settings.simulationMode === 'gemini' ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                  background: settings.simulationMode === 'gemini' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(0,0,0,0.2)',
+                  color: settings.simulationMode === 'gemini' ? '#38bdf8' : 'var(--text-muted)',
+                  fontWeight: settings.simulationMode === 'gemini' ? 'bold' : 'normal',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  textAlign: 'left'
+                }}
+              >
+                <span>🤖 Gemini AI API 모드</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>API 키 필요 · 외부 LLM 생성</span>
+              </button>
+            </div>
+          </div>
+
           {/* 3. Keyboard Shortcuts */}
           <div style={{
             background: 'rgba(0, 0, 0, 0.3)',

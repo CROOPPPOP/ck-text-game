@@ -34,6 +34,7 @@ import {
 } from '@/lib/saveManager';
 import { sanitizeEstateState } from '@/lib/estate';
 import { mergeFactionLists } from '@/lib/factionRelations';
+import { createInitialGameState, processTurn } from '@/lib/engine/simulationCore';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
   const [currentText, setCurrentText] = useState('');
@@ -194,52 +195,68 @@ export default function Home() {
     setLoading(true);
     setStreamPreview("");
     try {
-      const response = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: config, 
-          isInitialSetup: true,
-          currentState: null,
-          apiKey: localStorage.getItem('ck_api_key') || '',
-          stream: true
-        })
-      });
-      const data = await readGameStream(response, (raw) => {
-        setStreamPreview(extractLivePreview(raw));
-      });
-      if (data?.parsed) {
+      const apiKey = localStorage.getItem('ck_api_key') || '';
+      const useGemini = uxSettings.simulationMode === 'gemini' && apiKey;
+
+      let parsedResult: any = null;
+
+      if (!useGemini) {
+        // ⚡ 로컬 결정론적 룰 기반 엔진으로 즉시 시작 (0.01초, 비용 0원, 무환각)
+        parsedResult = createInitialGameState(config);
+      } else {
+        const response = await fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: config, 
+            isInitialSetup: true,
+            currentState: null,
+            apiKey,
+            stream: true
+          })
+        });
+        const data = await readGameStream(response, (raw) => {
+          setStreamPreview(extractLivePreview(raw));
+        });
+        if (data?.parsed) {
+          parsedResult = data.parsed;
+        } else if (data?.error) {
+          alert("API 에러: " + data.error);
+          if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (parsedResult) {
         // 유저가 선택한 신분 프리셋 확실히 보장
         if (config.playerStatus) {
-          if (!data.parsed.personalInfo) {
-            data.parsed.personalInfo = {};
+          if (!parsedResult.personalInfo) {
+            parsedResult.personalInfo = {};
           }
-          data.parsed.personalInfo['신분'] = config.playerStatus;
-          if (!data.parsed.personalInfo['직위'] || data.parsed.personalInfo['직위'] === '귀족' || data.parsed.personalInfo['직위'] === '영주') {
-            data.parsed.personalInfo['직위'] = config.playerStatus;
+          parsedResult.personalInfo['신분'] = config.playerStatus;
+          if (!parsedResult.personalInfo['직위'] || parsedResult.personalInfo['직위'] === '귀족' || parsedResult.personalInfo['직위'] === '영주') {
+            parsedResult.personalInfo['직위'] = config.playerStatus;
           }
         }
         const initialChronicle: ChronicleItem = {
           turn: 1,
-          dateLocation: data.parsed.dateLocation,
+          dateLocation: parsedResult.dateLocation,
           action: "역사의 서막이 열리다",
           result: "시작",
-          summary: (data.parsed.narrative || "").slice(0, 100).replace(/\n/g, ' ')
+          summary: (parsedResult.narrative || "").slice(0, 100).replace(/\n/g, ' ')
         };
-        data.parsed.chronicle = [initialChronicle];
-        setGameState(data.parsed);
-        setTurn(parseTurnNumber(data.parsed.dateLocation) ?? 1);
+        parsedResult.chronicle = [initialChronicle];
+        setGameState(parsedResult);
+        setTurn(parseTurnNumber(parsedResult.dateLocation) ?? 1);
         setConstructionQueue([]);
         setConstructionNotice('');
-      } else if (data?.error) {
-        alert("API 에러: " + data.error);
-        if (data.error.includes("키가 제공되지 않았습니다")) window.location.href = '/startup';
       } else {
-        alert("시작 설정 파싱에 실패했습니다.");
+        alert("시작 설정 구성에 실패했습니다.");
       }
     } catch (err) {
       console.error(err);
-      alert("서버 통신 오류가 발생했습니다.");
+      alert("게임 시작 중 오류가 발생했습니다.");
     }
     setStreamPreview("");
     setLoading(false);
@@ -384,19 +401,31 @@ export default function Home() {
     setLoading(true);
     setStreamPreview("");
     try {
-      const response = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: finalAction, 
-          currentState: { ...gameState, constructionQueue: summarizeQueue(constructionQueue, turn) }, // JSON Save System
-          apiKey: localStorage.getItem('ck_api_key') || '',
-          stream: true
-        })
-      });
-      const data = await readGameStream(response, (raw) => {
-        setStreamPreview(extractLivePreview(raw));
-      });
+      const apiKey = localStorage.getItem('ck_api_key') || '';
+      const useGemini = uxSettings.simulationMode === 'gemini' && apiKey;
+
+      let data: any = null;
+
+      if (!useGemini) {
+        // ⚡ 로컬 결정론적 룰 기반 엔진으로 0.01초 즉시 턴 연산 (비용 0원, 환각 0%)
+        if (gameState) {
+          data = processTurn(gameState, finalAction, turn, constructionQueue);
+        }
+      } else {
+        const response = await fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: finalAction, 
+            currentState: { ...gameState, constructionQueue: summarizeQueue(constructionQueue, turn) }, // JSON Save System
+            apiKey,
+            stream: true
+          })
+        });
+        data = await readGameStream(response, (raw) => {
+          setStreamPreview(extractLivePreview(raw));
+        });
+      }
       if (data?.parsed) {
         setGameState(prevState => {
           if (!prevState) return data.parsed;

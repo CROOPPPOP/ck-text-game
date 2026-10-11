@@ -8,7 +8,12 @@ export async function POST(req: Request) {
 
     const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
     if (!finalApiKey) {
-      return new Response(JSON.stringify({ valid: false, reason: "Gemini API 키가 제공되지 않았습니다." }));
+      // 로컬/오프라인 모드 기본 검증: 인물 이름이 비어있지 않으면 통과
+      const charName = formData?.character?.trim();
+      if (!charName) {
+        return new Response(JSON.stringify({ valid: false, reason: "인물 항목에 이름을 입력해주세요. (예: 샤를 드 발루아)" }));
+      }
+      return new Response(JSON.stringify({ valid: true }));
     }
 
     const ai = new GoogleGenAI({

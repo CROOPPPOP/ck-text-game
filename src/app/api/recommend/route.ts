@@ -8,7 +8,33 @@ export async function POST(req: Request) {
 
     const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
     if (!finalApiKey) {
-      return new Response(JSON.stringify({ error: "Gemini API 키가 제공되지 않았습니다." }), { status: 400 });
+      // 오프라인 추천 프리셋 반환
+      return Response.json({
+        config: {
+          era: "1066년 중세 유럽",
+          worldview: "역사적",
+          character: "샤를 드 발루아",
+          finalGoal: "가문의 부흥과 영지 확장 및 정통성 확립",
+          archetype: "noble",
+          playerStatus: "남작",
+          startLocation: "노르망디 루앙 성채",
+          additionalSettings: "플레이어는 충성스러운 가신들과 함께 영지의 번영과 가문의 대업을 맹세함.",
+          stats: {
+            "근력": 55, "체력": 60, "지구력": 50, "민첩성": 52, "반사 신경": 50,
+            "속도": 48, "신체 조정력": 50, "지각력": 55, "지능": 58, "기억력": 50,
+            "학습 능력": 55, "의지력": 60, "집중력": 55,
+            "통솔력": 15, "매력": 14, "외교력": 15, "설득력": 12, "기만술": 10,
+            "위협": 11, "행정력": 16, "전략": 14, "전술": 12, "전투력": 14,
+            "무기 숙련도": 13, "기마술": 12, "생존술": 10, "의술": 9, "학문": 13,
+            "기술 숙련도": 10, "장인 기술": 9, "은밀 행동": 8, "수사력": 11
+          },
+          traits: [
+            { category: "전문특성", name: "영지 통치자" },
+            { category: "정신특성", name: "명예 존중" },
+            { category: "신체특성", name: "강철 체력" }
+          ]
+        }
+      });
     }
 
     const ai = new GoogleGenAI({

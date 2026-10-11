@@ -25,12 +25,14 @@ export interface UserUXSettings {
   fontSize: 'sm' | 'md' | 'lg' | 'xl';
   typewriterSpeed: number; // 0 for instant, 8 fast, 20 normal, 35 slow
   shortcutsEnabled: boolean;
+  simulationMode: 'rule_engine' | 'gemini'; // 로컬 결정론적 룰 엔진 vs Gemini AI
 }
 
 const DEFAULT_SETTINGS: UserUXSettings = {
   fontSize: 'md',
   typewriterSpeed: 20,
-  shortcutsEnabled: true
+  shortcutsEnabled: true,
+  simulationMode: 'rule_engine'
 };
 
 const SLOTS_LIST = [
