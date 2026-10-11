@@ -645,94 +645,12 @@ export default function Startup() {
     setCustomTraitInputs(prev => ({ ...prev, [category]: '' }));
   };
 
-  const [isRecommending, setIsRecommending] = useState(false);
-
-  const handleRecommend = async () => {
-    setIsRecommending(true);
-    try {
-      const res = await fetch('/api/recommend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData })
-      });
-      const data = await res.json();
-      if (data.config) {
-        let matchedArchId = data.config.archetype;
-        let matchedPresetId = '';
-        const recStatus = data.config.playerStatus;
-
-        // 29개 신분 프리셋 중 일치하는 항목 및 아키타입 탐색
-        for (const arch of ARCHETYPES) {
-          const found = arch.statusPresets.find(p => p.playerStatus === recStatus || p.name === recStatus);
-          if (found) {
-            matchedArchId = arch.id;
-            matchedPresetId = found.id;
-            break;
-          }
-        }
-
-        if (matchedArchId) {
-          setSelectedArchetype(matchedArchId);
-        }
-        if (matchedPresetId) {
-          setSelectedStatusPresetId(matchedPresetId);
-        }
-
-        setFormData(fd => ({
-          ...fd,
-          era: data.config.era || fd.era,
-          worldview: data.config.worldview || fd.worldview,
-          character: data.config.character || fd.character,
-          archetype: matchedArchId || fd.archetype,
-          finalGoal: data.config.finalGoal || fd.finalGoal,
-          playerStatus: data.config.playerStatus || fd.playerStatus,
-          startLocation: data.config.startLocation || fd.startLocation,
-          additionalSettings: data.config.additionalSettings || fd.additionalSettings
-        }));
-        
-        if (data.config.stats) {
-          setStatsData(prev => ({ ...prev, ...data.config.stats }));
-        }
-
-        if (data.config.traits && Array.isArray(data.config.traits)) {
-          const newTraits: Record<string, string[]> = {};
-          data.config.traits.forEach((t: any) => {
-            if (!newTraits[t.category]) newTraits[t.category] = [];
-            newTraits[t.category].push(t.name);
-          });
-          setSelectedTraits(newTraits);
-          syncTraitsToFormData(newTraits);
-        }
-        alert("AI가 추천 설정을 구성했습니다! 스탯과 특성을 확인하고 게임을 시작해보세요.");
-      } else {
-        alert("추천 설정을 가져오는데 실패했습니다.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("서버 통신 오류가 발생했습니다.");
-    }
-    setIsRecommending(false);
-  };
-
-  const [isValidating, setIsValidating] = useState(false);
-
   const handleStart = async () => {
-    setIsValidating(true);
-    try {
-      const res = await fetch('/api/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData })
-      });
-      const data = await res.json();
-      if (!data.valid) {
-        alert(data.reason || "세계관 고증에 맞지 않는 설정이 있습니다. 수정 후 다시 시도해주세요.");
-        setIsValidating(false);
-        return; // 중단
-      }
-    } catch (err) {
-      console.error(err);
-      // 검증 실패(네트워크 오류 등) 시 일단 넘어가도록
+    // 인물 이름 필수 검증
+    if (!formData.character || formData.character.trim() === '') {
+      alert("인물(캐릭터 이름)을 입력해주세요. (예: 샤를 드 발루아)");
+      setCurrentStep(1);
+      return;
     }
 
     console.log("게임 시작 요청", formData);
@@ -812,22 +730,8 @@ export default function Startup() {
         {currentStep === 1 && (
           <div className={styles.fieldsGrid} style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '10px' }}>
             <div className={styles.fieldRow}>
-               <label className={styles.fieldLabel}>API KEY:</label>
-               <input 
-                 type="password"
-                 name="apiKey"
-                 className={styles.inputField}
-                 placeholder="입력..."
-                 value={formData.apiKey}
-                 onChange={(e) => {
-                   handleChange(e);
-                   localStorage.setItem("ck_api_key", e.target.value);
-                 }}
-               />
-             </div>
-            <div className={styles.fieldRow}>
               <label className={styles.fieldLabel}>시대:</label>
-              <input type="text" name="era" className={styles.inputField} placeholder="입력" value={formData.era} onChange={handleChange} />
+              <input type="text" name="era" className={styles.inputField} placeholder="입력 (예: 1066년 중세 성기)" value={formData.era} onChange={handleChange} />
             </div>
             <div className={styles.fieldRow}>
               <label className={styles.fieldLabel}>세계관:</label>
@@ -1250,7 +1154,7 @@ export default function Startup() {
             )}
             
             <div className={styles.instruction} style={{ marginTop: '20px' }}>
-              추천 설정을 클릭하시면 AI가 설정된 기본 정보를 바탕으로 적절한 능력치와 특성을 자동 배분해드립니다.
+              선택하신 특성과 능력치는 영지의 정치, 군사, 종교 및 생존 판정에 직접적인 영향을 미칩니다.
             </div>
           </div>
         )}
@@ -1263,14 +1167,9 @@ export default function Startup() {
           {currentStep < 4 ? (
             <button className={`${styles.actionBtn} ${styles.primaryBtn}`} style={{flex: 1}} onClick={() => setCurrentStep(prev => prev + 1)}>다음 단계</button>
           ) : (
-            <>
-              <button className={styles.actionBtn} style={{flex: 1, background: isRecommending ? 'rgba(255,255,255,0.1)' : 'var(--panel-bg)'}} onClick={handleRecommend} disabled={isRecommending}>
-                {isRecommending ? "세계 구성 중... ⏳" : "AI 추천 설정 🎲"}
-              </button>
-              <button className={`${styles.actionBtn} ${styles.primaryBtn}`} style={{flex: 2}} onClick={handleStart} disabled={isValidating}>
-                {isValidating ? "역사적 고증 검증 중... ⏳" : "새로운 역사 시작하기"}
-              </button>
-            </>
+            <button className={`${styles.actionBtn} ${styles.primaryBtn}`} style={{flex: 2}} onClick={handleStart}>
+              새로운 역사 시작하기 👑
+            </button>
           )}
         </div>
       </div>
