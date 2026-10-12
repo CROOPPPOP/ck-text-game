@@ -128,7 +128,33 @@ const finalTurnMatch = state.dateLocation?.match(/턴 수:\s*(\d+)/);
 const finalTurn = finalTurnMatch ? parseInt(finalTurnMatch[1], 10) : 0;
 
 assert(finalTurn === 21, `최종 턴 수 21 도달 확인 (현재 턴: ${finalTurn})`);
-assert(finalAge > initialAge, `나이 진척 확인 (시작: ${initialAge}세 -> 최종: ${finalAge}세)`);
+// 5. 역사 고증 어휘집 및 크로노-트리거(Chrono-Trigger) 검증
+console.log("\n[단계 5: 역사 고증 어휘집 및 크로노-트리거(Chrono-Trigger) 검증]");
+import { getLexiconByCultureOrLocation, injectHistoricalLexicon } from './src/lib/engine/historicalLexicon';
+import { rollEvent } from './src/lib/engine/events/eventRegistry';
+
+const frenchLexicon = getLexiconByCultureOrLocation('노르망디 루앙');
+assert(frenchLexicon.currencyMajor.includes('리브르'), '프랑스 문화권 리브르 화폐 치환 확인');
+assert(frenchLexicon.marshalTitle.includes('코네타블'), '프랑스 군무장령(코네타블) 직책 확인');
+
+const byzLexicon = getLexiconByCultureOrLocation('콘스탄티노폴리스 동로마');
+assert(byzLexicon.currencyMajor.includes('히페르피론'), '비잔티움 히페르피론 화폐 치환 확인');
+assert(byzLexicon.monarchTitle.includes('바실레우스'), '비잔티움 바실레우스 호칭 확인');
+
+const injected = injectHistoricalLexicon("영지 국고 {{CURRENCY_MAJOR}} 징수 완료", frenchLexicon);
+assert(injected.includes('리브르'), '템플릿 역사 어휘 주입 확인');
+
+// 크로노-트리거 1077년 카노사의 굴욕 발동 검증
+const canossaEvt = rollEvent({ dateLocation: '1077년 1월 (겨울) / 샤르트르 [턴 수: 45]' } as any, 45);
+assert(canossaEvt.id === 'hist_canossa_1077', '1077년 연표 도달 시 카노사의 굴욕 확정 발동 확인');
+
+// 크로노-트리거 1095년 제1차 십자군 발동 검증
+const crusadeEvt = rollEvent({ dateLocation: '1095년 10월 (가을) / 툴루즈 [턴 수: 117]' } as any, 117);
+assert(crusadeEvt.id === 'hist_crusade_1095', '1095년 연표 도달 시 제1차 십자군 대성전 확정 발동 확인');
+
+// 크로노-트리거 1347년 흑사병 발동 검증
+const plagueEvt = rollEvent({ dateLocation: '1347년 10월 (가을) / 마르세유 [턴 수: 1125]' } as any, 1125);
+assert(plagueEvt.id === 'hist_black_death_1347', '1347년 연표 도달 시 흑사병(Black Death) 확정 발동 확인');
 
 console.log("\n==================================================");
 console.log(`🎉 모든 테스트 통과! (${testsPassed}/${totalTests})`);

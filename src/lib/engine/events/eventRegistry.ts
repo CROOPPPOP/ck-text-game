@@ -4,8 +4,10 @@ import { CHURCH_EVENTS } from './churchEvents';
 import { EPIDEMIC_EVENTS } from './epidemicEvents';
 import { COURT_EVENTS } from './courtEvents';
 import { REALM_EVENTS } from './realmEvents';
+import { HISTORICAL_TIMELINE_EVENTS } from './historicalTimelineEvents';
 
 export const ALL_GAME_EVENTS: EngineGameEvent[] = [
+  ...HISTORICAL_TIMELINE_EVENTS,
   ...CHURCH_EVENTS,
   ...EPIDEMIC_EVENTS,
   ...COURT_EVENTS,
@@ -21,6 +23,12 @@ export function rollEvent(state: ParsedState, turn: number): EngineGameEvent {
       return false;
     }
   });
+
+  // 1-1. 역사적 크로노-트리거 대사건이 존재할 경우 절대 우선 발동
+  const historicalMilestone = availableEvents.find(e => e.category === 'historical');
+  if (historicalMilestone) {
+    return historicalMilestone;
+  }
 
   if (availableEvents.length === 0) {
     // 폴백 이벤트: 영지 평온 및 세무 점검

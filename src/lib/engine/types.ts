@@ -1,6 +1,6 @@
 import { ParsedState } from '../parser';
 
-export type EventCategory = 'church' | 'epidemic' | 'court' | 'realm' | 'intrigue' | 'tournament';
+export type EventCategory = 'church' | 'epidemic' | 'court' | 'realm' | 'intrigue' | 'tournament' | 'historical';
 
 export interface EventChoiceRequirement {
   stat?: { name: string; minValue: number };
