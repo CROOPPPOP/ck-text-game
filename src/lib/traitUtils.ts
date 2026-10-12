@@ -132,7 +132,7 @@ export function normalizeTraitCategory(rawCategory?: string): TraitCategoryKey {
   if (!rawCategory) return 'general';
   const clean = rawCategory.trim().replace(/[\[\]]/g, '');
 
-  if (clean.includes('신체') || clean.includes('육체') || clean.includes('체질') || clean.includes('건강')) {
+  if (clean.includes('신체') || clean.includes('육체') || clean.includes('체질') || clean.includes('건강') || clean.includes('선천') || clean.includes('유전')) {
     return 'physical';
   }
   if (clean.includes('정신') || clean.includes('성격') || clean.includes('심리') || clean.includes('도덕')) {

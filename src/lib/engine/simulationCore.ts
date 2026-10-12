@@ -4,6 +4,7 @@ import { extractNumericValue, formatDecimal, applyTurnResourceAccumulation } fro
 import { rollEvent, findEventChoiceById } from './events/eventRegistry';
 import { EngineGameEvent, EngineEventChoice } from './types';
 import { PIETY_DECISIONS, PRESTIGE_DECISIONS } from '../ckDecisions';
+import { PERSONALITY_PAIRS, CONGENITAL_POINT_TRAITS } from './customizationTypes';
 
 const SEASONS = ['봄', '여름', '가을', '겨울'];
 
@@ -52,7 +53,7 @@ export function createInitialGameState(config: any): ParsedState {
     '반사 신경': '50 (보통)', '속도': '48 (보통)', '신체 조정력': '50 (보통)', '지각력': '55 (우수)',
     '지능': '58 (총명)', '기억력': '50 (보통)', '학습 능력': '55 (우수)', '의지력': '60 (강철)', '집중력': '55 (우수)'
   };
-  if (config?.stats) {
+  if (config?.stats && typeof config.stats === 'object') {
     for (const [k, v] of Object.entries(config.stats)) {
       if (k in innateStats) innateStats[k] = `${v} (조정됨)`;
     }
@@ -64,13 +65,30 @@ export function createInitialGameState(config: any): ParsedState {
     '기마술': '11', '생존술': '10', '의술': '8', '학문': '12 (+1)', '기술 숙련도': '10', '장인 기술': '9',
     '은밀 행동': '8', '수사력': '10'
   };
-  if (config?.stats) {
+  if (config?.stats && typeof config.stats === 'object') {
     for (const [k, v] of Object.entries(config.stats)) {
       if (k in acquiredStats) acquiredStats[k] = `${v}`;
     }
   }
 
-  // 2. 신분별 초기 거점 및 세력 상태
+  // 2. 가문 유산 (Dynasty Legacy) 및 신분별 초기 세력/거점 설정
+  const legacyType = config?.dynastyLegacy || (
+    config?.houseFocus?.includes('군사') ? 'martial' :
+    config?.houseFocus?.includes('신앙') ? 'holy' :
+    config?.houseFocus?.includes('행정') || config?.houseFocus?.includes('번영') ? 'merchant' : 'martial'
+  );
+
+  let initialGold = 65;
+  let initialLevies = 110;
+  let initialKnights = 4;
+  let startingWeapon = '가문의 보검';
+  const startingItems = [`${house} 가문 인장 반지`, '영지 토지 대장', '성경 사본'];
+  const startingTraits: any[] = [
+    { category: '전문특성', name: '영지 통치자', tier: '확립된 특성', description: '영지 조세와 법률을 관할하는 지혜' },
+    { category: '정신특성', name: '명예 존중', tier: '확립된 특성', description: '기사도와 신의를 중시함' },
+    { category: '신체특성', name: '강건한 체격', tier: '잠재 특성', description: '풍찬노숙을 버텨내는 체력' }
+  ];
+
   let initialEstate: any = {
     type: '영지 장원',
     level: 'Lv.2 남작 장원',
@@ -80,12 +98,104 @@ export function createInitialGameState(config: any): ParsedState {
     ]
   };
 
+  const initialFactionRelations = [
+    '이웃 남작령 (국경 제후)|관계: 중립 (+15)',
+    '로마 교황청 (성좌)|관계: 우호 (+20)'
+  ];
+
+  // 4축: 가문 유산(Dynasty Legacy) 특전 적용
+  if (archetype === 'noble') {
+    if (legacyType === 'martial') {
+      initialLevies += 30;
+      initialKnights += 2;
+      startingWeapon = '⚔️ 선대의 강철 장검 (가보)';
+      startingTraits.push({
+        category: '가문유산',
+        name: '무인의 혈통',
+        tier: '가문 대업',
+        description: '선대로부터 전장을 누벼온 맹장 가문의 혈통 (징집병 +30, 정예 기사 보강)'
+      });
+    } else if (legacyType === 'holy') {
+      initialFactionRelations[1] = '로마 교황청 (성좌)|관계: 열렬한 지지 (+50)';
+      startingItems.unshift('⛪ 성십자가의 파편 (성유물)');
+      startingTraits.push({
+        category: '가문유산',
+        name: '성자의 혈통',
+        tier: '가문 대업',
+        description: '성좌의 축복을 받은 성스러운 가문의 혈통 (초기 신앙 +50, 교황청 호감도 특화)'
+      });
+    } else if (legacyType === 'merchant') {
+      initialGold += 80;
+      initialEstate.buildings.push({
+        name: '올리브 압착장',
+        level: 1,
+        tags: ['경제', '특산품'],
+        desc: '가문의 상업 번영을 이끄는 특산 가공장'
+      });
+      startingTraits.push({
+        category: '가문유산',
+        name: '상인의 혈통',
+        tier: '가문 대업',
+        description: '황금과 장원의 번영을 이끄는 부호 가문의 혈통 (시작 금화 +80닢, 올리브 압착장 완공)'
+      });
+    }
+  }
+
+  // 2축: 성격 트레잇 (Personality Traits) 적용
+  if (config?.personalityTraits && Array.isArray(config.personalityTraits)) {
+    const allPersonalities = PERSONALITY_PAIRS.flatMap(p => [p.positive, p.opposite]);
+    config.personalityTraits.forEach((pId: string) => {
+      const found = allPersonalities.find(p => p.id === pId || p.name.includes(pId));
+      if (found && !startingTraits.some(t => t.name === found.name)) {
+        startingTraits.push({
+          category: '성격특성',
+          name: found.name,
+          tier: '성격 트레잇',
+          description: `${found.desc} (${found.statBonus})`
+        });
+      }
+    });
+  }
+
+  // 3축: 선천적 유전 트레잇 (Congenital Point Traits) 적용
+  if (config?.congenitalTraits && Array.isArray(config.congenitalTraits)) {
+    config.congenitalTraits.forEach((cId: string) => {
+      const found = CONGENITAL_POINT_TRAITS.find(c => c.id === cId || c.name.includes(cId));
+      if (found && !startingTraits.some(t => t.name === found.name)) {
+        startingTraits.push({
+          category: '선천특성',
+          name: found.name,
+          tier: '유전 특성',
+          description: `${found.desc} (${found.effects})`
+        });
+      }
+    });
+  }
+
+  // 커스텀 일반 특성 병합
+  if (config?.selectedTraits && typeof config.selectedTraits === 'object') {
+    Object.entries(config.selectedTraits).forEach(([cat, traitsArr]: [string, any]) => {
+      if (Array.isArray(traitsArr)) {
+        traitsArr.forEach(tName => {
+          if (!startingTraits.some(t => t.name === tName)) {
+            startingTraits.push({
+              category: cat,
+              name: tName,
+              tier: '확립된 특성',
+              description: '캐릭터 생성 시 선택한 특성'
+            });
+          }
+        });
+      }
+    });
+  }
+
   let initialFactionState: Record<string, string> = {
     '인구': '1,250명',
-    '세력 재정': '금화 65 (은화 40)',
+    '세력 재정': `금화 ${initialGold} (은화 40)`,
     '치안': '안전 (75%)',
     '민심': '안정 (80%)',
-    '병력': '징집병 110명, 정예 기사 4명',
+    '병력': `징집병 ${initialLevies}명, 정예 기사 ${initialKnights}명`,
     '행정력': '우수 (70%)'
   };
 
@@ -137,15 +247,11 @@ export function createInitialGameState(config: any): ParsedState {
       innate: innateStats,
       acquired: acquiredStats
     },
-    traits: [
-      { category: '전문특성', name: '영지 통치자', tier: '확립된 특성', description: '영지 조세와 법률을 관할하는 지혜' },
-      { category: '정신특성', name: '명예 존중', tier: '확립된 특성', description: '기사도와 신의를 중시함' },
-      { category: '신체특성', name: '강건한 체격', tier: '잠재 특성', description: '풍찬노숙을 버텨내는 체력' }
-    ],
+    traits: startingTraits,
     inventory: {
-      '소지 화폐': ['금화 65', '은화 40'],
-      '착용 무구': ['가문의 보검', '사슬 갑옷', '문장 방패'],
-      '소지품': [`${house} 가문 인장 반지`, '영지 토지 대장', '성경 사본']
+      '소지 화폐': [`금화 ${initialGold}`, '은화 40'],
+      '착용 무구': [startingWeapon, '사슬 갑옷', '문장 방패'],
+      '소지품': startingItems
     },
     factionState: initialFactionState,
     estate: initialEstate,
@@ -165,10 +271,7 @@ export function createInitialGameState(config: any): ParsedState {
         '수석 집사 아르노 (충성 가신)|호감도: +70',
         '교구 신부 베르나르도 (지역 사제)|호감도: +55'
       ],
-      faction: [
-        '이웃 남작령 (국경 제후)|관계: 중립 (+15)',
-        '로마 교황청 (성좌)|관계: 우호 (+20)'
-      ]
+      faction: initialFactionRelations
     },
     objective: {
       ultimateGoal: goal,

@@ -19,8 +19,20 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-// 1. 초기 상태 생성 검증
-console.log("\n[단계 1: 캐릭터 생성 및 오프닝 턴 검증]");
+// 1. 초기 상태 생성 및 4개 축 커스터마이징 검증
+console.log("\n[단계 1: 캐릭터 생성 및 제1축~제4축 커스터마이징 검증]");
+import { calculate5AttributesFromStats } from './src/lib/engine/customizationTypes';
+
+const customStats = {
+  '근력': 70, '체력': 75, '통솔력': 20, '외교력': 18, '행정력': 22, '기만술': 16, '학문': 18, '전투력': 20
+};
+
+// 1축 검증
+const calculatedAttrs = calculate5AttributesFromStats(customStats);
+assert(calculatedAttrs.martial.score > 0, `제1축 무력 환산 확인 (${calculatedAttrs.martial.score}점, ${calculatedAttrs.martial.grade})`);
+assert(calculatedAttrs.prowess.score > 0, `제1축 기량 환산 확인 (${calculatedAttrs.prowess.score}점, ${calculatedAttrs.prowess.grade})`);
+assert(calculatedAttrs.stewardship.score > 0, `제1축 관리력 환산 확인 (${calculatedAttrs.stewardship.score}점)`);
+
 let state = createInitialGameState({
   character: '샤를 드 발루아',
   playerStatus: '남작',
@@ -28,7 +40,11 @@ let state = createInitialGameState({
   era: '1066년 중세 성기',
   startLocation: '노르망디 루앙 성채',
   houseName: '발루아',
-  houseMotto: '명예와 긍지'
+  houseMotto: '명예와 긍지',
+  stats: customStats,
+  dynastyLegacy: 'martial', // 4축
+  personalityTraits: ['brave', 'greedy'], // 2축
+  congenitalTraits: ['genius', 'feeble'] // 3축
 });
 
 assert(state.personalInfo?.['이름'] === '샤를 드 발루아', '캐릭터 이름 설정 확인');
@@ -36,6 +52,36 @@ assert(state.personalInfo?.['신분'] === '남작', '신분(남작) 설정 확�
 assert(state.dateLocation?.includes('턴 수: 1') === true, '오프닝 턴 수 1 확인');
 assert(Array.isArray(state.choices) && state.choices.length >= 3, '초기 선택지 3~4개 생성 확인');
 assert(state.narrative?.includes('발루아') === true, '서사 내 가문명 주입 확인');
+
+// 2축 성격 특성 검증
+const traitNames = (state.traits || []).map((t: any) => t.name);
+assert(traitNames.some((n: string) => n.includes('용감함')), '제2축 성격 특성(용감함) 주입 확인');
+assert(traitNames.some((n: string) => n.includes('탐욕')), '제2축 성격 특성(탐욕) 주입 확인');
+
+// 3축 선천 특성 검증
+assert(traitNames.some((n: string) => n.includes('천재')), '제3축 선천 특성(천재) 주입 확인');
+assert(traitNames.some((n: string) => n.includes('허약함')), '제3축 선천 결함(허약함) 주입 확인');
+
+// 4축 가문 유산 검증 (무인의 혈통 및 가보 검)
+assert(traitNames.some((n: string) => n.includes('무인의 혈통')), '제4축 가문 유산(무인의 혈통) 부여 확인');
+assert((state.inventory?.['착용 무구'] || []).some((w: string) => w.includes('선대의 강철 장검')), '제4축 가보 무기 장착 확인');
+
+// 성자 가문 및 상인 가문 분기 검증
+const holyState = createInitialGameState({
+  character: '보두앵',
+  archetype: 'noble',
+  dynastyLegacy: 'holy'
+});
+assert((holyState.traits || []).some((t: any) => t.name.includes('성자의 혈통')), '제4축 성자 혈통 특전 확인');
+assert((holyState.inventory?.['소지품'] || []).some((i: string) => i.includes('성유물')), '제4축 성유물 소지 확인');
+
+const merchantState = createInitialGameState({
+  character: '코시모',
+  archetype: 'noble',
+  dynastyLegacy: 'merchant'
+});
+assert((merchantState.traits || []).some((t: any) => t.name.includes('상인의 혈통')), '제4축 상인 혈통 특전 확인');
+assert(!!merchantState.estate?.buildings?.some((b: any) => b.name.includes('올리브 압착장')), '제4축 올리브 압착장 완공 확인');
 
 const initialGold = extractNumericValue(state.factionState?.['세력 재정'] || '0');
 assert(initialGold > 0, `초기 금화 보유 확인 (${initialGold} 금화)`);

@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import {
+  calculate5AttributesFromStats,
+  PERSONALITY_PAIRS,
+  CONGENITAL_POINT_TRAITS,
+  DYNASTY_LEGACIES,
+  PersonalityTraitDef,
+  CongenitalPointTrait,
+  DynastyLegacyDef
+} from '@/lib/engine/customizationTypes';
 
 export default function Startup() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -21,6 +30,54 @@ export default function Startup() {
   const usedAcquiredPoints = acquiredStatsList.reduce((acc, stat) => acc + (typeof statsData[stat] === 'number' ? statsData[stat] as number : 0), 0);
   const remainingInnatePoints = totalInnatePoints - usedInnatePoints;
   const remainingAcquiredPoints = totalAcquiredPoints - usedAcquiredPoints;
+
+  // 4축 커스터마이징 상태 (Dynasty Legacy, Personality, Congenital Point-Buy)
+  const [dynastyLegacy, setDynastyLegacy] = useState<'martial' | 'holy' | 'merchant'>('martial');
+  const [personalityTraits, setPersonalityTraits] = useState<string[]>(['brave', 'generous']);
+  const [congenitalTraits, setCongenitalTraits] = useState<string[]>(['quick']);
+  const [traitSubTab, setTraitSubTab] = useState<'personality' | 'congenital' | 'custom'>('personality');
+
+  const congenitalBudget = 70;
+  const usedCongenitalPoints = congenitalTraits.reduce((sum, id) => {
+    const t = CONGENITAL_POINT_TRAITS.find(trait => trait.id === id);
+    return sum + (t ? t.cost : 0);
+  }, 0);
+  const remainingCongenitalPoints = congenitalBudget - usedCongenitalPoints;
+
+  const togglePersonality = (traitId: string) => {
+    setPersonalityTraits(prev => {
+      if (prev.includes(traitId)) {
+        return prev.filter(id => id !== traitId);
+      }
+      let oppositeId: string | undefined;
+      for (const pair of PERSONALITY_PAIRS) {
+        if (pair.positive.id === traitId) oppositeId = pair.opposite.id;
+        if (pair.opposite.id === traitId) oppositeId = pair.positive.id;
+      }
+      const filtered = oppositeId ? prev.filter(id => id !== oppositeId) : prev;
+      if (filtered.length >= 3) {
+        alert("CK3 정통 성격 특성은 최대 3개까지 선택할 수 있습니다. 기존 특성을 해제 후 선택해주세요.");
+        return prev;
+      }
+      return [...filtered, traitId];
+    });
+  };
+
+  const toggleCongenital = (traitId: string) => {
+    const trait = CONGENITAL_POINT_TRAITS.find(t => t.id === traitId);
+    if (!trait) return;
+    setCongenitalTraits(prev => {
+      if (prev.includes(traitId)) {
+        return prev.filter(id => id !== traitId);
+      }
+      const nextTotalCost = usedCongenitalPoints + trait.cost;
+      if (trait.cost > 0 && nextTotalCost > congenitalBudget) {
+        alert(`선천 특성 포인트가 부족합니다!\n(필요: ${trait.cost}P, 남은 예산: ${remainingCongenitalPoints}P)\n부정적 결함(둔재, 허약함, 추남 등)을 선택해 포인트를 확보하십시오.`);
+        return prev;
+      }
+      return [...prev, traitId];
+    });
+  };
 
   const traitCategories = {
     '신체특성': ['강철 체력', '흉터 투성이', '질병 취약', '매력적인 외모', '거구'],
@@ -578,6 +635,10 @@ export default function Startup() {
       setWorldviewType('역사적');
       setSelectedArchetype('noble');
       setSelectedStatusPresetId('baron');
+      setDynastyLegacy('martial');
+      setPersonalityTraits(['brave', 'generous']);
+      setCongenitalTraits(['quick']);
+      setTraitSubTab('personality');
       setCurrentStep(1);
     }
   };
@@ -675,6 +736,11 @@ export default function Startup() {
 `;
       const finalFormData = {
         ...formData,
+        dynastyLegacy: selectedArchetype === 'noble' ? dynastyLegacy : 'martial',
+        personalityTraits,
+        congenitalTraits,
+        stats: statsData,
+        selectedTraits,
         additionalSettings: inheritanceContext + (finalAdditional ? `\n${finalAdditional}` : ''),
         previousState: formData.inheritedState.previousState
       };
@@ -683,6 +749,11 @@ export default function Startup() {
     } else {
       const finalFormData = {
         ...formData,
+        dynastyLegacy: selectedArchetype === 'noble' ? dynastyLegacy : 'martial',
+        personalityTraits,
+        congenitalTraits,
+        stats: statsData,
+        selectedTraits,
         additionalSettings: finalAdditional
       };
       localStorage.setItem("ck_startup_config", JSON.stringify(finalFormData));
@@ -994,6 +1065,63 @@ export default function Startup() {
                   </div>
                 </div>
 
+                {/* 4축: 가문 유산 대업 (Dynasty Legacy Bloodline) 선택 카드 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                    <label style={{ fontSize: '0.9rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                      【 제4축 】 가문 유산 대업 (Dynasty Legacy Bloodline):
+                    </label>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      선택된 유산: <strong style={{ color: 'var(--gold-hover)' }}>{DYNASTY_LEGACIES.find(l => l.id === dynastyLegacy)?.name}</strong>
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                    {DYNASTY_LEGACIES.map(legacy => {
+                      const isSel = dynastyLegacy === legacy.id;
+                      return (
+                        <div
+                          key={legacy.id}
+                          onClick={() => {
+                            setDynastyLegacy(legacy.id as any);
+                            if (legacy.id === 'martial') setFormData(prev => ({ ...prev, houseFocus: '군사와 정복 (Martial Conquest)' }));
+                            if (legacy.id === 'holy') setFormData(prev => ({ ...prev, houseFocus: '신앙과 경건 (Piety & Divine Right)' }));
+                            if (legacy.id === 'merchant') setFormData(prev => ({ ...prev, houseFocus: '행정과 번영 (Stewardship & Prosperity)' }));
+                          }}
+                          style={{
+                            padding: '12px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            background: isSel ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(15, 23, 42, 0.85))' : 'rgba(0,0,0,0.4)',
+                            border: isSel ? '2px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.12)',
+                            boxShadow: isSel ? '0 0 10px rgba(212, 175, 55, 0.2)' : 'none'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '1.3rem' }}>{legacy.icon}</span>
+                            <span style={{ fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: isSel ? 'var(--gold-accent)' : 'rgba(255,255,255,0.1)', color: isSel ? '#111' : 'var(--text-muted)', fontWeight: 'bold' }}>
+                              {legacy.badge}
+                            </span>
+                          </div>
+                          <div style={{ fontWeight: 'bold', fontSize: '0.92rem', color: isSel ? 'var(--gold-hover)' : 'var(--text-main)', marginBottom: '4px' }}>
+                            {legacy.name}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: '1.3' }}>
+                            {legacy.description}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px' }}>
+                            {legacy.bonusSummary.map((b, idx) => (
+                              <div key={idx} style={{ fontSize: '0.72rem', color: isSel ? '#bae6fd' : 'rgba(255,255,255,0.7)' }}>
+                                ✓ {b}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 'bold' }}>가문 가풍 / 성향 (Dynasty Focus):</label>
                   <select
@@ -1035,6 +1163,66 @@ export default function Startup() {
                 {customStatsMode ? '정형화 모드로 전환 🔄' : '자유 입력 모드로 전환 🔄'}
               </button>
             </div>
+
+            {/* 【 제1축 】 5대 핵심 능력치 & 기량 실시간 판정 (Core Attributes Preview) */}
+            {(() => {
+              const coreAttrs = calculate5AttributesFromStats(statsData);
+              return (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(15, 23, 42, 0.75))',
+                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>📊</span>
+                      <strong style={{ fontSize: '1.05rem', color: 'var(--gold-accent)' }}>
+                        【 제1축 】 5대 핵심 능력치 & 기량 실시간 판정 (Core Attributes & Prowess)
+                      </strong>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      선천/후천 스탯 분배에 따라 1~30 정밀 점수 및 시스템 보너스 실시간 연동
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+                    {Object.entries(coreAttrs).map(([key, attr]) => (
+                      <div
+                        key={key}
+                        style={{
+                          background: 'rgba(0,0,0,0.45)',
+                          border: `1px solid ${attr.color}40`,
+                          borderRadius: '8px',
+                          padding: '10px 12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px',
+                          boxShadow: `0 2px 8px ${attr.color}15`
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '1.1rem' }}>{attr.icon} <strong style={{ color: attr.color, fontSize: '0.92rem' }}>{attr.label}</strong></span>
+                          <span style={{ fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: `${attr.color}25`, color: attr.color, fontWeight: 'bold' }}>
+                            {attr.grade}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '1.45rem', fontWeight: 'bold', color: 'var(--text-main)', textAlign: 'right', margin: '2px 0' }}>
+                          {attr.score} <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>/ 30</span>
+                        </div>
+                        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+                          {attr.effectDesc}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {customStatsMode ? (
               <textarea name="stats" className={styles.inputField} placeholder="무력: 50, 지력: 50..." value={formData.stats} onChange={handleChange} style={{ height: '300px', resize: 'vertical' }} />
@@ -1113,43 +1301,274 @@ export default function Startup() {
             {customTraitsMode ? (
               <textarea name="traits" className={styles.inputField} placeholder="예: [신체특성] 다혈질, [전문특성] 뛰어난 검술" value={formData.traits} onChange={handleChange} style={{ height: '300px', resize: 'vertical' }} />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {Object.entries(traitCategories).map(([category, predefinedTraits]) => (
-                  <div key={category} style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '8px', border: '1px solid var(--panel-border)' }}>
-                    <h3 style={{ color: 'var(--text-main)', marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>[{category}]</h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
-                      {Array.from(new Set([...predefinedTraits, ...(selectedTraits[category] || [])])).map(trait => {
-                        const isSelected = (selectedTraits[category] || []).includes(trait);
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* 4단계 세부 탭 네비게이션 */}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.12)', paddingBottom: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setTraitSubTab('personality')}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      border: traitSubTab === 'personality' ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.15)',
+                      background: traitSubTab === 'personality' ? 'rgba(212, 175, 55, 0.22)' : 'rgba(0,0,0,0.35)',
+                      color: traitSubTab === 'personality' ? 'var(--gold-hover)' : 'var(--text-muted)',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <span>🎭</span> 【제2축】 CK3 정통 성격 특성 ({personalityTraits.length}/3)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTraitSubTab('congenital')}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      border: traitSubTab === 'congenital' ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.15)',
+                      background: traitSubTab === 'congenital' ? 'rgba(212, 175, 55, 0.22)' : 'rgba(0,0,0,0.35)',
+                      color: traitSubTab === 'congenital' ? 'var(--gold-hover)' : 'var(--text-muted)',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <span>🧬</span> 【제3축】 선천 유전 특성 ({remainingCongenitalPoints}P)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTraitSubTab('custom')}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      border: traitSubTab === 'custom' ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.15)',
+                      background: traitSubTab === 'custom' ? 'rgba(212, 175, 55, 0.22)' : 'rgba(0,0,0,0.35)',
+                      color: traitSubTab === 'custom' ? 'var(--gold-hover)' : 'var(--text-muted)',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <span>📜</span> 일반 배경 및 커스텀 특성
+                  </button>
+                </div>
+
+                {/* 2축: CK3 정통 성격 특성 (대립쌍 선택 시스템) */}
+                {traitSubTab === 'personality' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(15, 23, 42, 0.75))', border: '1px solid rgba(212, 175, 55, 0.3)', borderRadius: '8px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                        CK3 정통 규칙: <strong>상반되는 성격 특성은 양립할 수 없으며</strong>, 최대 <strong>3개</strong>까지 획득 가능합니다.
+                      </span>
+                      <span style={{ fontSize: '0.88rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
+                        선택된 성격 특성: {personalityTraits.length} / 3
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {PERSONALITY_PAIRS.map((pair, idx) => {
+                        const isPosSel = personalityTraits.includes(pair.positive.id);
+                        const isOppSel = personalityTraits.includes(pair.opposite.id);
                         return (
-                          <div 
-                            key={trait} 
-                            onClick={() => toggleTrait(category, trait)}
-                            style={{ 
-                              padding: '6px 12px', borderRadius: '20px', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s',
-                              border: isSelected ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.2)',
-                              background: isSelected ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.5)',
-                              color: isSelected ? 'var(--gold-hover)' : 'var(--text-muted)'
-                            }}
-                          >
-                            {trait}
+                          <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            {/* Positive trait card */}
+                            <div
+                              onClick={() => togglePersonality(pair.positive.id)}
+                              style={{
+                                padding: '12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: isPosSel ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(15, 23, 42, 0.9))' : 'rgba(0,0,0,0.35)',
+                                border: isPosSel ? '2px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: isPosSel ? '0 0 10px rgba(212, 175, 55, 0.2)' : 'none'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '1.2rem' }}>{pair.positive.icon} <strong style={{ color: isPosSel ? 'var(--gold-hover)' : 'var(--text-main)', fontSize: '0.92rem' }}>{pair.positive.name}</strong></span>
+                                {isPosSel && <span style={{ fontSize: '0.72rem', background: 'var(--gold-accent)', color: '#111', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>선택됨</span>}
+                              </div>
+                              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '6px', lineHeight: '1.3' }}>{pair.positive.desc}</div>
+                              <div style={{ fontSize: '0.73rem', color: '#bae6fd' }}>⚡ {pair.positive.statBonus}</div>
+                            </div>
+
+                            {/* VS badge */}
+                            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', padding: '4px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', textAlign: 'center' }}>
+                              VS
+                            </div>
+
+                            {/* Opposite trait card */}
+                            <div
+                              onClick={() => togglePersonality(pair.opposite.id)}
+                              style={{
+                                padding: '12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: isOppSel ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(15, 23, 42, 0.9))' : 'rgba(0,0,0,0.35)',
+                                border: isOppSel ? '2px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: isOppSel ? '0 0 10px rgba(212, 175, 55, 0.2)' : 'none'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '1.2rem' }}>{pair.opposite.icon} <strong style={{ color: isOppSel ? 'var(--gold-hover)' : 'var(--text-main)', fontSize: '0.92rem' }}>{pair.opposite.name}</strong></span>
+                                {isOppSel && <span style={{ fontSize: '0.72rem', background: 'var(--gold-accent)', color: '#111', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>선택됨</span>}
+                              </div>
+                              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '6px', lineHeight: '1.3' }}>{pair.opposite.desc}</div>
+                              <div style={{ fontSize: '0.73rem', color: '#bae6fd' }}>⚡ {pair.opposite.statBonus}</div>
+                            </div>
                           </div>
                         );
                       })}
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <input 
-                        type="text" 
-                        placeholder={`${category} 직접 추가...`} 
-                        className={styles.inputField} 
-                        style={{ padding: '6px 10px', fontSize: '0.85rem' }}
-                        value={customTraitInputs[category] || ''}
-                        onChange={(e) => setCustomTraitInputs(prev => ({...prev, [category]: e.target.value}))}
-                        onKeyDown={(e) => e.key === 'Enter' && handleCustomTraitAdd(category)}
-                      />
-                      <button className={styles.actionBtn} style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => handleCustomTraitAdd(category)}>+</button>
+                  </div>
+                )}
+
+                {/* 3축: 선천적 유전 특성 포인트-바이 */}
+                {traitSubTab === 'congenital' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(15, 23, 42, 0.8))', border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '8px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <strong style={{ fontSize: '0.95rem', color: 'var(--gold-accent)' }}>🧬 선천 유전 특성 포인트-바이 시스템</strong>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          강력한 축복 특성은 포인트를 소모하며, 결함을 선택하면 포인트가 환급됩니다.
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>남은 예산:</span>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: remainingCongenitalPoints >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                          {remainingCongenitalPoints} P
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {congenitalBudget} P</span>
+                      </div>
+                    </div>
+
+                    {/* 축복 유전 특성 */}
+                    <div>
+                      <h4 style={{ color: 'var(--text-main)', fontSize: '0.9rem', marginBottom: '8px' }}>✨ 축복받은 유전 형질 (포인트 소모)</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                        {CONGENITAL_POINT_TRAITS.filter(t => !t.isFlaw).map(t => {
+                          const isSel = congenitalTraits.includes(t.id);
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={() => toggleCongenital(t.id)}
+                              style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: isSel ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(15, 23, 42, 0.9))' : 'rgba(0,0,0,0.35)',
+                                border: isSel ? '2px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: isSel ? '0 0 10px rgba(212, 175, 55, 0.2)' : 'none'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '1.1rem' }}>{t.icon} <strong style={{ color: isSel ? 'var(--gold-hover)' : 'var(--text-main)', fontSize: '0.9rem' }}>{t.name}</strong></span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' }}>
+                                  -{t.cost}P
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t.desc}</div>
+                              <div style={{ fontSize: '0.73rem', color: '#bae6fd' }}>⚡ {t.effects}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 유전적 결함 */}
+                    <div>
+                      <h4 style={{ color: 'var(--text-main)', fontSize: '0.9rem', marginBottom: '8px' }}>⚠️ 유전적 결함 및 핸디캡 (포인트 환급)</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                        {CONGENITAL_POINT_TRAITS.filter(t => t.isFlaw).map(t => {
+                          const isSel = congenitalTraits.includes(t.id);
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={() => toggleCongenital(t.id)}
+                              style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: isSel ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(15, 23, 42, 0.9))' : 'rgba(0,0,0,0.35)',
+                                border: isSel ? '2px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: isSel ? '0 0 10px rgba(239, 68, 68, 0.2)' : 'none'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '1.1rem' }}>{t.icon} <strong style={{ color: isSel ? '#fca5a5' : 'var(--text-main)', fontSize: '0.9rem' }}>{t.name}</strong></span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80' }}>
+                                  +{Math.abs(t.cost)}P 환급
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t.desc}</div>
+                              <div style={{ fontSize: '0.73rem', color: '#fca5a5' }}>⚠️ {t.effects}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* 일반 배경 및 커스텀 특성 */}
+                {traitSubTab === 'custom' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {Object.entries(traitCategories).map(([category, predefinedTraits]) => (
+                      <div key={category} style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '8px', border: '1px solid var(--panel-border)' }}>
+                        <h3 style={{ color: 'var(--text-main)', marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>[{category}]</h3>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                          {Array.from(new Set([...predefinedTraits, ...(selectedTraits[category] || [])])).map(trait => {
+                            const isSelected = (selectedTraits[category] || []).includes(trait);
+                            return (
+                              <div 
+                                key={trait} 
+                                onClick={() => toggleTrait(category, trait)}
+                                style={{ 
+                                  padding: '6px 12px', borderRadius: '20px', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s',
+                                  border: isSelected ? '1px solid var(--gold-accent)' : '1px solid rgba(255,255,255,0.2)',
+                                  background: isSelected ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.5)',
+                                  color: isSelected ? 'var(--gold-hover)' : 'var(--text-muted)'
+                                }}
+                              >
+                                {trait}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <input 
+                            type="text" 
+                            placeholder={`${category} 직접 추가...`} 
+                            className={styles.inputField} 
+                            style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+                            value={customTraitInputs[category] || ''}
+                            onChange={(e) => setCustomTraitInputs(prev => ({...prev, [category]: e.target.value}))}
+                            onKeyDown={(e) => e.key === 'Enter' && handleCustomTraitAdd(category)}
+                          />
+                          <button className={styles.actionBtn} style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => handleCustomTraitAdd(category)}>+</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             
