@@ -37,7 +37,7 @@ import {
 import { sanitizeEstateState } from '@/lib/estate';
 import { mergeFactionLists } from '@/lib/factionRelations';
 import { createInitialGameState, processTurn } from '@/lib/engine/simulationCore';
-import { Province, INITIAL_PROVINCES } from '@/lib/engine/mapData';
+import { Province, INITIAL_PROVINCES, MapMode, CouncilTask } from '@/lib/engine/mapData';
 import { Army, raiseLevies, orderArmyMove, updateMilitaryTick, BattleEventResult } from '@/lib/engine/militaryEngine';
 import { requestBattleDispatch } from '@/lib/engine/aiChronicler';
 import CKMapView from '@/components/CKMapView';
@@ -191,6 +191,9 @@ export default function Home() {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
   const [apiKey, setApiKey] = useState<string>('');
   const [dispatchLogs, setDispatchLogs] = useState<{ id: string; time: string; text: string; type: 'battle' | 'diplomacy' | 'event' }[]>([]);
+  const [mapMode, setMapMode] = useState<MapMode>('political');
+  const [isAtWar, setIsAtWar] = useState<boolean>(false);
+  const [warScore, setWarScore] = useState<number>(0);
 
   // API Key 로드
   useEffect(() => {
@@ -463,11 +466,12 @@ export default function Home() {
               const fallenProv = prevProvinces.find(p => p.id === s.provinceId);
               const provName = fallenProv?.name || '성채';
               showQuickNotice(`🏰 [${provName}] 성채가 함락되어 ${s.conquerorRealm}의 통제하에 들어갔습니다!`);
+              setWarScore(w => Math.min(100, w + 35));
               setDispatchLogs(logs => [
                 {
                   id: `siege_${Date.now()}_${Math.random()}`,
                   time: formatCleanDate(timeResult.newDate),
-                  text: `[영지 점령] ${s.conquerorRealm}의 군대가 ${provName} 성채를 함락시키고 영지를 장악하였습니다.`,
+                  text: `[영지 점령] ${s.conquerorRealm}의 군대가 ${provName} 성채를 함락시키고 영지를 장악하였습니다. (승점 +35%)`,
                   type: 'battle'
                 },
                 ...logs.slice(0, 40)
@@ -477,6 +481,8 @@ export default function Home() {
 
           if (militaryRes.battleResults.length > 0) {
             militaryRes.battleResults.forEach(async b => {
+              const isPlayerWinner = (b.winner === 'attacker' && b.attackerArmy.isPlayer) || (b.winner === 'defender' && b.defenderArmy.isPlayer);
+              setWarScore(w => isPlayerWinner ? Math.min(100, w + 20) : Math.max(-100, w - 20));
               showQuickNotice(`⚔️ [${b.provinceName}] 대규모 회전 발생! (${b.victoryType})`);
               try {
                 const report = await requestBattleDispatch(b.dispatchContext, apiKey);
@@ -484,7 +490,7 @@ export default function Home() {
                   {
                     id: `battle_${Date.now()}_${Math.random()}`,
                     time: formatCleanDate(timeResult.newDate),
-                    text: report,
+                    text: `${report}\n(전쟁 승점 변동: ${isPlayerWinner ? '+20%' : '-20%'})`,
                     type: 'battle'
                   },
                   ...logs.slice(0, 40)
@@ -602,7 +608,9 @@ export default function Home() {
 
   // 📜 선전포고 및 적 방어군 스폰
   const handleDeclareWar = (targetProvince: Province, letterText: string) => {
-    showQuickNotice(`⚔️ [${targetProvince.name}] 영주에게 공식 선전포고가 전달되었습니다!`);
+    setIsAtWar(true);
+    setWarScore(0);
+    showQuickNotice(`⚔️ [${targetProvince.name}] 영주에게 공식 선전포고가 전달되었습니다! (전쟁 발발)`);
     setDispatchLogs(prev => [
       {
         id: `war_${Date.now()}`,
@@ -621,6 +629,67 @@ export default function Home() {
         setArmies(prev => [...prev, enemyArmy]);
       }
     }
+  };
+
+  // 📜 자문회 직무 파견 핸들러
+  const handleAssignCouncilTask = (provinceId: string, task: CouncilTask) => {
+    setProvinces(prev => prev.map(p => p.id === provinceId ? { ...p, assignedTask: task } : p));
+    showQuickNotice(`📜 [${task.title}] 직무를 위해 자문위원을 파견했습니다.`);
+    setDispatchLogs(logs => [
+      {
+        id: `council_${Date.now()}`,
+        time: formatCleanDate(gameDate),
+        text: `[궁정 직무] 영지에 [${task.title}] 수행 명령이 하달되었습니다.`,
+        type: 'diplomacy'
+      },
+      ...logs
+    ]);
+  };
+
+  // 🕊️ 평화 조약 체결 핸들러
+  const handleSignPeaceTreaty = (targetProvince: Province, terms: 'conquest' | 'reparations' | 'white_peace' | 'surrender') => {
+    if (terms === 'conquest') {
+      setProvinces(prev => prev.map(p => p.id === targetProvince.id ? { 
+        ...p, 
+        isPlayerControlled: true,
+        realmName: gameState?.factionState?.name || '왕국 직할령',
+        color: 'rgba(59, 130, 246, 0.45)',
+        borderColor: '#60a5fa'
+      } : p));
+      showQuickNotice(`👑 [승전] ${targetProvince.name} 영지가 우리 가문의 직할령으로 영구 귀속되었습니다!`);
+    } else if (terms === 'reparations') {
+      setGameState(prev => {
+        if (!prev) return prev;
+        const updatedStatus = (prev.playerStatus || []).map(s => {
+          if (s.name.includes('금화') || s.name.includes('재물')) {
+            const curVal = parseInt(s.value.replace(/[^0-9]/g, '') || '100', 10);
+            return { ...s, value: `${curVal + 100} 금화` };
+          }
+          return s;
+        });
+        return {
+          ...prev,
+          playerStatus: updatedStatus
+        };
+      });
+      showQuickNotice(`🪙 [승전] 적국으로부터 100 금화의 전쟁 배상금을 몰수하였습니다!`);
+    } else if (terms === 'white_peace') {
+      showQuickNotice(`🤝 [휴전] 상호 현상을 유지하며 백지 화친을 맺었습니다.`);
+    } else {
+      showQuickNotice(`🏳️ [항복] 전쟁이 종결되었습니다.`);
+    }
+
+    setIsAtWar(false);
+    setWarScore(0);
+    setDispatchLogs(logs => [
+      {
+        id: `peace_${Date.now()}`,
+        time: formatCleanDate(gameDate),
+        text: `[평화 조약] ${targetProvince.realmName}과의 전쟁이 공식 종결되었습니다. (조약 조건: ${terms === 'conquest' ? '영토 양도' : terms === 'reparations' ? '전쟁 배상금' : '백지 화친'})`,
+        type: 'diplomacy'
+      },
+      ...logs
+    ]);
   };
 
   // Keyboard Shortcuts (Space 일시정지, [/] 속도조절, 1~4 선택지, Q 퀵세이브, Z 되돌리기, Esc 모달닫기)
@@ -1210,6 +1279,8 @@ export default function Home() {
                   selectedArmyId={selectedArmyId}
                   onSelectArmy={(army) => setSelectedArmyId(army ? army.id : null)}
                   onOrderArmyMove={handleOrderArmyMove}
+                  currentMapMode={mapMode}
+                  onChangeMapMode={setMapMode}
                 />
               </div>
 
@@ -1224,6 +1295,10 @@ export default function Home() {
                   onOpenConstruction={() => { setRealmInitialTab('estate'); setActiveModal('realm'); }}
                   onOpenCharacterDialogue={(char) => setActiveDialogueCharacter(char)}
                   onDeclareWar={handleDeclareWar}
+                  onAssignCouncilTask={handleAssignCouncilTask}
+                  onSignPeaceTreaty={handleSignPeaceTreaty}
+                  isAtWar={isAtWar}
+                  warScore={warScore}
                   apiKey={apiKey}
                 />
               )}
@@ -1238,7 +1313,7 @@ export default function Home() {
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
               display: 'flex',
               gap: '16px',
-              height: '140px'
+              height: '155px'
             }}>
               {/* 좌측: 최근 역사 국면 전개 */}
               <div style={{
@@ -1302,26 +1377,6 @@ export default function Home() {
                   ))
                 )}
               </div>
-            </div>
-
-            {/* 3. 하단 직접 영주 칙령 하달 바 */}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="text" 
-                value={freeAction} 
-                onChange={e => setFreeAction(e.target.value)} 
-                className={styles.inputField} 
-                style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
-                placeholder="직접 영주 칙령 하달 (예: 전 영지에 세금 감면 반포, 기사단 소집 훈련)..." 
-                onKeyDown={(e) => { if (e.key === 'Enter') { handleAction(freeAction); setFreeAction(""); } }}
-              />
-              <button 
-                className={styles.choiceBtn} 
-                style={{ padding: '8px 18px', width: 'auto', background: 'var(--gold-accent)', color: '#121212', fontWeight: 'bold', fontSize: '12px' }} 
-                onClick={() => { handleAction(freeAction); setFreeAction(""); }}
-              >
-                칙령 반포
-              </button>
             </div>
           </>
         )}

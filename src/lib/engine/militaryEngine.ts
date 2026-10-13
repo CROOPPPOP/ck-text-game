@@ -44,7 +44,8 @@ export const TERRAIN_MOVE_TIME: Record<TerrainType, number> = {
   '구릉': 6,
   '산림': 7,
   '습지': 8,
-  '산악': 10
+  '산악': 10,
+  '사막': 7
 };
 
 /**

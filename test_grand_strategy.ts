@@ -4,8 +4,12 @@ import { requestCharacterDialogue, requestDiplomaticLetter, requestBattleDispatc
 
 async function runTests() {
   console.log("=== [1] Map & Province Tests ===");
-  if (INITIAL_PROVINCES.length !== 20) throw new Error(`Expected 20 provinces, got ${INITIAL_PROVINCES.length}`);
-  console.log(`✅ PASS: Exactly 20 medieval provinces initialized.`);
+  if (INITIAL_PROVINCES.length !== 25) throw new Error(`Expected 25 provinces, got ${INITIAL_PROVINCES.length}`);
+  console.log(`✅ PASS: Exactly 25 medieval world provinces initialized.`);
+
+  const jerusalem = INITIAL_PROVINCES.find(p => p.id === 'prov_jerusalem')!;
+  if (!jerusalem || jerusalem.capital !== '예루살렘 (알쿠드스)') throw new Error("Jerusalem province missing");
+  console.log(`✅ PASS: Holy Land Jerusalem province verified.`);
 
   const wessex = INITIAL_PROVINCES.find(p => p.id === 'prov_wessex')!;
   if (!wessex || !wessex.neighbors.includes('prov_normandy')) throw new Error("Wessex missing or invalid neighbors");
