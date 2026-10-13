@@ -29,6 +29,7 @@ interface Props {
   onUndoTurn?: () => void;
   canUndo?: boolean;
   onReturnTitle: () => void;
+  onOpenApiKey?: () => void;
 }
 
 export default function CKTopHud({
@@ -51,7 +52,8 @@ export default function CKTopHud({
   onQuickSave,
   onUndoTurn,
   canUndo = false,
-  onReturnTitle
+  onReturnTitle,
+  onOpenApiKey
 }: Props) {
   const rulerName = gameState.personalInfo?.['이름'] || '군주';
   const rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '영주';
@@ -882,6 +884,30 @@ export default function CKTopHud({
               <Settings size={13} />
               <span>설정</span>
             </button>
+
+            {/* AI Key Manager Button */}
+            {onOpenApiKey && (
+              <button
+                onClick={onOpenApiKey}
+                title="Gemini AI 서관 API Key 등록/수정 (역사/인물/전황 보조)"
+                style={{
+                  background: 'linear-gradient(45deg, rgba(168, 85, 247, 0.25), rgba(59, 130, 246, 0.25))',
+                  border: '1px solid rgba(192, 132, 252, 0.5)',
+                  color: '#e9d5ff',
+                  padding: '5px 8px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 'bold'
+                }}
+              >
+                <Sparkles size={13} color="#c084fc" />
+                <span>🔑 AI 서관</span>
+              </button>
+            )}
 
             {/* Return to Title */}
             <button

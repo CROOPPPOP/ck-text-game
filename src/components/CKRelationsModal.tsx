@@ -5,15 +5,26 @@ import { ParsedState } from '@/lib/parser';
 import { getArchetypeDetails } from '@/lib/ckVisuals';
 import { parseAllPersonalRelations, ParsedCharacterRelation } from '@/lib/characterRelations';
 import { mergeAndDeduplicateFactionRelations, parseFactionRelation } from '@/lib/factionRelations';
-import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck, AlertTriangle, Compass, Flame, Castle, Church, Coins } from 'lucide-react';
+import { Users, Heart, Shield, Swords, Handshake, X, Crown, Scroll, UserCheck, AlertTriangle, Compass, Flame, Castle, Church, Coins, MessageSquare } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   gameState: ParsedState;
+  onOpenDialogue?: (character: {
+    id: string;
+    name: string;
+    title: string;
+    realm: string;
+    role: string;
+    culture?: string;
+    religion?: string;
+    opinion: number;
+    traits?: string[];
+  }) => void;
 }
 
-export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) {
+export default function CKRelationsModal({ isOpen, onClose, gameState, onOpenDialogue }: Props) {
   const [activeTierFilter, setActiveTierFilter] = useState<'all' | 'superior' | 'patron' | 'peer' | 'subordinate' | 'rival'>('all');
 
   if (!isOpen) return null;
@@ -454,6 +465,40 @@ export default function CKRelationsModal({ isOpen, onClose, gameState }: Props) 
                           </div>
                         )}
                       </div>
+                    )}
+
+                    {/* AI 알현 & 대화 버튼 */}
+                    {onOpenDialogue && (
+                      <button
+                        onClick={() => onOpenDialogue({
+                          id: `char_rel_${c.name}`,
+                          name: c.name,
+                          title: c.role || c.tier.label,
+                          realm: gameState.factionState?.name || '가문 궁정',
+                          role: c.role || c.tier.label,
+                          opinion: c.affVal,
+                          traits: c.agenda?.motives || ['명예', '신중함']
+                        })}
+                        style={{
+                          marginTop: '6px',
+                          padding: '7px 12px',
+                          borderRadius: '6px',
+                          background: 'linear-gradient(135deg, rgba(200, 159, 60, 0.25), rgba(180, 83, 9, 0.35))',
+                          border: '1px solid rgba(200, 159, 60, 0.45)',
+                          color: '#fef3c7',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <MessageSquare size={13} color="#f59e0b" />
+                        <span>AI 알현 및 밀담 나누기</span>
+                      </button>
                     )}
 
                   </div>

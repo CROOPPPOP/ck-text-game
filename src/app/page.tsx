@@ -37,6 +37,13 @@ import {
 import { sanitizeEstateState } from '@/lib/estate';
 import { mergeFactionLists } from '@/lib/factionRelations';
 import { createInitialGameState, processTurn } from '@/lib/engine/simulationCore';
+import { Province, INITIAL_PROVINCES } from '@/lib/engine/mapData';
+import { Army, raiseLevies, orderArmyMove, updateMilitaryTick, BattleEventResult } from '@/lib/engine/militaryEngine';
+import { requestBattleDispatch } from '@/lib/engine/aiChronicler';
+import CKMapView from '@/components/CKMapView';
+import CKProvinceInspector from '@/components/CKProvinceInspector';
+import CKCharacterDialogueModal, { DialogueCharacter } from '@/components/CKCharacterDialogueModal';
+import CKApiKeyModal from '@/components/CKApiKeyModal';
 
 const TypewriterText = ({ text, delay = 20 }: { text: string; delay?: number }) => {
   const [currentText, setCurrentText] = useState('');
@@ -174,6 +181,24 @@ export default function Home() {
     decision?: CKDecision;
     promotionTarget?: PromotionTarget;
   } | null>(null);
+
+  // 🗺️ 대전략 지도, 군사 및 AI 서관 상태
+  const [provinces, setProvinces] = useState<Province[]>(INITIAL_PROVINCES);
+  const [armies, setArmies] = useState<Army[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>('prov_wessex');
+  const [selectedArmyId, setSelectedArmyId] = useState<string | null>(null);
+  const [activeDialogueCharacter, setActiveDialogueCharacter] = useState<DialogueCharacter | null>(null);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
+  const [apiKey, setApiKey] = useState<string>('');
+  const [dispatchLogs, setDispatchLogs] = useState<{ id: string; time: string; text: string; type: 'battle' | 'diplomacy' | 'event' }[]>([]);
+
+  // API Key 로드
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedKey = localStorage.getItem('ck_api_key') || '';
+      setApiKey(savedKey);
+    }
+  }, []);
 
   const showQuickNotice = (msg: string) => {
     setQuickNotice(msg);
@@ -427,6 +452,56 @@ export default function Home() {
         }
       }
 
+      // 2.5. 실시간 대전략 군사 & 전쟁 시뮬레이션 틱
+      setArmies(prevArmies => {
+        if (prevArmies.length === 0) return prevArmies;
+        setProvinces(prevProvinces => {
+          const militaryRes = updateMilitaryTick(prevArmies, prevProvinces, effectiveSec);
+
+          if (militaryRes.siegesCompleted.length > 0) {
+            militaryRes.siegesCompleted.forEach(s => {
+              const fallenProv = prevProvinces.find(p => p.id === s.provinceId);
+              const provName = fallenProv?.name || '성채';
+              showQuickNotice(`🏰 [${provName}] 성채가 함락되어 ${s.conquerorRealm}의 통제하에 들어갔습니다!`);
+              setDispatchLogs(logs => [
+                {
+                  id: `siege_${Date.now()}_${Math.random()}`,
+                  time: formatCleanDate(timeResult.newDate),
+                  text: `[영지 점령] ${s.conquerorRealm}의 군대가 ${provName} 성채를 함락시키고 영지를 장악하였습니다.`,
+                  type: 'battle'
+                },
+                ...logs.slice(0, 40)
+              ]);
+            });
+          }
+
+          if (militaryRes.battleResults.length > 0) {
+            militaryRes.battleResults.forEach(async b => {
+              showQuickNotice(`⚔️ [${b.provinceName}] 대규모 회전 발생! (${b.victoryType})`);
+              try {
+                const report = await requestBattleDispatch(b.dispatchContext, apiKey);
+                setDispatchLogs(logs => [
+                  {
+                    id: `battle_${Date.now()}_${Math.random()}`,
+                    time: formatCleanDate(timeResult.newDate),
+                    text: report,
+                    type: 'battle'
+                  },
+                  ...logs.slice(0, 40)
+                ]);
+              } catch (err) {
+                console.error(err);
+              }
+            });
+          }
+
+          return militaryRes.updatedProvinces;
+        });
+
+        const res2 = updateMilitaryTick(prevArmies, provinces, effectiveSec);
+        return res2.updatedArmies;
+      });
+
       // 3. 일자 변경 시 gameDate 갱신
       if (timeResult.daysAdvanced > 0) {
         setGameDate(timeResult.newDate);
@@ -495,7 +570,58 @@ export default function Home() {
     }, 200);
 
     return () => clearInterval(interval);
-  }, [isPaused, loading, gameState, activeModal, activeEvent, gameSpeed, gameDate, constructionQueue, turn, seenEventIds]);
+  }, [isPaused, loading, gameState, activeModal, activeEvent, gameSpeed, gameDate, constructionQueue, turn, seenEventIds, apiKey, provinces]);
+
+  // ⚔️ 징집병 소집 핸들러
+  const handleRaiseLevies = (prov: Province) => {
+    const army = raiseLevies(prov, gameState?.personalInfo?.['이름'] || '영주', true);
+    if (!army) {
+      showQuickNotice('현재 소집 가능한 징집병이 없습니다.');
+      return;
+    }
+    setArmies(prev => [...prev, army]);
+    setProvinces(prev => prev.map(p => p.id === prov.id ? { ...p, currentLevies: 0 } : p));
+    showQuickNotice(`⚔️ [${prov.name}]에서 ${army.troops}명의 징집병이 군단으로 소집되었습니다!`);
+    setSelectedArmyId(army.id);
+  };
+
+  // 🚩 군대 이동 명령 핸들러
+  const handleOrderArmyMove = (armyId: string, targetProvinceId: string) => {
+    const targetProv = provinces.find(p => p.id === targetProvinceId);
+    if (!targetProv) return;
+
+    setArmies(prev => prev.map(army => {
+      if (army.id !== armyId) return army;
+      const curProv = provinces.find(p => p.id === army.locationProvinceId);
+      if (!curProv) return army;
+      const updated = orderArmyMove(army, targetProv, curProv);
+      showQuickNotice(`🚩 [${army.name}] 부대가 [${targetProv.name}] 영지로 행군을 개시했습니다.`);
+      return updated;
+    }));
+  };
+
+  // 📜 선전포고 및 적 방어군 스폰
+  const handleDeclareWar = (targetProvince: Province, letterText: string) => {
+    showQuickNotice(`⚔️ [${targetProvince.name}] 영주에게 공식 선전포고가 전달되었습니다!`);
+    setDispatchLogs(prev => [
+      {
+        id: `war_${Date.now()}`,
+        time: formatCleanDate(gameDate),
+        text: `[선전포고] ${targetProvince.rulerName} 귀하에게 전쟁 서신이 발송되었습니다:\n${letterText.slice(0, 150)}...`,
+        type: 'diplomacy'
+      },
+      ...prev
+    ]);
+
+    // 적국 방어군 스폰 (타국 영지에 수비군이 없을 경우 생성)
+    const existingEnemy = armies.find(a => a.locationProvinceId === targetProvince.id && !a.isPlayer);
+    if (!existingEnemy && targetProvince.maxLevies > 0) {
+      const enemyArmy = raiseLevies(targetProvince, targetProvince.rulerName, false);
+      if (enemyArmy) {
+        setArmies(prev => [...prev, enemyArmy]);
+      }
+    }
+  };
 
   // Keyboard Shortcuts (Space 일시정지, [/] 속도조절, 1~4 선택지, Q 퀵세이브, Z 되돌리기, Esc 모달닫기)
   useEffect(() => {
@@ -1041,10 +1167,11 @@ export default function Home() {
         onUndoTurn={handleUndoTurn}
         canUndo={canUndo}
         onReturnTitle={handleReturnToTitle}
+        onOpenApiKey={() => setIsApiKeyModalOpen(true)}
       />
 
-      {/* Center Panel */}
-      <section className={`glass-panel ${styles.centerPanel}`}>
+      {/* Center Grand Strategy Panel */}
+      <section className={`glass-panel ${styles.centerPanel}`} style={{ display: 'flex', flexDirection: 'column', padding: '16px', gap: '12px' }}>
 
         {gameState.ending ? (
           <div className={styles.narrativeArea} style={{textAlign: 'center', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
@@ -1058,184 +1185,143 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <div className={styles.contentSplit}>
-              <div className={styles.leftPane}>
-                <div className={styles.narrativeArea}>
-              {loading ? (
-                <div style={{
-                  padding: '24px',
-                  background: 'rgba(15, 23, 42, 0.75)',
-                  border: '1px solid var(--gold-accent)',
-                  borderRadius: '10px',
-                  boxShadow: '0 0 25px rgba(212,175,55,0.15)',
-                  minHeight: '220px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid rgba(212,175,55,0.25)', paddingBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--gold-accent)', fontWeight: 'bold', fontSize: '1.05rem' }}>
-                      <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: 'var(--gold-accent)', boxShadow: '0 0 10px var(--gold-accent)', animation: 'pulse 1.2s infinite' }}></span>
-                      ⚡ 실시간 역사 시뮬레이션 기록 중...
-                    </div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px' }}>Gemini 3.8 Flash 엔진 실시간 스트리밍</span>
-                  </div>
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.8', color: 'var(--text-main)', fontSize: '1.05rem', fontFamily: 'serif' }}>
-                    {streamPreview || "인과율을 분석하고 세계의 반응을 시뮬레이션하고 있습니다..."}
-                    <span style={{ display: 'inline-block', width: '8px', height: '18px', background: 'var(--gold-accent)', marginLeft: '6px', verticalAlign: 'middle', animation: 'pulse 0.8s infinite' }}></span>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {gameState.judgment && (
-                    <div style={{ marginBottom: '30px', padding: '20px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--panel-border)', borderRadius: '8px' }}>
-                      <div style={{ textAlign: 'center', marginBottom: '16px', fontSize: '1.4rem', fontWeight: 'bold', 
-                        color: gameState.judgment.result.includes('성공') ? 'var(--gold-accent)' : 'var(--danger)',
-                        textShadow: gameState.judgment.result.includes('성공') ? '0 0 10px rgba(212,175,55,0.5)' : '0 0 10px rgba(239,68,68,0.5)'
-                      }}>
-                        {gameState.judgment.result}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {gameState.judgment.positive && (
-                          <div style={{ display: 'flex', gap: '12px', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--success)' }}>
-                            <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>▲</span>
-                            <span style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.5' }}>{gameState.judgment.positive}</span>
-                          </div>
-                        )}
-                        {gameState.judgment.negative && (
-                          <div style={{ display: 'flex', gap: '12px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--danger)' }}>
-                            <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>▼</span>
-                            <span style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.5' }}>{gameState.judgment.negative}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {gameState.environment && (
-                    <div style={{ marginBottom: '30px', padding: '15px 20px', background: gameState.factionState && !gameState.factionState.none ? 'rgba(212,175,55,0.05)' : 'rgba(0,0,0,0.4)', border: gameState.factionState && !gameState.factionState.none ? '1px solid rgba(212,175,55,0.2)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', backgroundImage: gameState.factionState && !gameState.factionState.none ? 'linear-gradient(to bottom right, rgba(212,175,55,0.05), transparent)' : 'linear-gradient(to bottom right, rgba(255,255,255,0.02), transparent)' }}>
-                      <div style={{ color: 'var(--gold-accent)', fontSize: '0.95rem', marginBottom: '12px', fontWeight: 'bold', borderBottom: '1px solid rgba(255,215,0,0.2)', paddingBottom: '6px' }}>
-                        {gameState.factionState && !gameState.factionState.none ? '🗺️ 주변 정세 (지도자 시야)' : '👀 현장 상황 (개인 시야)'}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {Object.entries(gameState.environment).map(([key, val], idx) => (
-                          <div key={idx} style={{ display: 'flex', gap: '10px', fontSize: '0.95rem' }}>
-                            <strong style={{ color: 'var(--text-muted)', flexShrink: 0, minWidth: '80px' }}>[{key}]</strong>
-                            <span style={{ color: 'var(--text-main)', lineHeight: '1.4' }}>{val}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className={`ck-event-frame ${styles.narrativeText}`} style={{ position: 'relative', fontSize: getFontSizeStyle(uxSettings.fontSize) }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid rgba(212,175,55,0.25)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                      <span style={{ color: 'var(--gold-accent)', fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '1px' }}>
-                        📜 【 역사적 국면 및 사건 전개 】
-                      </span>
-                      {gameState.historicalTag && (
-                        <span style={{
-                          padding: '3px 10px', border: '1px solid', borderRadius: '4px',
-                          fontWeight: 'bold', fontSize: '0.8rem',
-                          color: gameState.historicalTag.includes('확인됨') ? '#60a5fa' : 
-                                 gameState.historicalTag.includes('분기') ? '#ef4444' : 
-                                 gameState.historicalTag.includes('개연성') ? '#34d399' : '#f59e0b',
-                          borderColor: gameState.historicalTag.includes('확인됨') ? '#60a5fa' : 
-                                       gameState.historicalTag.includes('분기') ? '#ef4444' : 
-                                       gameState.historicalTag.includes('개연성') ? '#34d399' : '#f59e0b',
-                          boxShadow: '0 0 10px rgba(0,0,0,0.5)',
-                          background: 'rgba(0,0,0,0.3)',
-                          fontFamily: 'serif',
-                          letterSpacing: '1px'
-                        }}>
-                          {gameState.historicalTag}
-                        </span>
-                      )}
-                    </div>
-                    <TypewriterText text={gameState.narrative || ""} delay={uxSettings.typewriterSpeed} />
-                  </div>
-                </>
+            {/* 1. 상단: 인터랙티브 중세 영지 지도 & 우측 프로빈스 인스펙터 */}
+            <div style={{
+              display: 'flex',
+              gap: '14px',
+              height: 'calc(100vh - 350px)',
+              minHeight: '440px',
+              position: 'relative'
+            }}>
+              {/* 중세 영지 벡터 지도 */}
+              <div style={{
+                flex: 1,
+                borderRadius: '12px',
+                overflow: 'hidden',
+                border: '1px solid rgba(200, 159, 60, 0.35)',
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.7)',
+                position: 'relative'
+              }}>
+                <CKMapView
+                  provinces={provinces}
+                  armies={armies}
+                  selectedProvinceId={selectedProvinceId}
+                  onSelectProvince={(prov) => setSelectedProvinceId(prov.id)}
+                  selectedArmyId={selectedArmyId}
+                  onSelectArmy={(army) => setSelectedArmyId(army ? army.id : null)}
+                  onOrderArmyMove={handleOrderArmyMove}
+                />
+              </div>
+
+              {/* 우측 프로빈스 인스펙터 패널 */}
+              {selectedProvinceId && (
+                <CKProvinceInspector
+                  province={provinces.find(p => p.id === selectedProvinceId) || null}
+                  onClose={() => setSelectedProvinceId(null)}
+                  playerRulerName={gameState.personalInfo?.['이름'] || '군주'}
+                  playerRealmName={gameState.factionState?.name || '영지 왕국'}
+                  onRaiseLevies={handleRaiseLevies}
+                  onOpenConstruction={() => { setRealmInitialTab('estate'); setActiveModal('realm'); }}
+                  onOpenCharacterDialogue={(char) => setActiveDialogueCharacter(char)}
+                  onDeclareWar={handleDeclareWar}
+                  apiKey={apiKey}
+                />
               )}
             </div>
 
-            {gameState.ending && (
-              <div style={{ marginTop: '30px', padding: '30px', background: 'rgba(239,68,68,0.2)', border: '2px solid var(--danger)', borderRadius: '8px', textAlign: 'center' }}>
-                <h2 style={{ color: 'var(--danger)', fontSize: '2rem', marginBottom: '20px' }}>【 시뮬레이션 종료 】</h2>
-                <div style={{ color: 'var(--text-main)', fontSize: '1.1rem', marginBottom: '30px', lineHeight: '1.6' }}>
-                  <TypewriterText text={gameState.ending} delay={uxSettings.typewriterSpeed} />
+            {/* 2. 하단: 궁정 서신 및 전황 연대기 (Grand Chronicle & Dispatch Feed) */}
+            <div style={{
+              padding: '12px 16px',
+              background: 'linear-gradient(180deg, rgba(22, 17, 13, 0.95), rgba(14, 10, 8, 0.98))',
+              border: '1px solid rgba(200, 159, 60, 0.3)',
+              borderRadius: '12px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              gap: '16px',
+              height: '140px'
+            }}>
+              {/* 좌측: 최근 역사 국면 전개 */}
+              <div style={{
+                flex: 1.1,
+                overflowY: 'auto',
+                paddingRight: '12px',
+                borderRight: '1px solid rgba(200, 159, 60, 0.2)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#fef3c7' }}>
+                    📜 【 역사적 국면 및 사건 전개 】
+                  </span>
+                  {gameState.historicalTag && (
+                    <span style={{
+                      fontSize: '10px',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      border: '1px solid #fbbf24',
+                      color: '#fbbf24'
+                    }}>
+                      {gameState.historicalTag}
+                    </span>
+                  )}
                 </div>
-                
-                {gameState.familyState && gameState.familyState.heir && !gameState.familyState.heir.includes('없음') && !gameState.familyState.heir.includes('미정') ? (
-                  <button className={styles.actionBtn} style={{ background: 'linear-gradient(45deg, #7f1d1d, #ef4444)', color: '#fff', fontSize: '1.2rem', padding: '15px 30px', border: '1px solid #fca5a5' }} onClick={handleSuccession}>
-                    가문의 유지를 잇다 : 후계자 [{gameState.familyState.heir}] (으)로 플레이 계속하기 ⚔️
-                  </button>
+                <div style={{ fontSize: '11.5px', lineHeight: '1.55', color: '#d6d3d1' }}>
+                  <TypewriterText text={gameState.narrative || "서기 1066년, 격변하는 유럽의 운명이 영주의 지휘 아래 놓여 있습니다."} delay={uxSettings.typewriterSpeed} />
+                </div>
+              </div>
+
+              {/* 우측: 실시간 전황 상보 및 외교 기록 피드 (AI Co-Pilot 로그) */}
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>⚔️ 【 궁정 전황 및 외교 상보 (AI 서관) 】</span>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 400 }}>실시간 업데이트</span>
+                </div>
+                {dispatchLogs.length === 0 ? (
+                  <div style={{ fontSize: '11px', color: '#78716c', fontStyle: 'italic', marginTop: '4px' }}>
+                    영지 징집병을 소집하여 진군시키거나, 인접국에 외교 사절을 파견하십시오. 실시간 전황과 외교 서신이 기록됩니다.
+                  </div>
                 ) : (
-                  <button className={styles.actionBtn} style={{ background: 'rgba(0,0,0,0.5)', fontSize: '1.2rem', padding: '15px 30px', border: '1px solid var(--panel-border)' }} onClick={() => { localStorage.removeItem("ck_auto_save"); window.location.reload(); }}>
-                    가문이 단절되었습니다. 처음부터 다시 시작 ☠️
-                  </button>
+                  dispatchLogs.map(log => (
+                    <div key={log.id} style={{
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      background: log.type === 'battle' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                      border: log.type === 'battle' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
+                      fontSize: '11px',
+                      lineHeight: '1.45',
+                      color: '#f3f4f6',
+                      whiteSpace: 'pre-line'
+                    }}>
+                      <div style={{ fontSize: '9.5px', color: '#a8a29e', marginBottom: '2px' }}>{log.time}</div>
+                      {log.text}
+                    </div>
+                  ))
                 )}
               </div>
-            )}
-
             </div>
-            {!loading && gameState.choices && !gameState.ending && (
-              <div className={styles.choicesArea}>
-                {gameState.choices.map((choice, idx) => {
-                  const theme = getChoiceTheme(choice.groupType);
-                  return (
-                    <button 
-                      key={idx} 
-                      className={styles.choiceBtn} 
-                      style={{
-                        background: theme.bg,
-                        border: `1px solid ${theme.border}`,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '14px 16px'
-                      }}
-                      onClick={() => handleAction(choice.text)}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', flex: 1 }}>
-                        <span style={{ fontSize: '1.3rem' }}>{theme.icon}</span>
-                        <div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--gold-accent)', fontWeight: 'bold' }}>
-                            {uxSettings.shortcutsEnabled ? `[${idx + 1}] ` : ''}결단 {choice.id} &bull; [{choice.type}]
-                          </div>
-                          <div style={{ fontSize: '0.98rem', color: '#fff', fontWeight: 'bold', marginTop: '2px', lineHeight: '1.4' }}>
-                            {choice.text}
-                          </div>
-                        </div>
-                      </div>
-                      {choice.probability && (
-                        <span style={{
-                          fontSize: '0.8rem',
-                          color: choice.probability.includes('높음') || choice.probability.includes('확실') ? 'var(--success)' : choice.probability.includes('낮음') || choice.probability.includes('위험') ? 'var(--danger)' : 'var(--gold-hover)',
-                          background: 'rgba(0,0,0,0.4)',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {choice.probability}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-                
-                <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
-                   <input 
-                     type="text" 
-                     value={freeAction} 
-                     onChange={e => setFreeAction(e.target.value)} 
-                     className={styles.inputField} 
-                     style={{ flex: 1, padding: '12px 15px', fontSize: '1.05rem', minWidth: '300px' }}
-                     placeholder="직접 행동 입력 (자유 행동)..." 
-                     onKeyDown={(e) => { if (e.key === 'Enter') { handleAction(freeAction); setFreeAction(""); } }}
-                   />
-                   <button className={styles.choiceBtn} style={{padding: '12px 25px', width: 'auto', background: 'var(--gold-accent)', color: '#121212', fontWeight: 'bold'}} onClick={() => { handleAction(freeAction); setFreeAction(""); }}>
-                      실행
-                   </button>
-                </div>
-              </div>
-            )}
+
+            {/* 3. 하단 직접 영주 칙령 하달 바 */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input 
+                type="text" 
+                value={freeAction} 
+                onChange={e => setFreeAction(e.target.value)} 
+                className={styles.inputField} 
+                style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
+                placeholder="직접 영주 칙령 하달 (예: 전 영지에 세금 감면 반포, 기사단 소집 훈련)..." 
+                onKeyDown={(e) => { if (e.key === 'Enter') { handleAction(freeAction); setFreeAction(""); } }}
+              />
+              <button 
+                className={styles.choiceBtn} 
+                style={{ padding: '8px 18px', width: 'auto', background: 'var(--gold-accent)', color: '#121212', fontWeight: 'bold', fontSize: '12px' }} 
+                onClick={() => { handleAction(freeAction); setFreeAction(""); }}
+              >
+                칙령 반포
+              </button>
             </div>
           </>
         )}
@@ -1312,6 +1398,10 @@ export default function Home() {
           isOpen={true}
           onClose={() => setActiveModal(null)}
           gameState={gameState}
+          onOpenDialogue={(char) => {
+            setActiveModal(null);
+            setActiveDialogueCharacter(char);
+          }}
         />
       )}
 
@@ -1347,6 +1437,35 @@ export default function Home() {
           chronicle={gameState.chronicle}
           objective={gameState.objective}
           characterName={gameState.personalInfo?.['이름'] || '군주'}
+        />
+      )}
+
+      {/* 🔑 Gemini AI 서관 API Key 관리 모달 */}
+      <CKApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onKeySaved={(hasKey: boolean, savedKey?: string) => {
+          setApiKey(savedKey || '');
+          showQuickNotice(hasKey 
+            ? '🔑 Gemini API Key가 저장되었습니다. (역사·인물·전황 AI 보조 활성화)' 
+            : 'API Key가 삭제되어 로컬 룰 엔진으로 동작합니다.'
+          );
+        }}
+      />
+
+      {/* 💬 인물(NPC) 1:1 AI 대화 / 알현 모달 */}
+      {activeDialogueCharacter && (
+        <CKCharacterDialogueModal
+          isOpen={true}
+          onClose={() => setActiveDialogueCharacter(null)}
+          character={activeDialogueCharacter}
+          playerRulerName={gameState?.personalInfo?.['이름'] || '군주'}
+          playerRulerTitle={gameState?.personalInfo?.['칭호'] || gameState?.personalInfo?.['직위'] || '영주'}
+          currentDateStr={formatCleanDate(gameDate)}
+          apiKey={apiKey}
+          onOpinionChange={(charId, delta) => {
+            showQuickNotice(`👥 인물 호감도 변동: ${delta > 0 ? `+${delta}` : delta}`);
+          }}
         />
       )}
 
