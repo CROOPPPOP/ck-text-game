@@ -5,11 +5,18 @@ import { ParsedState } from '@/lib/parser';
 import { parseCKResources, parseCKStress, getHeraldryEmblem, formatDecimal } from '@/lib/ckVisuals';
 import { checkStatusPromotion } from '@/lib/statusPromotion';
 import { getHighestThreatFaction } from '@/lib/factionRelations';
-import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X, Swords } from 'lucide-react';
+import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X, Swords, Play, Pause, FastForward } from 'lucide-react';
+import { GameSpeed } from '@/lib/engine/timeEngine';
 
 interface Props {
   gameState: ParsedState;
   turn: number;
+  gameSpeed?: GameSpeed;
+  isPaused?: boolean;
+  onTogglePause?: () => void;
+  onChangeSpeed?: (speed: GameSpeed) => void;
+  monthProgressPercent?: number;
+  realtimeDateStr?: string;
   onOpenFamilyTree: () => void;
   onOpenRealm: () => void;
   onOpenCharacter: () => void;
@@ -27,6 +34,12 @@ interface Props {
 export default function CKTopHud({
   gameState,
   turn,
+  gameSpeed = 1,
+  isPaused = false,
+  onTogglePause,
+  onChangeSpeed,
+  monthProgressPercent = 0,
+  realtimeDateStr,
   onOpenFamilyTree,
   onOpenRealm,
   onOpenCharacter,
@@ -633,42 +646,145 @@ export default function CKTopHud({
 
         </div>
 
-        {/* Right: Medieval Date & Turn Ribbon */}
+        {/* Right: Paradox-style Real-Time Clock & Speed Controller */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '10px'
+          gap: '8px'
         }}>
+          {/* ⏸️ / ▶️ Pause / Play Toggle Button */}
+          {onTogglePause && (
+            <button
+              onClick={onTogglePause}
+              title={isPaused ? "시간 재생 (단축키: [Space])" : "시간 일시정지 (단축키: [Space])"}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: isPaused
+                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.35))'
+                  : 'linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(21, 128, 61, 0.3))',
+                border: isPaused ? '1px solid #ef4444' : '1px solid #22c55e',
+                borderRadius: '6px',
+                padding: '5px 10px',
+                color: isPaused ? '#fca5a5' : '#86efac',
+                fontSize: '0.78rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: isPaused
+                  ? '0 0 10px rgba(239, 68, 68, 0.35)'
+                  : '0 0 8px rgba(34, 197, 94, 0.25)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {isPaused ? (
+                <>
+                  <Play size={13} fill="#f87171" color="#f87171" />
+                  <span>일시정지됨</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.8, background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>Space</span>
+                </>
+              ) : (
+                <>
+                  <Pause size={13} fill="#4ade80" color="#4ade80" />
+                  <span>진행 중</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.8, background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>Space</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Speed Buttons: 1x, 2x, 4x */}
+          {onChangeSpeed && (
+            <div style={{
+              display: 'flex',
+              background: 'rgba(28, 22, 17, 0.85)',
+              border: '1px solid rgba(200, 159, 60, 0.35)',
+              borderRadius: '6px',
+              overflow: 'hidden',
+              padding: '2px'
+            }}>
+              {([1, 2, 4] as const).map((spd) => {
+                const isActive = !isPaused && gameSpeed === spd;
+                return (
+                  <button
+                    key={spd}
+                    onClick={() => onChangeSpeed(spd)}
+                    title={`게임 속도 ${spd}x (${spd === 1 ? '1분=1달' : spd === 2 ? '30초=1달' : '15초=1달'})`}
+                    style={{
+                      background: isActive ? 'linear-gradient(180deg, #c89f3c, #967425)' : 'transparent',
+                      color: isActive ? '#1a130c' : 'var(--gold-dim)',
+                      fontWeight: isActive ? 'bold' : 'normal',
+                      fontSize: '0.72rem',
+                      border: 'none',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {spd}x
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Medieval Date Ribbon with Month Progress Bar */}
           <div style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
+            flexDirection: 'column',
+            justifyContent: 'center',
             background: 'linear-gradient(135deg, rgba(42, 32, 23, 0.9), rgba(24, 18, 13, 0.95))',
             border: '1px solid var(--gold-accent)',
             borderRadius: '6px',
-            padding: '5px 12px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(200, 159, 60, 0.2)'
+            padding: '4px 10px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(200, 159, 60, 0.2)',
+            minWidth: '160px'
           }}>
-            <Calendar size={14} style={{ color: 'var(--gold-accent)' }} />
-            <span style={{
-              color: 'var(--gold-hover)',
-              fontSize: '0.85rem',
-              fontWeight: 'bold',
-              whiteSpace: 'nowrap'
-            }}>
-              {cleanDate}
-            </span>
-            <span style={{
-              background: 'linear-gradient(180deg, #c89f3c, #967425)',
-              color: '#1a130c',
-              fontWeight: 'bold',
-              fontSize: '0.75rem',
-              padding: '2px 7px',
-              borderRadius: '4px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.5)'
-            }}>
-              TURN {turn}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={13} style={{ color: 'var(--gold-accent)' }} />
+                <span style={{
+                  color: 'var(--gold-hover)',
+                  fontSize: '0.82rem',
+                  fontWeight: 'bold',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {realtimeDateStr || cleanDate}
+                </span>
+              </div>
+              <span style={{
+                background: 'linear-gradient(180deg, #c89f3c, #967425)',
+                color: '#1a130c',
+                fontWeight: 'bold',
+                fontSize: '0.68rem',
+                padding: '1px 5px',
+                borderRadius: '3px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                whiteSpace: 'nowrap'
+              }}>
+                TURN {turn}
+              </span>
+            </div>
+
+            {/* Sub-bar: Month Day Progress (1 ~ 30일 실시간 진행도 게이지) */}
+            <div style={{
+              width: '100%',
+              height: '3px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '2px',
+              marginTop: '4px',
+              overflow: 'hidden'
+            }}
+            title={`이번 달 진행도: ${monthProgressPercent}% (1달 = 60초)`}
+            >
+              <div style={{
+                width: `${Math.min(100, Math.max(0, monthProgressPercent))}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #c89f3c, #4ade80)',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
           </div>
 
           {/* Quick Action Menus */}

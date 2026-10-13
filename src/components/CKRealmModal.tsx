@@ -5,7 +5,7 @@ import RealmDashboard from './RealmDashboard';
 import { ParsedState } from '@/lib/parser';
 import { getArchetypeDetails, getDomainLimitBreakdown, calculateTurnIncome } from '@/lib/ckVisuals';
 import { getCouncilVassals } from '@/lib/characterRelations';
-import { QueueItem, BuildOption, turnsLeft, sameBuildingName } from '@/lib/construction';
+import { QueueItem, BuildOption, turnsLeft, sameBuildingName, formatConstructionTimeLeft } from '@/lib/construction';
 import { getPlayerWealthAmount } from '@/lib/estateEconomy';
 import { getEstatePromotionMilestones } from '@/lib/estate';
 import { X, Castle, Hammer, Shield, Users, Clock, AlertCircle, Coins, TrendingUp, TrendingDown, Award } from 'lucide-react';
@@ -804,21 +804,55 @@ export default function CKRealmModal({
             {/* 건설 진행 현황 (Construction Queue) */}
             {constructionQueue.length > 0 && (
               <div style={{ background: 'rgba(38, 29, 21, 0.65)', border: '1px solid rgba(200, 159, 60, 0.35)', borderRadius: '10px', padding: '16px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)' }}>
-                <h3 style={{ color: 'var(--gold-accent)', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid rgba(200, 159, 60, 0.2)', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  🔨 공사 진행 중인 시설 ({constructionQueue.length}/{maxSlots})
+                <h3 style={{ color: 'var(--gold-accent)', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid rgba(200, 159, 60, 0.2)', paddingBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    🔨 실시간 공사 진행 시설 ({constructionQueue.length}/{maxSlots})
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                    1달 = 60초 (스페이스로 일시정지)
+                  </span>
                 </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {constructionQueue.map((q) => (
-                    <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: 'rgba(18, 14, 11, 0.7)', padding: '10px 14px', borderRadius: '6px', border: '1px solid rgba(200, 159, 60, 0.15)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                        <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>🔨 {q.building}</span>
-                        <span style={{ color: 'var(--gold-hover)', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                          {q.commandSent ? `⏳ ${turnsLeft(q, turn)}턴 남음` : `⏳ ${q.completeTurn - q.startTurn}턴 소요 · 다음 행동 때 비용 차감`}
-                        </span>
+                    <div key={q.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(18, 14, 11, 0.75)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(200, 159, 60, 0.25)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                          <span style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '0.92rem' }}>🔨 {q.building}</span>
+                          <span style={{
+                            fontSize: '0.7rem',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            background: q.kind === 'promote' ? 'rgba(192, 132, 252, 0.2)' : q.kind === 'upgrade' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                            color: q.kind === 'promote' ? '#e9d5ff' : q.kind === 'upgrade' ? '#bae6fd' : '#bbf7d0',
+                            border: '1px solid rgba(255,255,255,0.1)'
+                          }}>
+                            {q.kind === 'promote' ? '거점 승격' : q.kind === 'upgrade' ? '증축/업그레이드' : '신규 시설'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ color: 'var(--gold-hover)', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                            ⏳ {formatConstructionTimeLeft(q)}
+                          </span>
+                          {!q.commandSent && onCancelBuild && (
+                            <button onClick={() => onCancelBuild(q.id)} disabled={loading} style={{ padding: '4px 8px', fontSize: '0.72rem', borderRadius: '4px', border: '1px solid rgba(180, 50, 50, 0.5)', background: 'rgba(120, 30, 30, 0.4)', color: '#fca5a5', cursor: 'pointer', whiteSpace: 'nowrap' }}>공사 취소</button>
+                          )}
+                        </div>
                       </div>
-                      {!q.commandSent && onCancelBuild && (
-                        <button onClick={() => onCancelBuild(q.id)} disabled={loading} style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid rgba(180, 50, 50, 0.5)', background: 'rgba(120, 30, 30, 0.4)', color: '#fca5a5', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s ease' }}>공사 취소</button>
-                      )}
+
+                      {/* Realtime Construction Progress Bar */}
+                      <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(200, 159, 60, 0.15)', position: 'relative' }}>
+                        <div style={{
+                          width: `${Math.min(100, Math.max(0, q.progressPercent ?? 0))}%`,
+                          height: '100%',
+                          background: 'linear-gradient(90deg, #c89f3c, #10b981)',
+                          boxShadow: '0 0 8px rgba(16, 185, 129, 0.4)',
+                          transition: 'width 0.4s ease'
+                        }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        <span>공사 진행도: {q.progressPercent ?? 0}%</span>
+                        <span>공사 소요: {q.durationMonths ?? Math.max(1, q.completeTurn - q.startTurn)}달 ({q.totalDurationSeconds ?? (Math.max(1, q.completeTurn - q.startTurn) * 60)}초)</span>
+                      </div>
                     </div>
                   ))}
                 </div>

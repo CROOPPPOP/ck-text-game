@@ -1,7 +1,7 @@
-// 투트랙(병렬) 영지 건설 메커니즘의 순수 로직.
+// 투트랙(병렬) 영지 건설 메커니즘 & 실시간 건설 엔진.
 // - AI가 제안한 건설 후보(BuildOption)를 프론트엔드 큐(QueueItem)로 관리합니다.
-// - 완공 시점은 '턴 번호'로 저장하므로 새로고침/불러오기 이후에도 안전합니다.
-// - 자원 차감과 완공 묘사는 [시스템 명령] 텍스트로 AI에게 위임합니다.
+// - 턴제 호환(turns, startTurn, completeTurn)과 함께 실시간(durationMonths, elapsedSeconds, progressPercent)을 완벽히 동기화합니다.
+// - 실시간 기준: 1달 = 60초(1x), 1일 = 2초.
 
 import { ESTATE_LEVELS } from './estateTheme';
 import { getEstateLevel } from './estate';
@@ -10,6 +10,8 @@ export interface BuildOption {
   name: string;
   cost: string;
   turns: number;
+  months?: number;
+  durationSeconds?: number;
   desc: string;
   kind?: 'new' | 'upgrade' | 'promote';
   targetLevel?: number;
@@ -23,11 +25,18 @@ export interface QueueItem {
   desc: string;
   startTurn: number;
   completeTurn: number;
-  /** 착수 명령(비용 차감 요청)을 AI에게 이미 보냈는지 여부 */
+  /** 착수 명령(비용 차감 요청)을 AI에게 이미 보냈거나 로컬에서 차감했는지 여부 */
   commandSent: boolean;
   kind?: 'new' | 'upgrade' | 'promote';
   targetLevel?: number;
   tags?: string[];
+
+  // 실시간 건설 메트릭 (하위 호환성을 위해 선택적 필드로 지원)
+  durationMonths?: number;
+  totalDurationSeconds?: number;
+  elapsedSeconds?: number;
+  progressPercent?: number;
+  completed?: boolean;
 }
 
 export const MIN_BUILD_TURNS = 1;
@@ -64,7 +73,8 @@ export function clampTurns(n: number): number {
 
 let idSeq = 0;
 export function createQueueItem(option: BuildOption, currentTurn: number): QueueItem {
-  const turns = clampTurns(option.turns);
+  const months = clampTurns(option.months ?? option.turns);
+  const totalDurationSeconds = months * 60; // 1달 = 60초
   idSeq += 1;
   return {
     id: `${currentTurn}-${idSeq}-${Date.now().toString(36)}`,
@@ -72,11 +82,16 @@ export function createQueueItem(option: BuildOption, currentTurn: number): Queue
     cost: option.cost,
     desc: option.desc,
     startTurn: currentTurn,
-    completeTurn: currentTurn + turns,
+    completeTurn: currentTurn + months,
     commandSent: false,
     kind: option.kind || 'new',
     targetLevel: option.targetLevel,
     tags: option.tags,
+    durationMonths: months,
+    totalDurationSeconds,
+    elapsedSeconds: 0,
+    progressPercent: 0,
+    completed: false
   };
 }
 
@@ -93,25 +108,175 @@ export function normalizeQueue(raw: any, currentTurn: number): QueueItem[] {
     const completeTurn = typeof r.completeTurn === 'number'
       ? r.completeTurn
       : currentTurn + clampTurns(Number(r.turnsLeft ?? 1));
-        out.push({
+    const startTurn = typeof r.startTurn === 'number' ? r.startTurn : currentTurn;
+    const durationMonths = typeof r.durationMonths === 'number'
+      ? r.durationMonths
+      : Math.max(1, completeTurn - startTurn);
+    const totalDurationSeconds = typeof r.totalDurationSeconds === 'number'
+      ? r.totalDurationSeconds
+      : durationMonths * 60;
+    const elapsedSeconds = typeof r.elapsedSeconds === 'number' ? r.elapsedSeconds : 0;
+    const progressPercent = typeof r.progressPercent === 'number'
+      ? r.progressPercent
+      : Math.min(100, Math.round((elapsedSeconds / Math.max(1, totalDurationSeconds)) * 100));
+
+    out.push({
       id: typeof r.id === 'string' ? r.id : `legacy-${i}-${r.building}`,
       building: r.building,
       cost: typeof r.cost === 'string' ? r.cost : '',
       desc: typeof r.desc === 'string' ? r.desc : '',
-      startTurn: typeof r.startTurn === 'number' ? r.startTurn : currentTurn,
+      startTurn,
       completeTurn,
       commandSent: typeof r.commandSent === 'boolean' ? r.commandSent : true,
       kind: r.kind || 'new',
       targetLevel: r.targetLevel,
       tags: r.tags,
+      durationMonths,
+      totalDurationSeconds,
+      elapsedSeconds,
+      progressPercent,
+      completed: typeof r.completed === 'boolean' ? r.completed : elapsedSeconds >= totalDurationSeconds
     });
   });
   return out;
 }
 
+/**
+ * 실시간 건설 틱 연산
+ * @param queue 현재 건설 큐
+ * @param deltaGameSeconds 이번 틱에서 경과한 유효 게임 초 (deltaTime * speed)
+ * @returns { updatedQueue, completedItems }
+ */
+export function tickConstructionQueue(
+  queue: QueueItem[],
+  deltaGameSeconds: number
+): { updatedQueue: QueueItem[]; completedItems: QueueItem[] } {
+  if (deltaGameSeconds <= 0 || queue.length === 0) {
+    return { updatedQueue: queue, completedItems: [] };
+  }
+
+  const updatedQueue: QueueItem[] = [];
+  const completedItems: QueueItem[] = [];
+
+  queue.forEach(item => {
+    if (item.completed) {
+      completedItems.push(item);
+      return;
+    }
+
+    const totalSec = item.totalDurationSeconds ?? Math.max(1, (item.durationMonths ?? Math.max(1, item.completeTurn - item.startTurn))) * 60;
+    const curElapsed = item.elapsedSeconds ?? 0;
+    const newElapsed = Math.min(totalSec, curElapsed + deltaGameSeconds);
+    const newProgress = Math.min(100, Math.round((newElapsed / Math.max(1, totalSec)) * 100));
+    const isCompleted = newElapsed >= totalSec;
+
+    const updatedItem: QueueItem = {
+      ...item,
+      totalDurationSeconds: totalSec,
+      elapsedSeconds: newElapsed,
+      progressPercent: newProgress,
+      completed: isCompleted
+    };
+
+    if (isCompleted) {
+      completedItems.push(updatedItem);
+    } else {
+      updatedQueue.push(updatedItem);
+    }
+  });
+
+  return { updatedQueue, completedItems };
+}
+
+/**
+ * 건설 잔여 시간 포맷팅
+ * 1달 = 60초, 1일 = 2초
+ */
+export function formatConstructionTimeLeft(item: QueueItem): string {
+  const totalSec = item.totalDurationSeconds ?? Math.max(1, (item.durationMonths ?? Math.max(1, item.completeTurn - item.startTurn))) * 60;
+  const curElapsed = item.elapsedSeconds ?? 0;
+  const remSec = Math.max(0, totalSec - curElapsed);
+  if (remSec <= 0) return '완공 임박';
+
+  const remMonths = Math.floor(remSec / 60);
+  const remDays = Math.floor((remSec % 60) / 2);
+
+  const mm = String(Math.floor(remSec / 60)).padStart(2, '0');
+  const ss = String(Math.floor(remSec % 60)).padStart(2, '0');
+
+  if (remMonths > 0) {
+    return `${remMonths}달 ${remDays}일 남음 (${mm}:${ss})`;
+  }
+  return `${remDays}일 남음 (${ss}초)`;
+}
+
+/**
+ * 완공된 시설을 영지(estate) 상태에 실시간 반영
+ */
+export function applyCompletedBuildingToEstate(estate: any, item: QueueItem): any {
+  if (!estate) return estate;
+  const cloned = JSON.parse(JSON.stringify(estate));
+  const buildings = Array.isArray(cloned.buildings) ? cloned.buildings : [];
+
+  if (item.kind === 'promote') {
+    // 거점 승격
+    cloned.level = item.building;
+  } else if (item.kind === 'upgrade') {
+    // 건물 업그레이드
+    const targetLv = item.targetLevel || 2;
+    const cleanName = item.building.replace(/\s*업그레이드.*$/i, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim();
+    let found = false;
+    buildings.forEach((b: any) => {
+      if (sameBuildingName(b.name, cleanName)) {
+        b.level = targetLv;
+        b.name = `${cleanName} Lv.${targetLv}`;
+        if (item.tags && item.tags.length > 0) {
+          b.tags = Array.from(new Set([...(b.tags || []), ...item.tags]));
+        }
+        found = true;
+      }
+    });
+    if (!found) {
+      buildings.push({
+        name: `${cleanName} Lv.${targetLv}`,
+        level: targetLv,
+        tags: item.tags || ['강화'],
+        desc: item.desc || '완공된 상급 영지 시설'
+      });
+    }
+  } else {
+    // 신규 건설
+    const cleanName = item.building.replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim();
+    const targetLv = item.targetLevel || 1;
+    let found = false;
+    buildings.forEach((b: any) => {
+      if (sameBuildingName(b.name, cleanName)) {
+        b.level = targetLv;
+        found = true;
+      }
+    });
+    if (!found) {
+      buildings.push({
+        name: cleanName,
+        level: targetLv,
+        tags: item.tags || ['인프라'],
+        desc: item.desc || '새롭게 축조된 영지 시설'
+      });
+    }
+  }
+
+  cloned.buildings = buildings;
+  return cloned;
+}
+
 /** AI가 현재 공사 현황을 알 수 있도록 요청에 실어 보내는 요약본 */
 export function summarizeQueue(queue: QueueItem[], currentTurn: number) {
-  return queue.map((q) => ({ building: q.building, turnsLeft: turnsLeft(q, currentTurn) }));
+  return queue.map((q) => ({
+    building: q.building,
+    turnsLeft: turnsLeft(q, currentTurn),
+    progressPercent: q.progressPercent,
+    durationMonths: q.durationMonths
+  }));
 }
 
 export interface SystemCommandResult {
@@ -125,8 +290,6 @@ export interface SystemCommandResult {
 
 /**
  * 다음 행동(= 다음 턴 생성)에 덧붙일 시스템 명령을 만듭니다.
- * - 아직 착수 명령을 보내지 않은 항목: 비용 차감 요청
- * - 완공 턴이 다음 턴(currentTurn + 1) 이하인 항목: 완공 처리 요청
  */
 export function buildSystemCommands(queue: QueueItem[], currentTurn: number): SystemCommandResult {
   const lines: string[] = [];
@@ -134,7 +297,7 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
   const completedIds: string[] = [];
   const nextTurn = currentTurn + 1;
 
-    queue.forEach((q) => {
+  queue.forEach((q) => {
     if (!q.commandSent) {
       const turns = Math.max(1, q.completeTurn - q.startTurn);
       let costText = q.cost ? q.cost : '명시된 비용 없음';
@@ -143,19 +306,19 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
       }
       if (q.kind === 'promote') {
         lines.push(
-          `[시스템 명령] 거점 승격 착수: ${q.building} (비용: ${costText}, ${turns}턴 소요). ` +
+          `[시스템 명령] 거점 승격 착수: ${q.building} (비용: ${costText}, ${turns}달 소요). ` +
           `소지품/자원에서 비용을 정확히 차감하세요. 완공 명령이 오기 전까지는 【 영지 및 야영지 상태 】의 [거점 규모]를 변경하지 마세요.`
         );
       } else if (q.kind === 'upgrade') {
         const cleanName = q.building.replace(/\s*업그레이드.*$/i, '').replace(/[\(\[\{]?(?:Lv\.?|레벨)\s*\d+.*$/i, '').trim() || q.building;
         const targetLv = q.targetLevel || 2;
         lines.push(
-          `[시스템 명령] 건물 업그레이드 착수: ${cleanName} (목표: Lv.${targetLv}, 비용: ${costText}, ${turns}턴 소요). ` +
+          `[시스템 명령] 건물 업그레이드 착수: ${cleanName} (목표: Lv.${targetLv}, 비용: ${costText}, ${turns}달 소요). ` +
           `소지품/자원에서 비용을 정확히 차감하세요. 완공 명령이 오기 전까지는 【 영지 및 야영지 상태 】 건물 레벨을 올리지 마세요.`
         );
       } else {
         lines.push(
-          `[시스템 명령] 건설 착수: ${q.building} (비용: ${costText}, ${turns}턴 소요). ` +
+          `[시스템 명령] 건설 착수: ${q.building} (비용: ${costText}, ${turns}달 소요). ` +
           `소지품/자원에서 비용을 정확히 차감하세요. 완공 명령이 오기 전까지는 【 영지 및 야영지 상태 】 건물 목록에 추가하지 마세요. ` +
           `자원이 부족해 불가능하면 차감하지 말고 【 건설 가능 시설 】 안에 [건설 거부: ${q.building} - 사유] 를 출력하세요.`
         );
@@ -165,7 +328,7 @@ export function buildSystemCommands(queue: QueueItem[], currentTurn: number): Sy
   });
 
   queue.forEach((q) => {
-    if (q.completeTurn <= nextTurn) {
+    if (q.completeTurn <= nextTurn || q.completed) {
       if (q.kind === 'promote') {
         lines.push(
           `[시스템 명령] 거점 승격 완공: ${q.building}. ` +

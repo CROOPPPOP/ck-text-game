@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './page.module.css';
 import { checkPromotion, getUpgradeCandidates, mergeEstateBuildings } from '@/lib/estate';
 import { calculateEstatePromotionCost, getPlayerWealthAmount } from '@/lib/estateEconomy';
@@ -8,7 +8,9 @@ import { parsePopulationCount } from '@/lib/populationEconomy';
 import { calculateCKAttributes, detectPlayerArchetype, applyTurnResourceAccumulation } from '@/lib/ckVisuals';
 import { getCouncilVassals, sanitizeNameAndRole } from '@/lib/characterRelations';
 import { ParsedState, ChronicleItem, parseLLMResponse, normalizeParsedState } from '@/lib/parser';
-import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName } from '@/lib/construction';
+import { QueueItem, BuildOption, parseTurnNumber, getMaxSlots, createQueueItem, turnsLeft, normalizeQueue, summarizeQueue, buildSystemCommands, applyTurnResult, sameBuildingName, tickConstructionQueue, formatConstructionTimeLeft, applyCompletedBuildingToEstate } from '@/lib/construction';
+import { GameDate, GameSpeed, parseDateLocation, formatDateLocation, formatCleanDate, advanceGameTime } from '@/lib/engine/timeEngine';
+import { rollMonthlyEvent } from '@/lib/engine/events/eventRegistry';
 import CKTopHud from '@/components/CKTopHud';
 import CKCharacterModal from '@/components/CKCharacterModal';
 import FamilyTreeModal from '@/components/FamilyTreeModal';
@@ -154,6 +156,15 @@ export default function Home() {
   const [realmInitialTab, setRealmInitialTab] = useState<'realm' | 'estate'>('realm');
   const [constructionQueue, setConstructionQueue] = useState<QueueItem[]>([]);
   const [turn, setTurn] = useState(0);
+  const [gameSpeed, setGameSpeed] = useState<GameSpeed>(1);
+  const [isPaused, setIsPaused] = useState<boolean>(true);
+  const [gameDate, setGameDate] = useState<GameDate>({ year: 1066, month: 10, day: 14, season: '가을' });
+  const [monthProgressPercent, setMonthProgressPercent] = useState<number>(0);
+  const [seenEventIds, setSeenEventIds] = useState<Set<string>>(new Set());
+  const lastTickTimeRef = useRef<number>(Date.now());
+  const accumulatedSecRef = useRef<number>(0);
+  const prevModalRef = useRef<'character' | 'familyTree' | 'realm' | 'relations' | 'chronicle' | 'save' | 'settings' | null>(null);
+  const wasPausedBeforeModalRef = useRef<boolean>(true);
   const [constructionNotice, setConstructionNotice] = useState('');
   const [uxSettings, setUxSettings] = useState<UserUXSettings>(loadUXSettings());
   const [canUndo, setCanUndo] = useState(false);
@@ -248,9 +259,13 @@ export default function Home() {
         };
         parsedResult.chronicle = [initialChronicle];
         setGameState(parsedResult);
-        setTurn(parseTurnNumber(parsedResult.dateLocation) ?? 1);
+        const t = parseTurnNumber(parsedResult.dateLocation) ?? 1;
+        setTurn(t);
+        const parsedDate = parseDateLocation(parsedResult.dateLocation);
+        setGameDate(parsedDate.date);
         setConstructionQueue([]);
         setConstructionNotice('');
+        setIsPaused(false); // 시작 시 실시간 진행 활성화
       } else {
         alert("시작 설정 구성에 실패했습니다.");
       }
@@ -290,11 +305,14 @@ export default function Home() {
     const sanitized: any = normalizeParsedState(sanitizeEstateState(loaded));
     const { _constructionQueue, _turn, ...rest } = sanitized;
     const t = parseTurnNumber(rest.dateLocation) ?? (typeof _turn === 'number' ? _turn : 0);
+    const parsedDate = parseDateLocation(rest.dateLocation);
     setGameState(rest);
     setTurn(t);
+    setGameDate(parsedDate.date);
     setConstructionQueue(normalizeQueue(_constructionQueue, t));
     setConstructionNotice('');
     setCanUndo(hasUndoState());
+    setIsPaused(true); // 불러온 후 안전하게 일시정지 상태 유지
   };
 
   const handleAutoLoad = () => {
@@ -340,13 +358,175 @@ export default function Home() {
     }
   };
 
-  // Keyboard Shortcuts (1~4 선택지, Q 퀵세이브, Z 되돌리기, Esc 모달닫기)
+  // 모달 오픈 시 자동 일시정지 및 닫힐 때 복원
+  useEffect(() => {
+    const isModalOpen = activeModal !== null || activeEvent !== null;
+    if (isModalOpen) {
+      if (prevModalRef.current === null) {
+        wasPausedBeforeModalRef.current = isPaused;
+        setIsPaused(true);
+      }
+      prevModalRef.current = activeModal;
+    } else {
+      if (prevModalRef.current !== null) {
+        if (!wasPausedBeforeModalRef.current) {
+          setIsPaused(false);
+        }
+        prevModalRef.current = null;
+      }
+    }
+  }, [activeModal, activeEvent, isPaused]);
+
+  // 실시간 게임 루프: 1분 = 1달, 2초 = 1일 (배속 스케일링)
+  useEffect(() => {
+    lastTickTimeRef.current = Date.now();
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const deltaMs = now - lastTickTimeRef.current;
+      lastTickTimeRef.current = now;
+      const deltaSec = deltaMs / 1000;
+
+      // 일시정지 중이거나 로딩, 모달, 게임 오버 시 틱 스킵
+      if (isPaused || loading || !gameState || activeModal !== null || activeEvent !== null || gameState.ending) {
+        return;
+      }
+
+      // 1. 시간 전진
+      const timeResult = advanceGameTime(gameDate, deltaSec, gameSpeed, accumulatedSecRef.current);
+      accumulatedSecRef.current = timeResult.leftoverSeconds;
+      setMonthProgressPercent(timeResult.monthProgressPercent);
+
+      // 2. 실시간 건설 틱
+      const effectiveSec = deltaSec * gameSpeed;
+      if (constructionQueue.length > 0) {
+        const { updatedQueue, completedItems } = tickConstructionQueue(constructionQueue, effectiveSec);
+        setConstructionQueue(updatedQueue);
+
+        // 완공된 시설 처리
+        if (completedItems.length > 0) {
+          completedItems.forEach(item => {
+            showQuickNotice(`🎉 [${item.building}] 공사가 완공되었습니다!`);
+            setGameState(prev => {
+              if (!prev) return prev;
+              const nextEstate = applyCompletedBuildingToEstate(prev.estate, item);
+              const loc = parseDateLocation(prev.dateLocation).location;
+              const chronicleEntry: ChronicleItem = {
+                turn,
+                dateLocation: formatDateLocation(timeResult.newDate, loc),
+                action: `시설 완공: ${item.building}`,
+                result: '대성공',
+                summary: `${item.building} 건물이 성공적으로 완공되어 영지 인프라로 확충되었습니다.`
+              };
+              return {
+                ...prev,
+                estate: nextEstate,
+                chronicle: [...(prev.chronicle || []), chronicleEntry]
+              };
+            });
+          });
+        }
+      }
+
+      // 3. 일자 변경 시 gameDate 갱신
+      if (timeResult.daysAdvanced > 0) {
+        setGameDate(timeResult.newDate);
+      }
+
+      // 4. 월간 틱 (Monthly Tick: 60초 주기)
+      if (timeResult.monthTicked) {
+        const nextTurn = turn + 1;
+        setTurn(nextTurn);
+
+        // 월간 자원 자동 축적 및 세입/세출 정산
+        setGameState(prev => {
+          if (!prev) return prev;
+          const updated = applyTurnResourceAccumulation(prev, prev);
+          const loc = parseDateLocation(prev.dateLocation).location;
+          return {
+            ...updated,
+            dateLocation: formatDateLocation(timeResult.newDate, loc, nextTurn)
+          };
+        });
+
+        // 월간 이벤트 롤링 (역사적 대사건 우선)
+        const rolled = rollMonthlyEvent(gameState, nextTurn, seenEventIds);
+        if (rolled) {
+          setIsPaused(true); // 이벤트 발생 시 자동 일시정지 (Auto-Pause)
+          setSeenEventIds(prev => new Set([...prev, rolled.id]));
+          showQuickNotice(`📜 역사적 국면: [${rolled.title}] (시간 일시정지됨)`);
+
+          const speaker = rolled.dialogueSpeaker || '집사 아르노';
+          const speech = rolled.dialogueText || '"각하, 다음 조치를 결정해 주십시오."';
+          const fullNarrative = `${rolled.narrativeTemplate}\n\n${speaker}가 다가와 고했습니다.\n${speech}`;
+
+          setGameState(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              historicalTag: rolled.historicalTag || prev.historicalTag,
+              narrative: fullNarrative,
+              choices: rolled.choices.map((c, idx) => ({
+                id: c.id,
+                type: `${idx + 1}번`,
+                text: c.text,
+                probability: c.probability,
+                groupType: c.groupType
+              }))
+            };
+          });
+        }
+      }
+
+      // 5. 연간 틱 (Yearly Tick: 12달 = 12분 주기)
+      if (timeResult.yearTicked) {
+        showQuickNotice(`🎂 서기 ${timeResult.newDate.year}년 새해가 밝았습니다! (나이 +1세)`);
+        setGameState(prev => {
+          if (!prev) return prev;
+          const curAge = parseInt(prev.personalInfo?.['나이'] || '25', 10);
+          return {
+            ...prev,
+            personalInfo: {
+              ...(prev.personalInfo || {}),
+              '나이': `${curAge + timeResult.yearsAdvanced}`
+            }
+          };
+        });
+      }
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [isPaused, loading, gameState, activeModal, activeEvent, gameSpeed, gameDate, constructionQueue, turn, seenEventIds]);
+
+  // Keyboard Shortcuts (Space 일시정지, [/] 속도조절, 1~4 선택지, Q 퀵세이브, Z 되돌리기, Esc 모달닫기)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!uxSettings.shortcutsEnabled) return;
 
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Space: 실시간 시간 일시정지 / 재생 토글
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        setIsPaused(prev => {
+          const next = !prev;
+          showQuickNotice(next ? "⏸️ 시간 일시정지됨 (Space)" : "▶️ 시간 진행 중 (Space)");
+          return next;
+        });
+        return;
+      }
+
+      // [ / ]: 속도 조절
+      if (e.key === '[') {
+        e.preventDefault();
+        setGameSpeed(prev => (prev === 4 ? 2 : prev === 2 ? 1 : 1));
+        return;
+      }
+      if (e.key === ']') {
+        e.preventDefault();
+        setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 4));
         return;
       }
 
@@ -386,7 +566,7 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [uxSettings.shortcutsEnabled, activeModal, gameState, loading, canUndo, turn, constructionQueue]);
+  }, [uxSettings.shortcutsEnabled, activeModal, gameState, loading, canUndo, turn, constructionQueue, isPaused]);
 
   const handleAction = async (actionText: string) => {
     // 턴 진행 직전 스냅샷을 Undo 스택에 저장
@@ -598,6 +778,9 @@ export default function Home() {
         const newTurn = parseTurnNumber(data.parsed.dateLocation) ?? turn + 1;
         const rejected: string[] = data.parsed.constructionRejected || [];
         setTurn(newTurn);
+        if (data.parsed.dateLocation) {
+          setGameDate(parseDateLocation(data.parsed.dateLocation).date);
+        }
         setConstructionQueue(prev => applyTurnResult(prev, sys, rejected));
         setConstructionNotice(
           rejected.length > 0
@@ -830,6 +1013,22 @@ export default function Home() {
       <CKTopHud
         gameState={gameState}
         turn={turn}
+        gameSpeed={gameSpeed}
+        isPaused={isPaused}
+        onTogglePause={() => {
+          setIsPaused(prev => {
+            const next = !prev;
+            showQuickNotice(next ? "⏸️ 시간 일시정지됨 (Space)" : "▶️ 시간 진행 중 (Space)");
+            return next;
+          });
+        }}
+        onChangeSpeed={(spd) => {
+          setGameSpeed(spd);
+          if (isPaused) setIsPaused(false);
+          showQuickNotice(`⏩ 속도 변경: ${spd}x (${spd === 1 ? '1분=1달' : spd === 2 ? '30초=1달' : '15초=1달'})`);
+        }}
+        monthProgressPercent={monthProgressPercent}
+        realtimeDateStr={formatCleanDate(gameDate)}
         onOpenFamilyTree={() => setActiveModal('familyTree')}
         onOpenRealm={() => { setRealmInitialTab('realm'); setActiveModal('realm'); }}
         onOpenCharacter={() => setActiveModal('character')}
