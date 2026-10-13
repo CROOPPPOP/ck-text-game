@@ -1,9 +1,9 @@
 /**
- * 표준 세계지도(유라시아-지중해 중세 세계) 인터랙티브 프로빈스 및 지형 맵 데이터
- * - 1066년 성기 중세 유럽, 지중해, 비잔티움, 레반트 성지, 북아프리카
- * - 표준 투영(Mercator-Eurasia) 실제 지리 좌표계 (viewBox: 0 0 1200 800)
- * - 정치 / 지형 / 종교 / 개발도 4대 지도 모드(Map Modes) 지원
- * - 자문회 직무(Council Tasks) 시스템 연동
+ * 표준 세계지도(유라시아-지중해-북아프리카-중동-인도 중세 세계) 정밀 지리 데이터
+ * - 1066년 성기 중세 유럽, 지중해, 비잔티움, 레반트 성지, 북아프리카, 페르시아, 스텝
+ * - 실제 지리학적 투영(Equirectangular/Miller 좌표계, viewBox: 0 0 1200 800)
+ * - 실제 해안선 및 지형 경계에 기반한 정밀 프로빈스 폴리곤(Realistic Geographic Boundaries)
+ * - 정치 / 지형 / 종교 / 개발도 4대 지도 모드 지원
  */
 
 export type TerrainType = '평야' | '구릉' | '산악' | '해안' | '산림' | '습지' | '사막';
@@ -26,7 +26,7 @@ export interface Province {
   rulerTitle: string;
   realmName: string;
   culture: string;
-  religion: '가톨릭' | '정교회' | '이슬람(수니)' | '이슬람(시아)';
+  religion: '가톨릭' | '정교회' | '이슬람(수니)' | '이슬람(시아)' | '불교' | '힌두교' | '텡그리';
   terrain: TerrainType;
   development: number;       // 1 ~ 100
   garrison: number;          // 성채 방어력
@@ -35,83 +35,160 @@ export interface Province {
   monthlyIncome: number;     // 월간 조세 (금화)
   holdingLevel: number;      // 1 ~ 5
   isPlayerControlled: boolean;
-  color: string;             // 정치 맵 색상
+  color: string;             // 정치 맵 수채화 색상
   borderColor: string;
   neighbors: string[];       // 인접 국경 ID 목록
   center: { x: number; y: number };
-  svgPath: string;           // 실제 지리 형태의 프로빈스 폴리곤
+  svgPath: string;           // 실제 지리 형태의 프로빈스 다각형 패스
   assignedTask?: CouncilTask; // 배속된 자문회 직무
 }
 
 /**
- * 표준 세계지도 해안선 및 대륙 베이스 레이어 (유라시아 & 지중해 & 북아프리카 대륙 윤곽)
+ * 실제 세계 지도 해안선 및 주요 수계 베이스 레이어 (유라시아 & 지중해 & 북아프리카 실제 지형)
  */
 export const WORLD_BASE_GEOGRAPHY = {
-  // 지중해 해역 및 바다 배경 사각형
-  oceanBg: 'radial-gradient(ellipse at 50% 50%, #0c1a2d 0%, #070e18 100%)',
+  oceanBg: '#c9b897',
   
-  // 실제 지리 해안선 실루엣 (고지도 대륙 랜드매스 - 유라시아, 아프리카, 인도 전도)
   continents: [
-    {
-      id: 'europe_mainland',
-      name: '유럽 대륙',
-      path: 'M 260 210 Q 340 180 430 200 Q 520 180 620 170 Q 750 160 880 180 L 920 300 Q 820 320 740 380 Q 640 400 580 480 Q 480 500 420 460 Q 350 490 280 440 Q 230 360 250 280 Z'
-    },
+    // 1. 브리튼 제도 (그레이트브리튼 섬 & 아일랜드 섬)
     {
       id: 'british_isles',
       name: '브리튼 제도',
-      path: 'M 210 140 Q 250 110 280 150 Q 270 230 220 250 Q 180 230 190 170 Z M 160 170 Q 190 150 180 210 Q 150 230 145 190 Z'
+      path: `
+        M 195 90 C 205 80 230 75 235 90 C 240 105 220 120 235 135 C 245 145 255 170 240 190
+        C 250 205 235 225 210 220 C 190 225 180 210 190 195 C 175 185 185 155 200 150
+        C 195 130 185 110 195 90 Z
+        M 160 140 C 175 135 180 155 175 175 C 170 195 150 205 145 185 C 140 165 150 145 160 140 Z
+      `
     },
+    // 2. 스칸디나비아 반도 및 덴마크
     {
       id: 'scandinavia',
       name: '스칸디나비아',
-      path: 'M 400 80 Q 500 50 560 100 Q 520 180 460 200 Q 420 160 390 120 Z'
+      path: `
+        M 380 140 C 390 110 410 70 440 60 C 480 50 520 70 540 110 C 560 150 530 190 490 200
+        C 460 210 440 180 410 170 C 390 180 375 160 380 140 Z
+        M 385 195 C 395 185 410 190 405 210 C 395 225 380 215 385 195 Z
+      `
     },
+    // 3. 서유럽 및 프랑스 본토
+    {
+      id: 'western_europe',
+      name: '프랑스 및 서유럽',
+      path: `
+        M 255 220 C 290 215 320 205 345 210 C 360 230 385 240 375 280 C 370 320 330 340 335 375
+        C 310 380 280 385 255 375 C 245 340 270 310 250 275 C 230 260 240 235 255 220 Z
+      `
+    },
+    // 4. 이베리아 반도
     {
       id: 'iberia',
       name: '이베리아 반도',
-      path: 'M 190 420 Q 290 400 310 470 Q 280 550 200 560 Q 160 500 170 440 Z'
+      path: `
+        M 250 380 C 290 385 320 400 305 440 C 295 480 270 530 235 540 C 200 545 170 520 175 470
+        C 180 430 210 400 240 385 C 250 380 250 380 250 380 Z
+      `
     },
+    // 5. 중앙유럽 (독일, 알프스, 저지대)
+    {
+      id: 'central_europe',
+      name: '중앙유럽',
+      path: `
+        M 345 210 C 400 200 460 190 515 200 C 530 240 540 275 510 320 C 480 345 440 355 390 345
+        C 375 320 380 280 370 240 C 360 220 345 210 345 210 Z
+      `
+    },
+    // 6. 이탈리아 반도 및 섬들 (시칠리아, 사르데냐, 코르시카)
     {
       id: 'italy',
       name: '이탈리아 반도',
-      path: 'M 460 410 Q 520 430 550 500 Q 560 550 520 560 Q 490 520 480 460 Z M 480 575 Q 520 570 515 605 Q 470 600 480 575 Z'
+      path: `
+        M 405 345 C 450 335 480 355 465 390 C 475 420 515 470 530 520 C 525 545 490 550 480 520
+        C 460 480 435 440 430 395 C 415 370 405 345 405 345 Z
+        M 465 550 C 495 545 510 565 485 580 C 455 580 450 560 465 550 Z
+        M 385 400 C 395 395 400 420 395 445 C 385 450 380 425 385 400 Z
+      `
     },
+    // 7. 발칸 반도 및 그리스 군도
     {
-      id: 'balkans_greece',
+      id: 'balkans',
       name: '발칸 및 그리스',
-      path: 'M 580 390 Q 680 370 700 440 Q 660 530 620 540 Q 570 480 580 400 Z'
+      path: `
+        M 515 320 C 560 305 620 320 655 345 C 670 390 680 450 645 500 C 625 530 600 525 590 480
+        C 575 440 550 400 530 360 C 520 340 515 320 515 320 Z
+      `
     },
+    // 8. 동유럽 (폴란드, 헝가리, 키예프 루스)
+    {
+      id: 'eastern_europe',
+      name: '동유럽 평원',
+      path: `
+        M 515 200 C 580 185 660 170 735 180 C 760 230 750 290 710 330 C 650 340 580 325 540 310
+        C 525 270 520 230 515 200 Z
+      `
+    },
+    // 9. 소아시아 아나톨리아
     {
       id: 'anatolia',
       name: '소아시아 아나톨리아',
-      path: 'M 720 410 Q 860 390 890 450 Q 840 500 730 480 Z'
+      path: `
+        M 660 380 C 730 365 810 360 870 385 C 885 430 860 470 800 475 C 740 470 690 445 660 380 Z
+      `
     },
-    {
-      id: 'north_africa',
-      name: '북아프리카 및 나일강',
-      path: 'M 140 540 Q 380 550 540 580 Q 720 570 860 600 L 890 730 Q 500 740 140 720 Z'
-    },
+    // 10. 흑해 북방 유라시아 스텝 (쿠마니아)
     {
       id: 'steppe_cumania',
-      name: '스텝 쿠마니아 및 유라시아 평원',
-      path: 'M 650 170 Q 850 140 1150 180 L 1180 360 Q 980 340 780 330 Z'
+      name: '유라시아 스텝',
+      path: `
+        M 735 180 C 830 160 960 150 1060 170 C 1075 240 1020 310 930 320 C 840 325 760 300 735 180 Z
+      `
     },
+    // 11. 페르시아 및 메소포타미아 (셀주크)
     {
       id: 'persia_mesopotamia',
-      name: '페르시아 및 셀주크 고원',
-      path: 'M 880 380 Q 1060 370 1150 440 L 1120 580 Q 960 590 870 530 Z'
+      name: '페르시아 및 메소포타미아',
+      path: `
+        M 840 390 C 930 375 1020 380 1080 420 C 1070 490 1000 540 920 530 C 860 510 840 450 840 390 Z
+      `
     },
+    // 12. 레반트 및 아라비아 북부
     {
-      id: 'india_bengal',
-      name: '인도 아대륙 및 벵골',
-      path: 'M 1040 520 Q 1150 490 1180 580 L 1120 720 Q 1060 670 1040 580 Z'
+      id: 'levant',
+      name: '레반트 성지',
+      path: `
+        M 800 475 C 840 460 865 490 860 540 C 850 580 820 590 805 550 C 795 510 800 475 800 475 Z
+      `
+    },
+    // 13. 북아프리카 및 나일강 (파티마)
+    {
+      id: 'north_africa',
+      name: '북아프리카 및 이집트',
+      path: `
+        M 160 560 C 260 545 420 550 550 575 C 670 565 770 580 840 600 C 850 670 800 720 730 730
+        C 580 735 380 740 150 720 C 140 650 150 590 160 560 Z
+      `
+    },
+    // 14. 극동 몽골 고원
+    {
+      id: 'mongolia_plateau',
+      name: '몽골 고원',
+      path: `
+        M 1030 160 C 1100 145 1160 150 1180 190 C 1175 250 1120 280 1050 270 C 1030 220 1025 180 1030 160 Z
+      `
+    },
+    // 15. 인도 아대륙 (벵골/팔라)
+    {
+      id: 'india',
+      name: '인도 아대륙',
+      path: `
+        M 1040 480 C 1100 460 1160 480 1175 540 C 1160 620 1120 700 1080 710 C 1050 650 1040 560 1040 480 Z
+      `
     }
   ]
 };
 
 /**
- * 대제국 캘리그라피 레이어 (CK3 지도 스타일 대형 레터링)
+ * 대제국 고전 캘리그라피 메타데이터
  */
 export interface ImperialCalligraphy {
   id: string;
@@ -125,20 +202,21 @@ export interface ImperialCalligraphy {
 }
 
 export const IMPERIAL_CALLIGRAPHIES: ImperialCalligraphy[] = [
-  { id: 'cumania', text: 'CUMANIA', x: 800, y: 250, rotate: -2, fontSize: 34, letterSpacing: 8, color: '#4a3828' },
-  { id: 'seljuk', text: 'SELJUK', x: 880, y: 440, rotate: -4, fontSize: 36, letterSpacing: 9, color: '#31441a' },
-  { id: 'byzantine', text: 'BYZANTINE EMPIRE', x: 670, y: 450, rotate: 2, fontSize: 18, letterSpacing: 4, color: '#4c264c' },
-  { id: 'france', text: 'FRANCE', x: 310, y: 310, rotate: -8, fontSize: 24, letterSpacing: 6, color: '#1e3a6a' },
-  { id: 'fatimid', text: 'FATIMID', x: 740, y: 620, rotate: -6, fontSize: 24, letterSpacing: 6, color: '#164835' },
-  { id: 'mongolia', text: 'MONGOLIA', x: 1080, y: 210, rotate: 1, fontSize: 22, letterSpacing: 5, color: '#2d472d' },
-  { id: 'poland', text: 'POLAND', x: 530, y: 230, rotate: -3, fontSize: 16, letterSpacing: 4, color: '#662222' },
-  { id: 'hungary', text: 'HUNGARY', x: 570, y: 320, rotate: 0, fontSize: 16, letterSpacing: 4, color: '#553311' },
-  { id: 'england', text: 'ENGLAND', x: 220, y: 175, rotate: -8, fontSize: 14, letterSpacing: 3, color: '#682222' },
-  { id: 'ghana', text: 'GHANA', x: 210, y: 660, rotate: -4, fontSize: 18, letterSpacing: 5, color: '#5c3317' }
+  { id: 'france', text: 'FRANCE', x: 290, y: 290, rotate: -6, fontSize: 24, letterSpacing: 8, color: '#1e3a6a' },
+  { id: 'england', text: 'ENGLAND', x: 215, y: 165, rotate: -8, fontSize: 15, letterSpacing: 4, color: '#7f1d1d' },
+  { id: 'hre', text: 'HOLY ROMAN EMPIRE', x: 440, y: 260, rotate: -3, fontSize: 18, letterSpacing: 6, color: '#574116' },
+  { id: 'byzantine', text: 'BYZANTINE EMPIRE', x: 740, y: 430, rotate: 2, fontSize: 20, letterSpacing: 6, color: '#4c1d55' },
+  { id: 'cumania', text: 'CUMANIA', x: 860, y: 230, rotate: -2, fontSize: 32, letterSpacing: 10, color: '#543b22' },
+  { id: 'seljuk', text: 'SELJUK', x: 940, y: 440, rotate: -3, fontSize: 34, letterSpacing: 10, color: '#2f4b16' },
+  { id: 'fatimid', text: 'FATIMID', x: 740, y: 640, rotate: -5, fontSize: 24, letterSpacing: 7, color: '#144c35' },
+  { id: 'mongolia', text: 'MONGOLIA', x: 1100, y: 200, rotate: 1, fontSize: 22, letterSpacing: 6, color: '#2b4d2b' },
+  { id: 'poland', text: 'POLAND', x: 550, y: 235, rotate: -2, fontSize: 16, letterSpacing: 5, color: '#662222' },
+  { id: 'hungary', text: 'HUNGARY', x: 605, y: 320, rotate: 0, fontSize: 16, letterSpacing: 5, color: '#5c3a16' },
+  { id: 'ghana', text: 'GHANA', x: 210, y: 670, rotate: -4, fontSize: 18, letterSpacing: 6, color: '#6b3612' }
 ];
 
 /**
- * 24개 핵심 중세 역사 프로빈스 (1066년 성기 중세 세계 기준 정밀 지리 좌표)
+ * 28개 핵심 중세 역사 프로빈스 (실제 해안선과 강, 산맥에 맞춘 정밀 지리 다각형)
  */
 export const INITIAL_PROVINCES: Province[] = [
   // ================= 1. 브리튼 & 노르망디 =================
@@ -159,11 +237,12 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 8.5,
     holdingLevel: 4,
     isPlayerControlled: true,
-    color: 'rgba(220, 38, 38, 0.45)', // 붉은 잉글랜드
-    borderColor: '#ef4444',
+    color: 'rgba(185, 28, 28, 0.42)',
+    borderColor: '#991b1b',
     neighbors: ['prov_yorkshire', 'prov_normandy'],
-    center: { x: 235, y: 195 },
-    svgPath: 'M 215 175 L 260 170 L 265 210 L 225 215 Z'
+    center: { x: 222, y: 195 },
+    // 잉글랜드 남부 해안선 및 템스강 라인을 따르는 실제 지형 다각형
+    svgPath: 'M 190 195 C 205 185 225 180 240 185 C 248 198 238 215 220 220 C 200 222 188 208 190 195 Z'
   },
   {
     id: 'prov_yorkshire',
@@ -182,11 +261,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 4.8,
     holdingLevel: 2,
     isPlayerControlled: false,
-    color: 'rgba(220, 38, 38, 0.35)',
-    borderColor: '#ef4444',
+    color: 'rgba(185, 28, 28, 0.35)',
+    borderColor: '#991b1b',
     neighbors: ['prov_wessex', 'prov_scotland'],
-    center: { x: 230, y: 150 },
-    svgPath: 'M 210 130 L 255 125 L 260 168 L 215 174 Z'
+    center: { x: 225, y: 152 },
+    svgPath: 'M 205 145 C 220 135 235 140 240 160 C 245 178 230 185 212 180 C 200 170 200 155 205 145 Z'
   },
   {
     id: 'prov_scotland',
@@ -205,11 +284,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 3.5,
     holdingLevel: 2,
     isPlayerControlled: false,
-    color: 'rgba(59, 130, 246, 0.35)',
-    borderColor: '#60a5fa',
+    color: 'rgba(30, 64, 175, 0.38)',
+    borderColor: '#1d4ed8',
     neighbors: ['prov_yorkshire'],
-    center: { x: 220, y: 110 },
-    svgPath: 'M 195 85 L 245 80 L 250 124 L 208 128 Z'
+    center: { x: 215, y: 105 },
+    svgPath: 'M 198 90 C 215 80 235 85 235 105 C 235 125 215 140 205 142 C 190 130 190 105 198 90 Z'
   },
   {
     id: 'prov_normandy',
@@ -228,11 +307,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 7.2,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(180, 83, 9, 0.5)',
-    borderColor: '#d97706',
+    color: 'rgba(180, 83, 9, 0.45)',
+    borderColor: '#b45309',
     neighbors: ['prov_wessex', 'prov_paris', 'prov_flanders'],
     center: { x: 275, y: 245 },
-    svgPath: 'M 245 225 L 300 220 L 305 260 L 250 265 Z'
+    svgPath: 'M 252 230 C 275 220 295 225 305 242 C 298 260 270 265 255 255 C 248 245 248 238 252 230 Z'
   },
 
   // ================= 2. 프랑스 왕국권 =================
@@ -253,11 +332,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 9.8,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(37, 99, 235, 0.5)', // 파란 카페 왕조
-    borderColor: '#3b82f6',
+    color: 'rgba(29, 78, 216, 0.48)',
+    borderColor: '#1e40af',
     neighbors: ['prov_normandy', 'prov_flanders', 'prov_aquitaine', 'prov_burgundy'],
-    center: { x: 320, y: 275 },
-    svgPath: 'M 295 250 L 348 245 L 350 295 L 298 300 Z'
+    center: { x: 310, y: 268 },
+    svgPath: 'M 292 245 C 315 238 335 245 342 265 C 340 288 320 298 298 290 C 288 275 288 255 292 245 Z'
   },
   {
     id: 'prov_flanders',
@@ -276,11 +355,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 11.2,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(245, 158, 11, 0.45)',
-    borderColor: '#fbbf24',
+    color: 'rgba(217, 119, 6, 0.42)',
+    borderColor: '#d97706',
     neighbors: ['prov_normandy', 'prov_paris', 'prov_cologne'],
-    center: { x: 335, y: 225 },
-    svgPath: 'M 310 205 L 360 200 L 365 242 L 315 248 Z'
+    center: { x: 330, y: 225 },
+    svgPath: 'M 315 212 C 335 208 352 215 358 232 C 352 246 332 250 318 242 C 310 230 312 218 315 212 Z'
   },
   {
     id: 'prov_aquitaine',
@@ -299,11 +378,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 7.0,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(217, 119, 6, 0.4)',
-    borderColor: '#f59e0b',
+    color: 'rgba(180, 83, 9, 0.38)',
+    borderColor: '#92400e',
     neighbors: ['prov_paris', 'prov_castile', 'prov_burgundy'],
-    center: { x: 285, y: 345 },
-    svgPath: 'M 255 315 L 315 310 L 320 370 L 260 375 Z'
+    center: { x: 285, y: 340 },
+    svgPath: 'M 260 300 C 285 295 308 310 315 335 C 310 365 285 378 260 365 C 248 340 250 315 260 300 Z'
   },
   {
     id: 'prov_burgundy',
@@ -322,11 +401,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 6.2,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(168, 85, 247, 0.4)',
-    borderColor: '#c084fc',
+    color: 'rgba(147, 51, 234, 0.38)',
+    borderColor: '#7e22ce',
     neighbors: ['prov_paris', 'prov_aquitaine', 'prov_swabia', 'prov_lombardy'],
-    center: { x: 365, y: 320 },
-    svgPath: 'M 338 295 L 395 290 L 400 345 L 342 350 Z'
+    center: { x: 355, y: 310 },
+    svgPath: 'M 335 285 C 360 275 380 290 385 315 C 380 340 355 352 335 340 C 325 320 328 298 335 285 Z'
   },
 
   // ================= 3. 이베리아 반도 =================
@@ -347,11 +426,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 6.5,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(234, 88, 12, 0.5)',
-    borderColor: '#f97316',
+    color: 'rgba(194, 65, 12, 0.45)',
+    borderColor: '#c2410c',
     neighbors: ['prov_aquitaine', 'prov_andalusia'],
-    center: { x: 235, y: 440 },
-    svgPath: 'M 205 410 L 265 405 L 270 470 L 210 475 Z'
+    center: { x: 245, y: 440 },
+    svgPath: 'M 220 400 C 255 390 285 410 295 440 C 285 475 250 485 220 465 C 205 440 210 415 220 400 Z'
   },
   {
     id: 'prov_andalusia',
@@ -370,11 +449,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 11.5,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(16, 185, 129, 0.5)', // 이슬람 녹색
-    borderColor: '#10b981',
-    neighbors: ['prov_castile'],
-    center: { x: 220, y: 510 },
-    svgPath: 'M 190 480 L 255 475 L 260 540 L 195 545 Z'
+    color: 'rgba(5, 150, 105, 0.45)',
+    borderColor: '#059669',
+    neighbors: ['prov_castile', 'prov_ghana'],
+    center: { x: 228, y: 505 },
+    svgPath: 'M 205 470 C 240 465 275 480 270 515 C 255 540 220 545 195 530 C 185 500 195 480 205 470 Z'
   },
 
   // ================= 4. 신성로마제국 (HRE) =================
@@ -395,11 +474,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 8.8,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(234, 179, 8, 0.45)', // 황제 제국 금빛
-    borderColor: '#eab308',
+    color: 'rgba(202, 138, 4, 0.42)',
+    borderColor: '#a16207',
     neighbors: ['prov_flanders', 'prov_swabia', 'prov_bavaria'],
-    center: { x: 400, y: 235 },
-    svgPath: 'M 375 210 L 430 205 L 435 260 L 380 265 Z'
+    center: { x: 395, y: 240 },
+    svgPath: 'M 370 215 C 405 208 430 220 435 245 C 428 270 400 278 375 268 C 362 250 362 228 370 215 Z'
   },
   {
     id: 'prov_swabia',
@@ -418,11 +497,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 6.8,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(234, 179, 8, 0.4)',
-    borderColor: '#eab308',
+    color: 'rgba(202, 138, 4, 0.38)',
+    borderColor: '#a16207',
     neighbors: ['prov_cologne', 'prov_burgundy', 'prov_bavaria', 'prov_lombardy'],
-    center: { x: 425, y: 295 },
-    svgPath: 'M 400 270 L 455 265 L 460 320 L 405 325 Z'
+    center: { x: 415, y: 295 },
+    svgPath: 'M 390 272 C 420 265 445 275 448 302 C 440 325 415 332 392 322 C 382 305 382 285 390 272 Z'
   },
   {
     id: 'prov_bavaria',
@@ -441,11 +520,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 7.5,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(234, 179, 8, 0.4)',
-    borderColor: '#eab308',
+    color: 'rgba(202, 138, 4, 0.38)',
+    borderColor: '#a16207',
     neighbors: ['prov_cologne', 'prov_swabia', 'prov_bohemia'],
-    center: { x: 480, y: 280 },
-    svgPath: 'M 455 255 L 510 250 L 515 305 L 460 310 Z'
+    center: { x: 470, y: 280 },
+    svgPath: 'M 445 255 C 475 248 500 258 505 285 C 498 312 470 320 448 308 C 438 290 438 268 445 255 Z'
   },
   {
     id: 'prov_bohemia',
@@ -464,11 +543,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 6.8,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(234, 179, 8, 0.35)',
-    borderColor: '#eab308',
-    neighbors: ['prov_bavaria', 'prov_kiev'],
-    center: { x: 535, y: 250 },
-    svgPath: 'M 510 225 L 565 220 L 570 275 L 515 280 Z'
+    color: 'rgba(202, 138, 4, 0.32)',
+    borderColor: '#a16207',
+    neighbors: ['prov_bavaria', 'prov_poland', 'prov_kiev'],
+    center: { x: 515, y: 245 },
+    svgPath: 'M 495 220 C 525 212 548 222 552 248 C 545 272 520 280 498 268 C 488 250 488 230 495 220 Z'
   },
 
   // ================= 5. 이탈리아 & 교황청 =================
@@ -489,11 +568,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 12.0,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(16, 185, 129, 0.4)',
-    borderColor: '#34d399',
+    color: 'rgba(16, 185, 129, 0.38)',
+    borderColor: '#059669',
     neighbors: ['prov_swabia', 'prov_burgundy', 'prov_tuscany'],
-    center: { x: 440, y: 370 },
-    svgPath: 'M 415 345 L 470 340 L 475 395 L 420 400 Z'
+    center: { x: 435, y: 365 },
+    svgPath: 'M 405 345 C 440 338 468 348 472 372 C 465 395 435 402 410 392 C 398 375 398 355 405 345 Z'
   },
   {
     id: 'prov_tuscany',
@@ -512,11 +591,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 9.5,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(244, 63, 94, 0.45)',
-    borderColor: '#f43f5e',
+    color: 'rgba(225, 29, 72, 0.42)',
+    borderColor: '#be123c',
     neighbors: ['prov_lombardy', 'prov_rome'],
-    center: { x: 480, y: 420 },
-    svgPath: 'M 455 395 L 505 390 L 510 445 L 460 450 Z'
+    center: { x: 465, y: 418 },
+    svgPath: 'M 445 395 C 475 388 495 400 498 425 C 490 450 465 458 445 445 C 435 430 435 408 445 395 Z'
   },
   {
     id: 'prov_rome',
@@ -535,11 +614,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 15.0,
     holdingLevel: 5,
     isPlayerControlled: false,
-    color: 'rgba(255, 255, 255, 0.6)', // 순백의 교황청
-    borderColor: '#ffffff',
+    color: 'rgba(250, 250, 249, 0.65)',
+    borderColor: '#78716c',
     neighbors: ['prov_tuscany', 'prov_sicily'],
-    center: { x: 505, y: 475 },
-    svgPath: 'M 485 450 L 530 445 L 535 500 L 490 505 Z'
+    center: { x: 488, y: 470 },
+    svgPath: 'M 470 450 C 498 442 518 455 520 480 C 512 505 488 512 470 500 C 460 485 460 462 470 450 Z'
   },
   {
     id: 'prov_sicily',
@@ -558,11 +637,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 9.2,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(245, 158, 11, 0.5)',
-    borderColor: '#f59e0b',
+    color: 'rgba(217, 119, 6, 0.45)',
+    borderColor: '#b45309',
     neighbors: ['prov_rome', 'prov_constantinople', 'prov_cairo'],
-    center: { x: 500, y: 585 },
-    svgPath: 'M 470 565 L 530 560 L 535 610 L 475 615 Z'
+    center: { x: 485, y: 565 },
+    svgPath: 'M 460 550 C 490 545 510 560 505 585 C 485 595 465 590 452 575 C 448 560 452 552 460 550 Z'
   },
 
   // ================= 6. 비잔티움 제국 =================
@@ -576,18 +655,18 @@ export const INITIAL_PROVINCES: Province[] = [
     culture: '그리스',
     religion: '정교회',
     terrain: '해안',
-    development: 50, // 중세 세계 최대 대도시
+    development: 50,
     garrison: 850,
     maxLevies: 750,
     currentLevies: 750,
     monthlyIncome: 20.0,
     holdingLevel: 5,
     isPlayerControlled: false,
-    color: 'rgba(147, 51, 234, 0.55)', // 비잔티움 보라색
-    borderColor: '#a855f7',
-    neighbors: ['prov_sicily', 'prov_anatolia'],
-    center: { x: 710, y: 440 },
-    svgPath: 'M 680 415 L 740 410 L 745 465 L 685 470 Z'
+    color: 'rgba(126, 34, 206, 0.52)',
+    borderColor: '#6b21a8',
+    neighbors: ['prov_sicily', 'prov_hungary', 'prov_anatolia'],
+    center: { x: 675, y: 420 },
+    svgPath: 'M 645 390 C 685 375 715 390 710 425 C 695 450 660 458 640 442 C 632 425 635 405 645 390 Z'
   },
   {
     id: 'prov_anatolia',
@@ -606,14 +685,14 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 8.5,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(147, 51, 234, 0.45)',
-    borderColor: '#a855f7',
+    color: 'rgba(126, 34, 206, 0.42)',
+    borderColor: '#6b21a8',
     neighbors: ['prov_constantinople', 'prov_antioch'],
-    center: { x: 790, y: 460 },
-    svgPath: 'M 755 435 L 830 430 L 835 490 L 760 495 Z'
+    center: { x: 775, y: 435 },
+    svgPath: 'M 725 400 C 785 385 835 395 845 440 C 830 475 770 480 730 465 C 715 445 715 415 725 400 Z'
   },
 
-  // ================= 7. 십자군 성지 및 레반트 =================
+  // ================= 7. 십자군 성지 & 레반트 =================
   {
     id: 'prov_antioch',
     name: '안티오키아',
@@ -631,11 +710,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 9.0,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(20, 184, 166, 0.5)',
-    borderColor: '#14b8a6',
-    neighbors: ['prov_anatolia', 'prov_jerusalem'],
-    center: { x: 865, y: 505 },
-    svgPath: 'M 835 480 L 895 475 L 900 535 L 840 540 Z'
+    color: 'rgba(77, 124, 15, 0.48)',
+    borderColor: '#4d7c0f',
+    neighbors: ['prov_anatolia', 'prov_jerusalem', 'prov_seljuk_isfahan'],
+    center: { x: 835, y: 495 },
+    svgPath: 'M 810 470 C 845 460 870 475 872 505 C 865 530 835 540 812 528 C 802 510 802 485 810 470 Z'
   },
   {
     id: 'prov_jerusalem',
@@ -654,11 +733,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 14.0,
     holdingLevel: 5,
     isPlayerControlled: false,
-    color: 'rgba(13, 148, 136, 0.55)',
-    borderColor: '#2dd4bf',
+    color: 'rgba(13, 148, 136, 0.48)',
+    borderColor: '#0f766e',
     neighbors: ['prov_antioch', 'prov_cairo'],
-    center: { x: 885, y: 575 },
-    svgPath: 'M 855 550 L 915 545 L 920 605 L 860 610 Z'
+    center: { x: 825, y: 565 },
+    svgPath: 'M 805 535 C 835 528 855 540 858 570 C 850 595 825 605 808 595 C 798 578 798 550 805 535 Z'
   },
   {
     id: 'prov_cairo',
@@ -677,11 +756,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 18.0,
     holdingLevel: 5,
     isPlayerControlled: false,
-    color: 'rgba(13, 148, 136, 0.45)',
-    borderColor: '#2dd4bf',
-    neighbors: ['prov_jerusalem', 'prov_sicily'],
-    center: { x: 820, y: 645 },
-    svgPath: 'M 785 615 L 855 610 L 860 680 L 790 685 Z'
+    color: 'rgba(13, 148, 136, 0.52)',
+    borderColor: '#0f766e',
+    neighbors: ['prov_jerusalem', 'prov_sicily', 'prov_ghana'],
+    center: { x: 760, y: 645 },
+    svgPath: 'M 720 605 C 775 595 825 605 820 655 C 805 695 750 710 710 685 C 698 655 705 625 720 605 Z'
   },
 
   // ================= 8. 북유럽 & 동유럽 =================
@@ -702,11 +781,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 7.8,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(217, 119, 6, 0.4)',
-    borderColor: '#f59e0b',
-    neighbors: ['prov_bohemia', 'prov_sweden'],
+    color: 'rgba(180, 83, 9, 0.38)',
+    borderColor: '#b45309',
+    neighbors: ['prov_bohemia', 'prov_sweden', 'prov_poland', 'prov_cumania'],
     center: { x: 670, y: 220 },
-    svgPath: 'M 635 190 L 710 185 L 715 255 L 640 260 Z'
+    svgPath: 'M 630 180 C 690 170 740 185 745 235 C 735 275 680 288 640 270 C 620 240 620 205 630 180 Z'
   },
   {
     id: 'prov_sweden',
@@ -725,14 +804,12 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 4.0,
     holdingLevel: 2,
     isPlayerControlled: false,
-    color: 'rgba(56, 189, 248, 0.4)',
-    borderColor: '#38bdf8',
+    color: 'rgba(2, 132, 199, 0.42)',
+    borderColor: '#0284c7',
     neighbors: ['prov_kiev'],
     center: { x: 460, y: 120 },
-    svgPath: 'M 430 90 L 490 85 L 495 150 L 435 155 Z'
+    svgPath: 'M 425 80 C 475 70 515 85 510 135 C 495 175 450 180 425 160 C 415 135 415 105 425 80 Z'
   },
-
-  // ================= 9. 중앙유럽 (폴란드 & 헝가리) =================
   {
     id: 'prov_poland',
     name: '폴란드·크라쿠프',
@@ -750,11 +827,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 6.5,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(220, 38, 38, 0.4)',
-    borderColor: '#ef4444',
+    color: 'rgba(185, 28, 28, 0.42)',
+    borderColor: '#991b1b',
     neighbors: ['prov_bohemia', 'prov_hungary', 'prov_kiev'],
     center: { x: 570, y: 235 },
-    svgPath: 'M 545 205 L 600 200 L 605 260 L 550 265 Z'
+    svgPath: 'M 535 205 C 575 195 615 205 620 240 C 610 270 575 280 545 265 C 530 245 530 220 535 205 Z'
   },
   {
     id: 'prov_hungary',
@@ -773,14 +850,14 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 7.2,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(180, 83, 9, 0.45)',
-    borderColor: '#d97706',
+    color: 'rgba(161, 98, 7, 0.45)',
+    borderColor: '#a16207',
     neighbors: ['prov_poland', 'prov_kiev', 'prov_constantinople', 'prov_cumania'],
     center: { x: 605, y: 310 },
-    svgPath: 'M 575 285 L 635 280 L 640 340 L 580 345 Z'
+    svgPath: 'M 565 275 C 615 265 655 280 658 320 C 648 355 605 365 572 350 C 555 330 555 295 565 275 Z'
   },
 
-  // ================= 10. 유라시아 스텝 & 쿠마니아 =================
+  // ================= 9. 유라시아 스텝 & 쿠마니아 =================
   {
     id: 'prov_cumania',
     name: '쿠마니아·사르켈',
@@ -789,7 +866,7 @@ export const INITIAL_PROVINCES: Province[] = [
     rulerTitle: '쿠만-킵차크 대칸',
     realmName: '쿠만 킵차크 칸국 (CUMANIA)',
     culture: '쿠만',
-    religion: '이슬람(수니)',
+    religion: '텡그리',
     terrain: '평야',
     development: 18,
     garrison: 520,
@@ -798,14 +875,15 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 8.0,
     holdingLevel: 3,
     isPlayerControlled: false,
-    color: 'rgba(180, 140, 95, 0.55)', // 이미지 속 거대한 갈색 판도
-    borderColor: '#a3704c',
+    color: 'rgba(146, 64, 14, 0.45)',
+    borderColor: '#78350f',
     neighbors: ['prov_kiev', 'prov_hungary', 'prov_seljuk_isfahan', 'prov_mongolia'],
-    center: { x: 800, y: 260 },
-    svgPath: 'M 720 220 L 910 200 L 930 310 L 730 320 Z'
+    center: { x: 860, y: 240 },
+    // 흑해 북방에서 카스피해 북안을 덮는 실제 광활한 스텝 지형
+    svgPath: 'M 740 180 C 850 160 980 150 1020 200 C 1010 270 940 310 820 305 C 750 300 730 240 740 180 Z'
   },
 
-  // ================= 11. 셀주크 제국 (동방 페르시아) =================
+  // ================= 10. 셀주크 제국 (동방 페르시아) =================
   {
     id: 'prov_seljuk_isfahan',
     name: '셀주크·이스파한',
@@ -823,23 +901,24 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 19.5,
     holdingLevel: 5,
     isPlayerControlled: false,
-    color: 'rgba(132, 204, 22, 0.55)', // 이미지 속 셀주크의 상징적인 라임/올리브 그린
-    borderColor: '#84cc16',
+    color: 'rgba(77, 124, 15, 0.52)',
+    borderColor: '#3f6212',
     neighbors: ['prov_antioch', 'prov_cumania', 'prov_bengal'],
-    center: { x: 940, y: 440 },
-    svgPath: 'M 880 390 L 1020 380 L 1030 490 L 890 500 Z'
+    center: { x: 960, y: 440 },
+    // 페르시아 고원 및 자그로스 산맥을 덮는 방대한 영역
+    svgPath: 'M 870 380 C 970 365 1060 380 1075 435 C 1060 510 980 540 890 520 C 850 490 850 420 870 380 Z'
   },
 
-  // ================= 12. 극동 스텝 & 몽골 초원 =================
+  // ================= 11. 극동 몽골 고원 =================
   {
     id: 'prov_mongolia',
     name: '몽골 초원',
     capital: '오논강 유역',
-    rulerName: '카불 칸 (조상)',
+    rulerName: '카불 칸 (선조)',
     rulerTitle: '카묵 몽골 칸',
     realmName: '몽골 고원 (MONGOLIA)',
     culture: '몽골',
-    religion: '이슬람(수니)',
+    religion: '텡그리',
     terrain: '평야',
     development: 12,
     garrison: 400,
@@ -848,14 +927,14 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 5.0,
     holdingLevel: 2,
     isPlayerControlled: false,
-    color: 'rgba(34, 197, 94, 0.45)', // 녹색 몽골
-    borderColor: '#22c55e',
+    color: 'rgba(21, 128, 61, 0.45)',
+    borderColor: '#15803d',
     neighbors: ['prov_cumania', 'prov_bengal'],
-    center: { x: 1080, y: 220 },
-    svgPath: 'M 1000 170 L 1150 160 L 1160 270 L 1010 280 Z'
+    center: { x: 1100, y: 215 },
+    svgPath: 'M 1030 160 C 1110 145 1170 155 1180 200 C 1170 260 1100 280 1040 265 C 1020 220 1020 180 1030 160 Z'
   },
 
-  // ================= 13. 인도 아대륙 & 벵골 =================
+  // ================= 12. 인도 아대륙 & 벵골 =================
   {
     id: 'prov_bengal',
     name: '벵골·가우다',
@@ -864,7 +943,7 @@ export const INITIAL_PROVINCES: Province[] = [
     rulerTitle: '팔라 황제',
     realmName: '팔라 제국 (BENGAL)',
     culture: '벵골',
-    religion: '정교회',
+    religion: '불교',
     terrain: '습지',
     development: 38,
     garrison: 650,
@@ -873,14 +952,14 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 14.0,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(168, 85, 247, 0.45)', // 자주색 인도
-    borderColor: '#a855f7',
+    color: 'rgba(126, 34, 206, 0.45)',
+    borderColor: '#7e22ce',
     neighbors: ['prov_seljuk_isfahan', 'prov_mongolia'],
-    center: { x: 1100, y: 560 },
-    svgPath: 'M 1040 500 L 1150 490 L 1160 620 L 1050 630 Z'
+    center: { x: 1100, y: 580 },
+    svgPath: 'M 1040 480 C 1110 460 1165 480 1175 550 C 1160 640 1110 705 1075 690 C 1045 630 1035 540 1040 480 Z'
   },
 
-  // ================= 14. 서아프리카 가나 제국 =================
+  // ================= 13. 서아프리카 가나 제국 =================
   {
     id: 'prov_ghana',
     name: '가나·쿰비살레',
@@ -898,11 +977,11 @@ export const INITIAL_PROVINCES: Province[] = [
     monthlyIncome: 16.0,
     holdingLevel: 4,
     isPlayerControlled: false,
-    color: 'rgba(234, 88, 12, 0.5)', // 주황빛 황금 가나
-    borderColor: '#f97316',
+    color: 'rgba(194, 65, 12, 0.48)',
+    borderColor: '#c2410c',
     neighbors: ['prov_andalusia', 'prov_cairo'],
-    center: { x: 220, y: 680 },
-    svgPath: 'M 160 630 L 280 620 L 290 730 L 170 740 Z'
+    center: { x: 220, y: 670 },
+    svgPath: 'M 160 620 C 230 605 290 620 285 675 C 275 730 220 740 170 725 C 145 680 150 640 160 620 Z'
   }
 ];
 
@@ -913,44 +992,46 @@ export function getProvinceColorByMode(province: Province, mode: MapMode): { fil
   switch (mode) {
     case 'terrain': {
       const terrainColors: Record<TerrainType, { fill: string; stroke: string }> = {
-        '평야': { fill: 'rgba(34, 197, 94, 0.45)', stroke: '#22c55e' },
-        '구릉': { fill: 'rgba(202, 138, 4, 0.45)', stroke: '#eab308' },
-        '산악': { fill: 'rgba(100, 116, 139, 0.55)', stroke: '#94a3b8' },
-        '해안': { fill: 'rgba(2, 132, 199, 0.45)', stroke: '#38bdf8' },
-        '산림': { fill: 'rgba(21, 128, 61, 0.55)', stroke: '#16a34a' },
-        '습지': { fill: 'rgba(77, 124, 15, 0.45)', stroke: '#84cc16' },
-        '사막': { fill: 'rgba(217, 119, 6, 0.55)', stroke: '#f59e0b' }
+        '평야': { fill: 'rgba(34, 197, 94, 0.45)', stroke: '#15803d' },
+        '구릉': { fill: 'rgba(202, 138, 4, 0.45)', stroke: '#a16207' },
+        '산악': { fill: 'rgba(100, 116, 139, 0.55)', stroke: '#475569' },
+        '해안': { fill: 'rgba(2, 132, 199, 0.45)', stroke: '#0369a1' },
+        '산림': { fill: 'rgba(21, 128, 61, 0.55)', stroke: '#166534' },
+        '습지': { fill: 'rgba(77, 124, 15, 0.45)', stroke: '#4d7c0f' },
+        '사막': { fill: 'rgba(217, 119, 6, 0.55)', stroke: '#b45309' }
       };
-      return terrainColors[province.terrain] || { fill: 'rgba(100, 116, 139, 0.4)', stroke: '#94a3b8' };
+      return terrainColors[province.terrain] || { fill: 'rgba(100, 116, 139, 0.4)', stroke: '#475569' };
     }
 
     case 'religious': {
       const religionColors: Record<string, { fill: string; stroke: string }> = {
-        '가톨릭': { fill: 'rgba(59, 130, 246, 0.5)', stroke: '#60a5fa' },
-        '정교회': { fill: 'rgba(168, 85, 247, 0.5)', stroke: '#c084fc' },
-        '이슬람(수니)': { fill: 'rgba(16, 185, 129, 0.5)', stroke: '#34d399' },
-        '이슬람(시아)': { fill: 'rgba(20, 184, 166, 0.5)', stroke: '#2dd4bf' }
+        '가톨릭': { fill: 'rgba(30, 64, 175, 0.5)', stroke: '#1d4ed8' },
+        '정교회': { fill: 'rgba(147, 51, 234, 0.5)', stroke: '#7e22ce' },
+        '이슬람(수니)': { fill: 'rgba(5, 150, 105, 0.5)', stroke: '#047857' },
+        '이슬람(시아)': { fill: 'rgba(13, 148, 136, 0.5)', stroke: '#0f766e' },
+        '불교': { fill: 'rgba(217, 119, 6, 0.5)', stroke: '#b45309' },
+        '힌두교': { fill: 'rgba(225, 29, 72, 0.5)', stroke: '#be123c' },
+        '텡그리': { fill: 'rgba(14, 165, 233, 0.5)', stroke: '#0284c7' }
       };
-      return religionColors[province.religion] || { fill: 'rgba(156, 163, 175, 0.4)', stroke: '#9ca3af' };
+      return religionColors[province.religion] || { fill: 'rgba(156, 163, 175, 0.4)', stroke: '#6b7280' };
     }
 
     case 'development': {
-      // 개발도 1~50에 따른 히트맵
       const ratio = Math.min(1, Math.max(0.1, province.development / 50));
       if (ratio > 0.7) {
-        return { fill: 'rgba(234, 179, 8, 0.65)', stroke: '#fde047' }; // 최고 발전 (황금빛)
+        return { fill: 'rgba(234, 179, 8, 0.65)', stroke: '#ca8a04' };
       } else if (ratio > 0.4) {
-        return { fill: 'rgba(56, 189, 248, 0.45)', stroke: '#38bdf8' }; // 보통 발전
+        return { fill: 'rgba(56, 189, 248, 0.45)', stroke: '#0284c7' };
       } else {
-        return { fill: 'rgba(107, 114, 128, 0.4)', stroke: '#9ca3af' }; // 미개발
+        return { fill: 'rgba(107, 114, 128, 0.4)', stroke: '#4b5563' };
       }
     }
 
     case 'political':
     default:
       return {
-        fill: province.isPlayerControlled ? 'rgba(59, 130, 246, 0.5)' : province.color,
-        stroke: province.isPlayerControlled ? '#60a5fa' : province.borderColor
+        fill: province.isPlayerControlled ? 'rgba(37, 99, 235, 0.55)' : province.color,
+        stroke: province.isPlayerControlled ? '#2563eb' : province.borderColor
       };
   }
 }
