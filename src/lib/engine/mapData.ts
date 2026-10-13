@@ -50,7 +50,7 @@ export const WORLD_BASE_GEOGRAPHY = {
   // 지중해 해역 및 바다 배경 사각형
   oceanBg: 'radial-gradient(ellipse at 50% 50%, #0c1a2d 0%, #070e18 100%)',
   
-  // 실제 지리 해안선 실루엣 (고지도 대륙 랜드매스)
+  // 실제 지리 해안선 실루엣 (고지도 대륙 랜드매스 - 유라시아, 아프리카, 인도 전도)
   continents: [
     {
       id: 'europe_mainland',
@@ -90,15 +90,52 @@ export const WORLD_BASE_GEOGRAPHY = {
     {
       id: 'north_africa',
       name: '북아프리카 및 나일강',
-      path: 'M 160 590 Q 380 580 540 610 Q 720 590 860 620 L 890 730 Q 500 740 140 720 Z'
+      path: 'M 140 540 Q 380 550 540 580 Q 720 570 860 600 L 890 730 Q 500 740 140 720 Z'
     },
     {
-      id: 'levant_arabia',
-      name: '레반트 성지 및 아라비아',
-      path: 'M 880 470 Q 940 460 970 530 Q 920 630 860 610 Q 850 520 880 470 Z'
+      id: 'steppe_cumania',
+      name: '스텝 쿠마니아 및 유라시아 평원',
+      path: 'M 650 170 Q 850 140 1150 180 L 1180 360 Q 980 340 780 330 Z'
+    },
+    {
+      id: 'persia_mesopotamia',
+      name: '페르시아 및 셀주크 고원',
+      path: 'M 880 380 Q 1060 370 1150 440 L 1120 580 Q 960 590 870 530 Z'
+    },
+    {
+      id: 'india_bengal',
+      name: '인도 아대륙 및 벵골',
+      path: 'M 1040 520 Q 1150 490 1180 580 L 1120 720 Q 1060 670 1040 580 Z'
     }
   ]
 };
+
+/**
+ * 대제국 캘리그라피 레이어 (CK3 지도 스타일 대형 레터링)
+ */
+export interface ImperialCalligraphy {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  rotate?: number;
+  fontSize: number;
+  letterSpacing: number;
+  color: string;
+}
+
+export const IMPERIAL_CALLIGRAPHIES: ImperialCalligraphy[] = [
+  { id: 'cumania', text: 'CUMANIA', x: 800, y: 250, rotate: -2, fontSize: 34, letterSpacing: 8, color: '#4a3828' },
+  { id: 'seljuk', text: 'SELJUK', x: 880, y: 440, rotate: -4, fontSize: 36, letterSpacing: 9, color: '#31441a' },
+  { id: 'byzantine', text: 'BYZANTINE EMPIRE', x: 670, y: 450, rotate: 2, fontSize: 18, letterSpacing: 4, color: '#4c264c' },
+  { id: 'france', text: 'FRANCE', x: 310, y: 310, rotate: -8, fontSize: 24, letterSpacing: 6, color: '#1e3a6a' },
+  { id: 'fatimid', text: 'FATIMID', x: 740, y: 620, rotate: -6, fontSize: 24, letterSpacing: 6, color: '#164835' },
+  { id: 'mongolia', text: 'MONGOLIA', x: 1080, y: 210, rotate: 1, fontSize: 22, letterSpacing: 5, color: '#2d472d' },
+  { id: 'poland', text: 'POLAND', x: 530, y: 230, rotate: -3, fontSize: 16, letterSpacing: 4, color: '#662222' },
+  { id: 'hungary', text: 'HUNGARY', x: 570, y: 320, rotate: 0, fontSize: 16, letterSpacing: 4, color: '#553311' },
+  { id: 'england', text: 'ENGLAND', x: 220, y: 175, rotate: -8, fontSize: 14, letterSpacing: 3, color: '#682222' },
+  { id: 'ghana', text: 'GHANA', x: 210, y: 660, rotate: -4, fontSize: 18, letterSpacing: 5, color: '#5c3317' }
+];
 
 /**
  * 24개 핵심 중세 역사 프로빈스 (1066년 성기 중세 세계 기준 정밀 지리 좌표)
@@ -693,6 +730,179 @@ export const INITIAL_PROVINCES: Province[] = [
     neighbors: ['prov_kiev'],
     center: { x: 460, y: 120 },
     svgPath: 'M 430 90 L 490 85 L 495 150 L 435 155 Z'
+  },
+
+  // ================= 9. 중앙유럽 (폴란드 & 헝가리) =================
+  {
+    id: 'prov_poland',
+    name: '폴란드·크라쿠프',
+    capital: '크라쿠프',
+    rulerName: '볼레스와프 2세',
+    rulerTitle: '폴란드 국왕',
+    realmName: '폴란드 왕국',
+    culture: '폴란드',
+    religion: '가톨릭',
+    terrain: '평야',
+    development: 20,
+    garrison: 460,
+    maxLevies: 480,
+    currentLevies: 480,
+    monthlyIncome: 6.5,
+    holdingLevel: 3,
+    isPlayerControlled: false,
+    color: 'rgba(220, 38, 38, 0.4)',
+    borderColor: '#ef4444',
+    neighbors: ['prov_bohemia', 'prov_hungary', 'prov_kiev'],
+    center: { x: 570, y: 235 },
+    svgPath: 'M 545 205 L 600 200 L 605 260 L 550 265 Z'
+  },
+  {
+    id: 'prov_hungary',
+    name: '헝가리·에스테르곰',
+    capital: '에스테르곰',
+    rulerName: '셜로몬',
+    rulerTitle: '헝가리 국왕',
+    realmName: '헝가리 왕국',
+    culture: '마자르',
+    religion: '가톨릭',
+    terrain: '평야',
+    development: 22,
+    garrison: 480,
+    maxLevies: 490,
+    currentLevies: 490,
+    monthlyIncome: 7.2,
+    holdingLevel: 3,
+    isPlayerControlled: false,
+    color: 'rgba(180, 83, 9, 0.45)',
+    borderColor: '#d97706',
+    neighbors: ['prov_poland', 'prov_kiev', 'prov_constantinople', 'prov_cumania'],
+    center: { x: 605, y: 310 },
+    svgPath: 'M 575 285 L 635 280 L 640 340 L 580 345 Z'
+  },
+
+  // ================= 10. 유라시아 스텝 & 쿠마니아 =================
+  {
+    id: 'prov_cumania',
+    name: '쿠마니아·사르켈',
+    capital: '사르켈',
+    rulerName: '볼루시 칸',
+    rulerTitle: '쿠만-킵차크 대칸',
+    realmName: '쿠만 킵차크 칸국 (CUMANIA)',
+    culture: '쿠만',
+    religion: '이슬람(수니)',
+    terrain: '평야',
+    development: 18,
+    garrison: 520,
+    maxLevies: 700,
+    currentLevies: 700,
+    monthlyIncome: 8.0,
+    holdingLevel: 3,
+    isPlayerControlled: false,
+    color: 'rgba(180, 140, 95, 0.55)', // 이미지 속 거대한 갈색 판도
+    borderColor: '#a3704c',
+    neighbors: ['prov_kiev', 'prov_hungary', 'prov_seljuk_isfahan', 'prov_mongolia'],
+    center: { x: 800, y: 260 },
+    svgPath: 'M 720 220 L 910 200 L 930 310 L 730 320 Z'
+  },
+
+  // ================= 11. 셀주크 제국 (동방 페르시아) =================
+  {
+    id: 'prov_seljuk_isfahan',
+    name: '셀주크·이스파한',
+    capital: '이스파한',
+    rulerName: '알프 아르슬란',
+    rulerTitle: '대 셀주크 술탄',
+    realmName: '위대한 셀주크 제국 (SELJUK)',
+    culture: '페르시아 투르크',
+    religion: '이슬람(수니)',
+    terrain: '구릉',
+    development: 45,
+    garrison: 800,
+    maxLevies: 850,
+    currentLevies: 850,
+    monthlyIncome: 19.5,
+    holdingLevel: 5,
+    isPlayerControlled: false,
+    color: 'rgba(132, 204, 22, 0.55)', // 이미지 속 셀주크의 상징적인 라임/올리브 그린
+    borderColor: '#84cc16',
+    neighbors: ['prov_antioch', 'prov_cumania', 'prov_bengal'],
+    center: { x: 940, y: 440 },
+    svgPath: 'M 880 390 L 1020 380 L 1030 490 L 890 500 Z'
+  },
+
+  // ================= 12. 극동 스텝 & 몽골 초원 =================
+  {
+    id: 'prov_mongolia',
+    name: '몽골 초원',
+    capital: '오논강 유역',
+    rulerName: '카불 칸 (조상)',
+    rulerTitle: '카묵 몽골 칸',
+    realmName: '몽골 고원 (MONGOLIA)',
+    culture: '몽골',
+    religion: '이슬람(수니)',
+    terrain: '평야',
+    development: 12,
+    garrison: 400,
+    maxLevies: 600,
+    currentLevies: 600,
+    monthlyIncome: 5.0,
+    holdingLevel: 2,
+    isPlayerControlled: false,
+    color: 'rgba(34, 197, 94, 0.45)', // 녹색 몽골
+    borderColor: '#22c55e',
+    neighbors: ['prov_cumania', 'prov_bengal'],
+    center: { x: 1080, y: 220 },
+    svgPath: 'M 1000 170 L 1150 160 L 1160 270 L 1010 280 Z'
+  },
+
+  // ================= 13. 인도 아대륙 & 벵골 =================
+  {
+    id: 'prov_bengal',
+    name: '벵골·가우다',
+    capital: '가우다',
+    rulerName: '비그라하팔라 3세',
+    rulerTitle: '팔라 황제',
+    realmName: '팔라 제국 (BENGAL)',
+    culture: '벵골',
+    religion: '정교회',
+    terrain: '습지',
+    development: 38,
+    garrison: 650,
+    maxLevies: 650,
+    currentLevies: 650,
+    monthlyIncome: 14.0,
+    holdingLevel: 4,
+    isPlayerControlled: false,
+    color: 'rgba(168, 85, 247, 0.45)', // 자주색 인도
+    borderColor: '#a855f7',
+    neighbors: ['prov_seljuk_isfahan', 'prov_mongolia'],
+    center: { x: 1100, y: 560 },
+    svgPath: 'M 1040 500 L 1150 490 L 1160 620 L 1050 630 Z'
+  },
+
+  // ================= 14. 서아프리카 가나 제국 =================
+  {
+    id: 'prov_ghana',
+    name: '가나·쿰비살레',
+    capital: '쿰비 살레',
+    rulerName: '툰카 마닌',
+    rulerTitle: '가나 황제 (카야마간)',
+    realmName: '황금의 가나 제국 (GHANA)',
+    culture: '소닝케',
+    religion: '이슬람(수니)',
+    terrain: '사막',
+    development: 30,
+    garrison: 550,
+    maxLevies: 550,
+    currentLevies: 550,
+    monthlyIncome: 16.0,
+    holdingLevel: 4,
+    isPlayerControlled: false,
+    color: 'rgba(234, 88, 12, 0.5)', // 주황빛 황금 가나
+    borderColor: '#f97316',
+    neighbors: ['prov_andalusia', 'prov_cairo'],
+    center: { x: 220, y: 680 },
+    svgPath: 'M 160 630 L 280 620 L 290 730 L 170 740 Z'
   }
 ];
 

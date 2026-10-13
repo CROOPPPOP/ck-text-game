@@ -104,8 +104,9 @@ export default function CKProvinceInspector({
 
   return (
     <div style={{
-      width: '330px',
-      maxHeight: 'calc(100vh - 120px)',
+      width: '340px',
+      maxHeight: '100%',
+      height: '100%',
       background: 'linear-gradient(175deg, rgba(24, 18, 14, 0.98), rgba(14, 10, 8, 0.98))',
       border: '1.5px solid rgba(200, 159, 60, 0.45)',
       borderRadius: '14px',
@@ -207,7 +208,7 @@ export default function CKProvinceInspector({
       </div>
 
       {/* 3. 탭별 메인 컨텐츠 영역 */}
-      <div style={{ padding: '14px 16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ flex: 1, padding: '14px 16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         
         {/* ================= TAB 1: 개요 (Overview) ================= */}
         {activeTab === 'overview' && (

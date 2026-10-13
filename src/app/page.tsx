@@ -194,6 +194,7 @@ export default function Home() {
   const [mapMode, setMapMode] = useState<MapMode>('political');
   const [isAtWar, setIsAtWar] = useState<boolean>(false);
   const [warScore, setWarScore] = useState<number>(0);
+  const [isDispatchExpanded, setIsDispatchExpanded] = useState<boolean>(true);
 
   // API Key 로드
   useEffect(() => {
@@ -1205,47 +1206,70 @@ export default function Home() {
 
   return (
     <main className={styles.container}>
-      <CKTopHud
-        gameState={gameState}
-        turn={turn}
-        gameSpeed={gameSpeed}
-        isPaused={isPaused}
-        onTogglePause={() => {
-          setIsPaused(prev => {
-            const next = !prev;
-            showQuickNotice(next ? "⏸️ 시간 일시정지됨 (Space)" : "▶️ 시간 진행 중 (Space)");
-            return next;
-          });
-        }}
-        onChangeSpeed={(spd) => {
-          setGameSpeed(spd);
-          if (isPaused) setIsPaused(false);
-          showQuickNotice(`⏩ 속도 변경: ${spd}x (${spd === 1 ? '1분=1달' : spd === 2 ? '30초=1달' : '15초=1달'})`);
-        }}
-        monthProgressPercent={monthProgressPercent}
-        realtimeDateStr={formatCleanDate(gameDate)}
-        onOpenFamilyTree={() => setActiveModal('familyTree')}
-        onOpenRealm={() => { setRealmInitialTab('realm'); setActiveModal('realm'); }}
-        onOpenCharacter={() => setActiveModal('character')}
-        onOpenRelations={() => setActiveModal('relations')}
-        onOpenEstate={() => { setRealmInitialTab('estate'); setActiveModal('realm'); }}
-        onOpenChronicle={() => setActiveModal('chronicle')}
-        onOpenSave={() => setActiveModal('save')}
-        onOpenSettings={() => setActiveModal('settings')}
-        onQuickSave={handleQuickSave}
-        onUndoTurn={handleUndoTurn}
-        canUndo={canUndo}
-        onReturnTitle={handleReturnToTitle}
-        onOpenApiKey={() => setIsApiKeyModalOpen(true)}
-      />
+      {/* Top Floating HUD */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 30,
+        background: 'rgba(18, 12, 8, 0.94)',
+        borderBottom: '1px solid rgba(200, 159, 60, 0.35)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)'
+      }}>
+        <CKTopHud
+          gameState={gameState}
+          turn={turn}
+          gameSpeed={gameSpeed}
+          isPaused={isPaused}
+          onTogglePause={() => {
+            setIsPaused(prev => {
+              const next = !prev;
+              showQuickNotice(next ? "⏸️ 시간 일시정지됨 (Space)" : "▶️ 시간 진행 중 (Space)");
+              return next;
+            });
+          }}
+          onChangeSpeed={(spd) => {
+            setGameSpeed(spd);
+            if (isPaused) setIsPaused(false);
+            showQuickNotice(`⏩ 속도 변경: ${spd}x (${spd === 1 ? '1분=1달' : spd === 2 ? '30초=1달' : '15초=1달'})`);
+          }}
+          monthProgressPercent={monthProgressPercent}
+          realtimeDateStr={formatCleanDate(gameDate)}
+          onOpenFamilyTree={() => setActiveModal('familyTree')}
+          onOpenRealm={() => { setRealmInitialTab('realm'); setActiveModal('realm'); }}
+          onOpenCharacter={() => setActiveModal('character')}
+          onOpenRelations={() => setActiveModal('relations')}
+          onOpenEstate={() => { setRealmInitialTab('estate'); setActiveModal('realm'); }}
+          onOpenChronicle={() => setActiveModal('chronicle')}
+          onOpenSave={() => setActiveModal('save')}
+          onOpenSettings={() => setActiveModal('settings')}
+          onQuickSave={handleQuickSave}
+          onUndoTurn={handleUndoTurn}
+          canUndo={canUndo}
+          onReturnTitle={handleReturnToTitle}
+          onOpenApiKey={() => setIsApiKeyModalOpen(true)}
+        />
+      </div>
 
-      {/* Center Grand Strategy Panel */}
-      <section className={`glass-panel ${styles.centerPanel}`} style={{ display: 'flex', flexDirection: 'column', padding: '16px', gap: '12px' }}>
-
+      {/* Main Full-Bleed Grand Strategy Stage */}
+      <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'hidden' }}>
         {gameState.ending ? (
-          <div className={styles.narrativeArea} style={{textAlign: 'center', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(10, 5, 5, 0.95)',
+            zIndex: 50,
+            textAlign: 'center',
+            padding: '40px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
              <h1 style={{color: 'var(--danger)', fontSize: '4rem', marginBottom: '30px', textShadow: '0 0 15px rgba(239,68,68,0.5)', letterSpacing: '5px'}}>GAME OVER</h1>
-             <p className={styles.narrativeText} style={{fontSize: '1.2rem', lineHeight: '2', color: 'var(--text-main)', maxWidth: '80%'}}>
+             <p style={{fontSize: '1.2rem', lineHeight: '2', color: 'var(--text-main)', maxWidth: '80%'}}>
                 <TypewriterText text={gameState.ending} delay={30} />
              </p>
              <button className={styles.actionBtn} style={{marginTop: '50px', padding: '15px 40px', fontSize: '1.2rem'}} onClick={() => { localStorage.removeItem("ck_auto_save"); window.location.href = '/'; }}>
@@ -1254,38 +1278,38 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* 1. 상단: 인터랙티브 중세 영지 지도 & 우측 프로빈스 인스펙터 */}
-            <div style={{
-              display: 'flex',
-              gap: '14px',
-              height: 'calc(100vh - 350px)',
-              minHeight: '440px',
-              position: 'relative'
-            }}>
-              {/* 중세 영지 벡터 지도 */}
-              <div style={{
-                flex: 1,
-                borderRadius: '12px',
-                overflow: 'hidden',
-                border: '1px solid rgba(200, 159, 60, 0.35)',
-                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.7)',
-                position: 'relative'
-              }}>
-                <CKMapView
-                  provinces={provinces}
-                  armies={armies}
-                  selectedProvinceId={selectedProvinceId}
-                  onSelectProvince={(prov) => setSelectedProvinceId(prov.id)}
-                  selectedArmyId={selectedArmyId}
-                  onSelectArmy={(army) => setSelectedArmyId(army ? army.id : null)}
-                  onOrderArmyMove={handleOrderArmyMove}
-                  currentMapMode={mapMode}
-                  onChangeMapMode={setMapMode}
-                />
-              </div>
+            {/* 1. 풀스크린 인터랙티브 중세 영지 고지도 (Parchment on Wood Desk) */}
+            <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <CKMapView
+                provinces={provinces}
+                armies={armies}
+                selectedProvinceId={selectedProvinceId}
+                onSelectProvince={(prov) => setSelectedProvinceId(prov.id)}
+                selectedArmyId={selectedArmyId}
+                onSelectArmy={(army) => setSelectedArmyId(army ? army.id : null)}
+                onOrderArmyMove={handleOrderArmyMove}
+                currentMapMode={mapMode}
+                onChangeMapMode={setMapMode}
+              />
+            </div>
 
-              {/* 우측 프로빈스 인스펙터 패널 */}
-              {selectedProvinceId && (
+            {/* 2. 우측 슬라이딩 플로팅 프로빈스 인스펙터 패널 */}
+            {selectedProvinceId && (
+              <div style={{
+                position: 'absolute',
+                right: '16px',
+                top: '76px',
+                bottom: '16px',
+                width: '380px',
+                maxWidth: 'calc(100vw - 32px)',
+                maxHeight: 'calc(100vh - 92px)',
+                overflowY: 'auto',
+                zIndex: 40,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '12px',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.85)'
+              }}>
                 <CKProvinceInspector
                   province={provinces.find(p => p.id === selectedProvinceId) || null}
                   onClose={() => setSelectedProvinceId(null)}
@@ -1301,86 +1325,128 @@ export default function Home() {
                   warScore={warScore}
                   apiKey={apiKey}
                 />
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* 2. 하단: 궁정 서신 및 전황 연대기 (Grand Chronicle & Dispatch Feed) */}
+            {/* 3. 좌하단 플로팅 접이식 서관 & 연대기 콘솔 (Collapsible Dispatch Console) */}
             <div style={{
-              padding: '12px 16px',
-              background: 'linear-gradient(180deg, rgba(22, 17, 13, 0.95), rgba(14, 10, 8, 0.98))',
-              border: '1px solid rgba(200, 159, 60, 0.3)',
-              borderRadius: '12px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
+              position: 'absolute',
+              bottom: '16px',
+              left: '16px',
+              zIndex: 25,
+              maxWidth: 'min(760px, calc(100vw - 32px))',
               display: 'flex',
-              gap: '16px',
-              height: '155px'
+              flexDirection: 'column',
+              alignItems: 'flex-start'
             }}>
-              {/* 좌측: 최근 역사 국면 전개 */}
-              <div style={{
-                flex: 1.1,
-                overflowY: 'auto',
-                paddingRight: '12px',
-                borderRight: '1px solid rgba(200, 159, 60, 0.2)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#fef3c7' }}>
-                    📜 【 역사적 국면 및 사건 전개 】
-                  </span>
-                  {gameState.historicalTag && (
-                    <span style={{
-                      fontSize: '10px',
-                      padding: '1px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #fbbf24',
-                      color: '#fbbf24'
-                    }}>
-                      {gameState.historicalTag}
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: '11.5px', lineHeight: '1.55', color: '#d6d3d1' }}>
-                  <TypewriterText text={gameState.narrative || "서기 1066년, 격변하는 유럽의 운명이 영주의 지휘 아래 놓여 있습니다."} delay={uxSettings.typewriterSpeed} />
-                </div>
-              </div>
+              {/* 토글 헤더 버튼 */}
+              <button
+                onClick={() => setIsDispatchExpanded(!isDispatchExpanded)}
+                style={{
+                  background: 'rgba(26, 18, 12, 0.95)',
+                  border: '1.5px solid rgba(200, 159, 60, 0.45)',
+                  borderRadius: isDispatchExpanded ? '8px 8px 0 0' : '8px',
+                  padding: '6px 14px',
+                  color: '#fef3c7',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.7)',
+                  backdropFilter: 'blur(6px)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>📜 궁정 서관 및 실시간 전황 ({dispatchLogs.length}건)</span>
+                <span style={{ fontSize: '9px', color: '#fbbf24' }}>
+                  {isDispatchExpanded ? '▼ 접기' : '▲ 펼치기'}
+                </span>
+              </button>
 
-              {/* 우측: 실시간 전황 상보 및 외교 기록 피드 (AI Co-Pilot 로그) */}
-              <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px'
-              }}>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>⚔️ 【 궁정 전황 및 외교 상보 (AI 서관) 】</span>
-                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 400 }}>실시간 업데이트</span>
-                </div>
-                {dispatchLogs.length === 0 ? (
-                  <div style={{ fontSize: '11px', color: '#78716c', fontStyle: 'italic', marginTop: '4px' }}>
-                    영지 징집병을 소집하여 진군시키거나, 인접국에 외교 사절을 파견하십시오. 실시간 전황과 외교 서신이 기록됩니다.
-                  </div>
-                ) : (
-                  dispatchLogs.map(log => (
-                    <div key={log.id} style={{
-                      padding: '6px 10px',
-                      borderRadius: '6px',
-                      background: log.type === 'battle' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(59, 130, 246, 0.12)',
-                      border: log.type === 'battle' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
-                      fontSize: '11px',
-                      lineHeight: '1.45',
-                      color: '#f3f4f6',
-                      whiteSpace: 'pre-line'
-                    }}>
-                      <div style={{ fontSize: '9.5px', color: '#a8a29e', marginBottom: '2px' }}>{log.time}</div>
-                      {log.text}
+              {/* 내용물 패널 (펼쳤을 때) */}
+              {isDispatchExpanded && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: 'linear-gradient(180deg, rgba(22, 16, 12, 0.96), rgba(14, 10, 8, 0.98))',
+                  border: '1px solid rgba(200, 159, 60, 0.35)',
+                  borderRadius: '0 8px 8px 8px',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.85)',
+                  display: 'flex',
+                  gap: '16px',
+                  width: '100%',
+                  height: '145px',
+                  backdropFilter: 'blur(8px)'
+                }}>
+                  {/* 좌측: 최근 역사 국면 전개 */}
+                  <div style={{
+                    flex: 1.1,
+                    overflowY: 'auto',
+                    paddingRight: '12px',
+                    borderRight: '1px solid rgba(200, 159, 60, 0.2)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#fef3c7' }}>
+                        📜 【 역사적 국면 및 사건 전개 】
+                      </span>
+                      {gameState.historicalTag && (
+                        <span style={{
+                          fontSize: '9.5px',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          border: '1px solid #fbbf24',
+                          color: '#fbbf24'
+                        }}>
+                          {gameState.historicalTag}
+                        </span>
+                      )}
                     </div>
-                  ))
-                )}
-              </div>
+                    <div style={{ fontSize: '11px', lineHeight: '1.5', color: '#d6d3d1' }}>
+                      <TypewriterText text={gameState.narrative || "서기 1066년, 격변하는 유럽의 운명이 영주의 지휘 아래 놓여 있습니다."} delay={uxSettings.typewriterSpeed} />
+                    </div>
+                  </div>
+
+                  {/* 우측: 실시간 전황 상보 및 외교 기록 피드 (AI Co-Pilot 로그) */}
+                  <div style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '5px'
+                  }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>⚔️ 【 궁정 전황 및 외교 상보 (AI 서관) 】</span>
+                      <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 400 }}>실시간</span>
+                    </div>
+                    {dispatchLogs.length === 0 ? (
+                      <div style={{ fontSize: '10.5px', color: '#78716c', fontStyle: 'italic', marginTop: '4px' }}>
+                        영지 징집병을 소집하여 진군시키거나, 인접국에 외교 사절을 파견하십시오. 실시간 전황과 외교 서신이 기록됩니다.
+                      </div>
+                    ) : (
+                      dispatchLogs.map(log => (
+                        <div key={log.id} style={{
+                          padding: '5px 8px',
+                          borderRadius: '5px',
+                          background: log.type === 'battle' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                          border: log.type === 'battle' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
+                          fontSize: '10.5px',
+                          lineHeight: '1.4',
+                          color: '#f3f4f6',
+                          whiteSpace: 'pre-line'
+                        }}>
+                          <div style={{ fontSize: '9px', color: '#a8a29e', marginBottom: '2px' }}>{log.time}</div>
+                          {log.text}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
-      </section>
+      </div>
 
       {/* Right Panel */}
       
