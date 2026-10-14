@@ -183,6 +183,40 @@ export const WORLD_BASE_GEOGRAPHY = {
       path: `
         M 1040 480 C 1100 460 1160 480 1175 540 C 1160 620 1120 700 1080 710 C 1050 650 1040 560 1040 480 Z
       `
+    },
+    // 16. 중화 본토 및 양쯔강·황하 대평원 (송나라 & 거란)
+    {
+      id: 'china_mainland',
+      name: '중화 중원 및 강남',
+      path: `
+        M 1140 240 C 1220 220 1280 230 1270 280 C 1255 350 1270 420 1280 500 C 1270 560 1220 620 1130 610
+        C 1070 600 1050 510 1060 430 C 1050 360 1100 270 1140 240 Z
+      `
+    },
+    // 17. 만주 및 한반도 (고려 삼한)
+    {
+      id: 'korean_peninsula',
+      name: '한반도 및 요동',
+      path: `
+        M 1260 250 C 1290 235 1330 250 1335 290 C 1340 330 1330 380 1300 410 C 1275 400 1270 350 1280 310
+        C 1270 280 1260 260 1260 250 Z
+      `
+    },
+    // 18. 일본 열도 (헤이안 일본)
+    {
+      id: 'japanese_archipelago',
+      name: '일본 열도',
+      path: `
+        M 1340 330 C 1365 300 1410 280 1430 320 C 1440 360 1400 410 1365 420 C 1345 390 1335 360 1340 330 Z
+      `
+    },
+    // 19. 티베트 고원 (히말라야 설산)
+    {
+      id: 'tibet_plateau',
+      name: '티베트 고원',
+      path: `
+        M 1040 380 C 1110 390 1140 430 1135 480 C 1090 500 1045 490 1035 440 C 1030 400 1035 385 1040 380 Z
+      `
     }
   ]
 };
@@ -209,10 +243,16 @@ export const IMPERIAL_CALLIGRAPHIES: ImperialCalligraphy[] = [
   { id: 'cumania', text: 'CUMANIA', x: 860, y: 230, rotate: -2, fontSize: 32, letterSpacing: 10, color: '#543b22' },
   { id: 'seljuk', text: 'SELJUK', x: 940, y: 440, rotate: -3, fontSize: 34, letterSpacing: 10, color: '#2f4b16' },
   { id: 'fatimid', text: 'FATIMID', x: 740, y: 640, rotate: -5, fontSize: 24, letterSpacing: 7, color: '#144c35' },
-  { id: 'mongolia', text: 'MONGOLIA', x: 1100, y: 200, rotate: 1, fontSize: 22, letterSpacing: 6, color: '#2b4d2b' },
+  { id: 'mongolia', text: 'MONGOLIA', x: 1080, y: 190, rotate: 1, fontSize: 20, letterSpacing: 6, color: '#2b4d2b' },
   { id: 'poland', text: 'POLAND', x: 550, y: 235, rotate: -2, fontSize: 16, letterSpacing: 5, color: '#662222' },
   { id: 'hungary', text: 'HUNGARY', x: 605, y: 320, rotate: 0, fontSize: 16, letterSpacing: 5, color: '#5c3a16' },
-  { id: 'ghana', text: 'GHANA', x: 210, y: 670, rotate: -4, fontSize: 18, letterSpacing: 6, color: '#6b3612' }
+  { id: 'ghana', text: 'GHANA', x: 210, y: 670, rotate: -4, fontSize: 18, letterSpacing: 6, color: '#6b3612' },
+  // 동양 대제국 고전 캘리그라피
+  { id: 'song', text: 'SONG DYNASTY', x: 1180, y: 450, rotate: -2, fontSize: 26, letterSpacing: 8, color: '#991b1b' },
+  { id: 'goryeo', text: 'GORYEO', x: 1290, y: 310, rotate: 4, fontSize: 15, letterSpacing: 4, color: '#1e40af' },
+  { id: 'liao', text: 'LIAO EMPIRE', x: 1190, y: 260, rotate: -3, fontSize: 18, letterSpacing: 6, color: '#78350f' },
+  { id: 'japan', text: 'JAPAN', x: 1375, y: 360, rotate: -15, fontSize: 14, letterSpacing: 4, color: '#831843' },
+  { id: 'tibet', text: 'TIBET', x: 1070, y: 435, rotate: 0, fontSize: 16, letterSpacing: 5, color: '#581c87' }
 ];
 
 /**
@@ -929,8 +969,8 @@ export const INITIAL_PROVINCES: Province[] = [
     isPlayerControlled: false,
     color: 'rgba(21, 128, 61, 0.45)',
     borderColor: '#15803d',
-    neighbors: ['prov_cumania', 'prov_bengal'],
-    center: { x: 1100, y: 215 },
+    neighbors: ['prov_cumania', 'prov_liao_yanzhou', 'prov_western_xia'],
+    center: { x: 1080, y: 200 },
     svgPath: 'M 1030 160 C 1110 145 1170 155 1180 200 C 1170 260 1100 280 1040 265 C 1020 220 1020 180 1030 160 Z'
   },
 
@@ -954,9 +994,184 @@ export const INITIAL_PROVINCES: Province[] = [
     isPlayerControlled: false,
     color: 'rgba(126, 34, 206, 0.45)',
     borderColor: '#7e22ce',
-    neighbors: ['prov_seljuk_isfahan', 'prov_mongolia'],
-    center: { x: 1100, y: 580 },
+    neighbors: ['prov_seljuk_isfahan', 'prov_tibet', 'prov_song_kaifeng'],
+    center: { x: 1080, y: 560 },
     svgPath: 'M 1040 480 C 1110 460 1165 480 1175 550 C 1160 640 1110 705 1075 690 C 1045 630 1035 540 1040 480 Z'
+  },
+
+  // ================= 13. 동양: 대송 제국 (황하 중원 황도) =================
+  {
+    id: 'prov_song_kaifeng',
+    name: '송·개봉 (Kaifeng)',
+    capital: '동경 개봉부',
+    rulerName: '조서 (송 영종)',
+    rulerTitle: '대송 천자',
+    realmName: '대송 제국 (SONG DYNASTY)',
+    culture: '송 중원',
+    religion: '불교',
+    terrain: '평야',
+    development: 85,
+    garrison: 1200,
+    maxLevies: 1200,
+    currentLevies: 1200,
+    monthlyIncome: 28.0,
+    holdingLevel: 5,
+    isPlayerControlled: false,
+    color: 'rgba(220, 38, 38, 0.52)',
+    borderColor: '#b91c1c',
+    neighbors: ['prov_western_xia', 'prov_liao_yanzhou', 'prov_song_hangzhou', 'prov_tibet', 'prov_bengal'],
+    center: { x: 1200, y: 410 },
+    svgPath: 'M 1150 360 C 1220 345 1255 355 1260 400 C 1250 450 1210 470 1150 460 C 1130 420 1135 380 1150 360 Z'
+  },
+
+  // ================= 14. 동양: 대송 제국 (양쯔강 강남 부유령) =================
+  {
+    id: 'prov_song_hangzhou',
+    name: '송·항주 (Hangzhou)',
+    capital: '임안부 (항주)',
+    rulerName: '소동파 (소식)',
+    rulerTitle: '항주 지부',
+    realmName: '대송 제국 (강남 부유권)',
+    culture: '강남 한족',
+    religion: '불교',
+    terrain: '습지',
+    development: 78,
+    garrison: 900,
+    maxLevies: 950,
+    currentLevies: 950,
+    monthlyIncome: 24.0,
+    holdingLevel: 5,
+    isPlayerControlled: false,
+    color: 'rgba(234, 88, 12, 0.48)',
+    borderColor: '#c2410c',
+    neighbors: ['prov_song_kaifeng', 'prov_goryeo', 'prov_japan_kyoto'],
+    center: { x: 1220, y: 520 },
+    svgPath: 'M 1150 460 C 1210 470 1260 480 1270 530 C 1250 580 1180 610 1130 580 C 1120 520 1130 480 1150 460 Z'
+  },
+
+  // ================= 15. 동양: 고려 왕국 (개경 만월대) =================
+  {
+    id: 'prov_goryeo',
+    name: '고려·개경 (Kaegyong)',
+    capital: '개경 (만월대)',
+    rulerName: '문종 (휘 휘)',
+    rulerTitle: '고려 국왕',
+    realmName: '고려 왕국 (GORYEO)',
+    culture: '고려',
+    religion: '불교',
+    terrain: '산악',
+    development: 52,
+    garrison: 750,
+    maxLevies: 700,
+    currentLevies: 700,
+    monthlyIncome: 15.0,
+    holdingLevel: 4,
+    isPlayerControlled: false,
+    color: 'rgba(37, 99, 235, 0.52)',
+    borderColor: '#1d4ed8',
+    neighbors: ['prov_liao_yanzhou', 'prov_song_hangzhou', 'prov_japan_kyoto'],
+    center: { x: 1300, y: 320 },
+    svgPath: 'M 1270 260 C 1310 250 1330 270 1325 310 C 1335 340 1320 380 1295 400 C 1275 390 1270 350 1280 320 C 1275 290 1265 270 1270 260 Z'
+  },
+
+  // ================= 16. 동양: 거란 요제국 (연경/북경) =================
+  {
+    id: 'prov_liao_yanzhou',
+    name: '요·연경 (Yanjing)',
+    capital: '남경 석진부 (연경)',
+    rulerName: '야율홍기 (요 도종)',
+    rulerTitle: '대요 천자',
+    realmName: '대요 거란제국 (LIAO)',
+    culture: '거란',
+    religion: '불교',
+    terrain: '구릉',
+    development: 46,
+    garrison: 850,
+    maxLevies: 900,
+    currentLevies: 900,
+    monthlyIncome: 16.5,
+    holdingLevel: 4,
+    isPlayerControlled: false,
+    color: 'rgba(180, 83, 9, 0.52)',
+    borderColor: '#92400e',
+    neighbors: ['prov_mongolia', 'prov_western_xia', 'prov_song_kaifeng', 'prov_goryeo'],
+    center: { x: 1210, y: 280 },
+    svgPath: 'M 1150 240 C 1220 220 1270 230 1270 260 C 1265 290 1255 355 1220 345 C 1150 360 1140 300 1150 240 Z'
+  },
+
+  // ================= 17. 동양: 탕구트 서하 왕국 =================
+  {
+    id: 'prov_western_xia',
+    name: '서하·흥경 (Yinchuan)',
+    capital: '흥경부',
+    rulerName: '이양조 (서하 혜종)',
+    rulerTitle: '하국 황제',
+    realmName: '탕구트 서하 왕국 (WESTERN XIA)',
+    culture: '탕구트',
+    religion: '불교',
+    terrain: '사막',
+    development: 32,
+    garrison: 600,
+    maxLevies: 650,
+    currentLevies: 650,
+    monthlyIncome: 11.0,
+    holdingLevel: 3,
+    isPlayerControlled: false,
+    color: 'rgba(217, 119, 6, 0.52)',
+    borderColor: '#b45309',
+    neighbors: ['prov_mongolia', 'prov_liao_yanzhou', 'prov_song_kaifeng', 'prov_tibet'],
+    center: { x: 1100, y: 340 },
+    svgPath: 'M 1060 280 C 1120 260 1150 290 1150 360 C 1135 380 1100 400 1060 380 C 1045 330 1045 300 1060 280 Z'
+  },
+
+  // ================= 18. 동양: 토번 티베트 연맹 =================
+  {
+    id: 'prov_tibet',
+    name: '토번·라싸 (Lhasa)',
+    capital: '라싸',
+    rulerName: '외송 찬푸 후예',
+    rulerTitle: '토번 대왕',
+    realmName: '토번 왕국 (TIBET)',
+    culture: '티베트',
+    religion: '불교',
+    terrain: '산악',
+    development: 26,
+    garrison: 500,
+    maxLevies: 550,
+    currentLevies: 550,
+    monthlyIncome: 7.5,
+    holdingLevel: 3,
+    isPlayerControlled: false,
+    color: 'rgba(147, 51, 234, 0.48)',
+    borderColor: '#7e22ce',
+    neighbors: ['prov_western_xia', 'prov_song_kaifeng', 'prov_bengal'],
+    center: { x: 1080, y: 440 },
+    svgPath: 'M 1040 380 C 1100 400 1135 420 1130 480 C 1090 500 1050 490 1040 450 C 1030 420 1030 390 1040 380 Z'
+  },
+
+  // ================= 19. 동양: 일본 헤이안 왕조 =================
+  {
+    id: 'prov_japan_kyoto',
+    name: '일본·헤이안쿄 (Kyoto)',
+    capital: '헤이안쿄 (교토)',
+    rulerName: '고산조 천황',
+    rulerTitle: '일본 천황',
+    realmName: '헤이안 조정 (HEIAN JAPAN)',
+    culture: '야마토',
+    religion: '불교',
+    terrain: '해안',
+    development: 54,
+    garrison: 750,
+    maxLevies: 750,
+    currentLevies: 750,
+    monthlyIncome: 15.5,
+    holdingLevel: 4,
+    isPlayerControlled: false,
+    color: 'rgba(157, 23, 77, 0.5)',
+    borderColor: '#9d174d',
+    neighbors: ['prov_goryeo', 'prov_song_hangzhou'],
+    center: { x: 1370, y: 360 },
+    svgPath: 'M 1340 330 C 1370 300 1410 290 1420 340 C 1400 390 1360 410 1335 380 C 1330 350 1335 340 1340 330 Z'
   },
 
   // ================= 13. 서아프리카 가나 제국 =================

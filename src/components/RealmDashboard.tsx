@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ParsedState } from "@/lib/parser";
 import { detectPlayerArchetype, parseCKResources } from "@/lib/ckVisuals";
+import { parsePopulationCount } from "@/lib/populationEconomy";
 
 interface Props {
   factionState?: Record<string, string>;
@@ -975,8 +976,20 @@ export default function RealmDashboard({ factionState, gameState }: Props) {
       {/* 1. Crusader Kings Top HUD Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
         {resourceKeys.map((key) => {
-          const val = factionState[key] || '-';
+          let val = factionState[key] || '-';
           const isPopKey = key.includes('인구');
+          // 깨진 콤마 표기(예: 1,100417322명 등) 방어 및 정규화
+          if (isPopKey && val !== '-') {
+            const parsedCount = parsePopulationCount(val);
+            if (parsedCount > 0) {
+              const formatted = parsedCount.toLocaleString('ko-KR');
+              if (val.match(/[\d,]+\s*명/)) {
+                val = val.replace(/[\d,]+(\s*명)/, `${formatted}$1`);
+              } else if (val.match(/[\d,]+/)) {
+                val = val.replace(/[\d,]+/, `${formatted}`);
+              }
+            }
+          }
           return (
             <div
               key={key}

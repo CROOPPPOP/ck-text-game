@@ -1769,21 +1769,31 @@ export function applyTurnResourceAccumulation(
     const archetype = detectPlayerArchetype(prevState);
     const currencyName = prevIncome.currencyName || (archetype === 'clergy' ? '은화' : archetype === 'wanderer' ? '동화' : '금화');
 
-    // 재정 문자열 업데이트 헬퍼: 기존 포맷("금화 150닢", "은화 45.0닢" 등)을 보존하며 가산
+    // 재정 문자열 업데이트 헬퍼: 기존 포맷("금화 1,500닢", "은화 45.0닢" 등)을 보존하며 가산
     const updateWealthString = (orig: string, delta: number): string => {
-      if (!orig) return `${currencyName} ${Math.max(0, Math.round(delta * 10) / 10)}닢`;
-      const match = orig.match(/(\D*?)(\d+(?:\.\d+)?)(.*)/);
+      if (!orig) return `${currencyName} ${Math.max(0, Math.round(delta * 10) / 10).toLocaleString('ko-KR')}닢`;
+      // 쉼표를 포함한 전체 숫자 패턴 정밀 추출
+      const match = orig.match(/^([^\d]*?)([\d,]+(?:\.\d+)?)(.*)$/);
       if (match) {
         const prefix = match[1] || '';
-        const oldVal = parseFloat(match[2]);
+        const numClean = match[2].replace(/,/g, '');
+        const oldVal = parseFloat(numClean);
         const suffix = match[3] || '';
-        const rawNew = Math.max(0, oldVal + delta);
-        const newVal = Number.isInteger(rawNew) ? rawNew : Math.round(rawNew * 10) / 10;
-        return `${prefix}${newVal}${suffix}`;
+        if (!isNaN(oldVal)) {
+          const rawNew = Math.max(0, oldVal + delta);
+          const rounded = Math.round(rawNew * 10) / 10;
+          const formattedNum = Number.isInteger(rounded)
+            ? rounded.toLocaleString('ko-KR')
+            : `${Math.floor(rounded).toLocaleString('ko-KR')}.${Math.round((rounded - Math.floor(rounded)) * 10)}`;
+          return `${prefix}${formattedNum}${suffix}`;
+        }
       }
       const rawNew = Math.max(0, delta);
-      const newVal = Number.isInteger(rawNew) ? rawNew : Math.round(rawNew * 10) / 10;
-      return `${currencyName} ${newVal}닢`;
+      const rounded = Math.round(rawNew * 10) / 10;
+      const formattedNum = Number.isInteger(rounded)
+        ? rounded.toLocaleString('ko-KR')
+        : `${Math.floor(rounded).toLocaleString('ko-KR')}.${Math.round((rounded - Math.floor(rounded)) * 10)}`;
+      return `${currencyName} ${formattedNum}닢`;
     };
 
     // 1-1. 세력 재정 업데이트
@@ -1915,12 +1925,15 @@ export function applyTurnResourceAccumulation(
           if (growthRate < 0 && netDelta === 0) netDelta = -1;
 
           const newCount = Math.max(0, prevCount + netDelta);
-          if (curPopRaw.match(/\d+\s*명/)) {
-            newState.factionState[popKey] = curPopRaw.replace(/\d+(\s*명)/, `${newCount}$1`);
-          } else if (curPopRaw.match(/\d+/)) {
-            newState.factionState[popKey] = curPopRaw.replace(/\d+/, `${newCount}`);
+          const formattedCount = newCount.toLocaleString('ko-KR');
+
+          // 기존 인구 문자열에서 쉼표가 포함된 전체 숫자 영역([\d,]+)을 통째로 교체하여 자릿수 누적 버그 원천 차단
+          if (curPopRaw.match(/[\d,]+\s*명/)) {
+            newState.factionState[popKey] = curPopRaw.replace(/[\d,]+(\s*명)/, `${formattedCount}$1`);
+          } else if (curPopRaw.match(/[\d,]+/)) {
+            newState.factionState[popKey] = curPopRaw.replace(/[\d,]+/, `${formattedCount}`);
           } else {
-            newState.factionState[popKey] = `영지민 ${newCount}명(안정)`;
+            newState.factionState[popKey] = `영지민 ${formattedCount}명(안정)`;
           }
           newState.previousPopulation = prevCount;
         } else {

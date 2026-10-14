@@ -38,6 +38,7 @@ import { sanitizeEstateState } from '@/lib/estate';
 import { mergeFactionLists } from '@/lib/factionRelations';
 import { createInitialGameState, processTurn } from '@/lib/engine/simulationCore';
 import { Province, INITIAL_PROVINCES, MapMode, CouncilTask } from '@/lib/engine/mapData';
+import { MapPresetId, getMapPreset } from '@/lib/engine/mapPresets';
 import { Army, raiseLevies, orderArmyMove, updateMilitaryTick, BattleEventResult } from '@/lib/engine/militaryEngine';
 import { requestBattleDispatch } from '@/lib/engine/aiChronicler';
 import CKMapView from '@/components/CKMapView';
@@ -183,6 +184,7 @@ export default function Home() {
   } | null>(null);
 
   // 🗺️ 대전략 지도, 군사 및 AI 서관 상태
+  const [mapPresetId, setMapPresetId] = useState<MapPresetId>('1066_europe');
   const [provinces, setProvinces] = useState<Province[]>(INITIAL_PROVINCES);
   const [armies, setArmies] = useState<Army[]>([]);
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>('prov_wessex');
@@ -195,6 +197,18 @@ export default function Home() {
   const [isAtWar, setIsAtWar] = useState<boolean>(false);
   const [warScore, setWarScore] = useState<number>(0);
   const [isDispatchExpanded, setIsDispatchExpanded] = useState<boolean>(true);
+
+  // 🗺️ 지도 프리셋 전환 처리 (유럽 1066 vs Azgaar 판타지 렐름)
+  const handleSelectMapPreset = (presetId: MapPresetId) => {
+    setMapPresetId(presetId);
+    const preset = getMapPreset(presetId);
+    setProvinces(preset.provinces);
+    setArmies([]); // 맵 변경 시 기존 부대 초기화
+    if (preset.provinces.length > 0) {
+      setSelectedProvinceId(preset.provinces[0].id);
+    }
+    showQuickNotice(`🗺️ 세계관 지도가 '${preset.name}'(으)로 전환되었습니다.`);
+  };
 
   // API Key 로드
   useEffect(() => {
@@ -1290,6 +1304,8 @@ export default function Home() {
                 onOrderArmyMove={handleOrderArmyMove}
                 currentMapMode={mapMode}
                 onChangeMapMode={setMapMode}
+                currentPresetId={mapPresetId}
+                onSelectPreset={handleSelectMapPreset}
               />
             </div>
 

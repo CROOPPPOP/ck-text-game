@@ -69,6 +69,28 @@ async function runTests() {
   if (!letterFallback.includes('선전포고문') && !letterFallback.includes('서한')) throw new Error("Diplomacy letter fallback failed");
   console.log(`✅ PASS: Diplomatic letter fallback generated successfully.`);
 
+  console.log("=== [4] East Asia (Korea, Song, Japan) Province Tests ===");
+  const goryeo = INITIAL_PROVINCES.find(p => p.id === 'prov_goryeo')!;
+  if (!goryeo || goryeo.rulerName !== '문종 (휘 휘)') throw new Error("Goryeo province missing or invalid ruler");
+  if (!goryeo.neighbors.includes('prov_liao_yanzhou') || !goryeo.neighbors.includes('prov_japan_kyoto')) {
+    throw new Error("Goryeo neighbors missing Liao or Japan");
+  }
+  console.log(`✅ PASS: Goryeo Kaegyong province verified (neighbors: ${goryeo.neighbors.join(', ')}).`);
+
+  const kaifeng = INITIAL_PROVINCES.find(p => p.id === 'prov_song_kaifeng')!;
+  if (!kaifeng || kaifeng.holdingLevel !== 5) throw new Error("Song Kaifeng missing or not level 5");
+  console.log(`✅ PASS: Song Dynasty Kaifeng metropolis verified (Development: ${kaifeng.development}).`);
+
+  // 고려군 징집 및 일본 원정/방어 행군 테스트
+  const goryeoArmy = raiseLevies(goryeo, '고려 국왕 문종', true)!;
+  if (!goryeoArmy || goryeoArmy.troops !== 700) throw new Error("Goryeo levy raising failed");
+  console.log(`✅ PASS: Goryeo royal army raised (${goryeoArmy.troops} troops).`);
+
+  const japan = INITIAL_PROVINCES.find(p => p.id === 'prov_japan_kyoto')!;
+  const marchToJapan = orderArmyMove(goryeoArmy, japan, goryeo);
+  if (marchToJapan.targetProvinceId !== 'prov_japan_kyoto') throw new Error("March to Japan failed");
+  console.log(`✅ PASS: Goryeo fleet movement to Japan ordered successfully.`);
+
   console.log("=== All Grand Strategy & AI Co-Pilot Tests Passed! ===");
 }
 

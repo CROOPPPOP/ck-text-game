@@ -40,13 +40,19 @@ export function parsePopulationCount(rawText: string | undefined): number {
   if (!rawText) return 0;
   if (rawText.includes('없음')) return 0;
   
-  // 쉼표 제거 (예: "3,500명" -> "3500명")
+  // 쉼표 제거 (예: "1,100명" -> "1100명")
   const clean = rawText.replace(/,/g, '');
 
   // "145명" 또는 "단원 24명", "동행 1명" 등 숫자 추출
   const match = clean.match(/(\d+)\s*명?/);
   if (match) {
-    return parseInt(match[1], 10);
+    const val = parseInt(match[1], 10);
+    // Sanity Cap: 단일 영지 인구가 200,000명을 초과하는 비정상 인플레이션 차단 (중세 최대 대도시 수준 이하로 보정)
+    if (val > 200000) {
+      console.warn(`[parsePopulationCount] 비정상 인구 감지(${val}명). 안전 기본치 1,200명으로 보정합니다.`);
+      return 1200;
+    }
+    return val;
   }
   
   return 0;
@@ -87,7 +93,8 @@ export function calculatePopulationGrowth(
   let formattedDelta: string | undefined = undefined;
   if (typeof previousPopulation === 'number' && previousPopulation > 0) {
     delta = currentPopulation - previousPopulation;
-    formattedDelta = delta > 0 ? `▲ +${delta}명` : delta < 0 ? `▼ ${delta}명` : '변동 없음';
+    const formattedAbsDelta = Math.abs(delta).toLocaleString('ko-KR');
+    formattedDelta = delta > 0 ? `▲ +${formattedAbsDelta}명` : delta < 0 ? `▼ -${formattedAbsDelta}명` : '변동 없음';
   }
 
   const estate = gameState?.estate;
@@ -249,7 +256,9 @@ export function calculatePopulationGrowth(
 
   // 6. 과밀 패널티 (Overcapacity Penalty)
   if (isOverCapacity) {
-    const penaltyAmt = -Math.round((currentPopulation - capacity) * 0.1 * 10) / 10;
+    // 과밀 패널티 상한선(-35명) 적용 및 과도한 폭락 방지
+    const excess = Math.max(0, currentPopulation - capacity);
+    const penaltyAmt = -Math.min(35, Math.max(1, Math.round(excess * 0.05)));
     growthItems.push({
       id: 'penalty_overcapacity',
       name: '거점 인구 과밀 한계 패널티',
@@ -264,7 +273,12 @@ export function calculatePopulationGrowth(
   // 총 합산 계산
   const totalGrowth = growthItems.reduce((sum, item) => sum + item.amount, 0);
   const growthRate = Math.round(totalGrowth * 10) / 10;
-  const formattedGrowth = growthRate > 0 ? `+${growthRate}명` : `${growthRate}명`;
+  const roundedGrowth = Math.round(growthRate);
+  const formattedGrowth = roundedGrowth > 0 
+    ? `+${roundedGrowth.toLocaleString('ko-KR')}명` 
+    : roundedGrowth < 0 
+    ? `${roundedGrowth.toLocaleString('ko-KR')}명` 
+    : '0명';
 
   const growthPercent = currentPopulation > 0 
     ? Math.round((growthRate / currentPopulation) * 1000) / 10

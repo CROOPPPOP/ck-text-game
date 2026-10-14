@@ -8,10 +8,11 @@ import {
   IMPERIAL_CALLIGRAPHIES,
   getProvinceColorByMode 
 } from '@/lib/engine/mapData';
+import { MAP_PRESETS, MapPresetId } from '@/lib/engine/mapPresets';
 import { Army } from '@/lib/engine/militaryEngine';
 import { 
   Compass, ZoomIn, ZoomOut, RotateCcw, Shield, Swords, 
-  Crown, Mountain, Cross, Coins, Layers, Eye
+  Crown, Mountain, Cross, Coins, Layers, Eye, Globe
 } from 'lucide-react';
 
 interface Props {
@@ -24,6 +25,8 @@ interface Props {
   onOrderArmyMove?: (armyId: string, targetProvinceId: string) => void;
   currentMapMode?: MapMode;
   onChangeMapMode?: (mode: MapMode) => void;
+  currentPresetId?: MapPresetId;
+  onSelectPreset?: (presetId: MapPresetId) => void;
 }
 
 export default function CKMapView({
@@ -35,7 +38,9 @@ export default function CKMapView({
   onSelectArmy,
   onOrderArmyMove,
   currentMapMode = 'political',
-  onChangeMapMode
+  onChangeMapMode,
+  currentPresetId = '1066_europe',
+  onSelectPreset
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -158,7 +163,7 @@ export default function CKMapView({
     >
       {/* SVG 캔버스: 원목 책상 위에 놓인 거대 양피지 지도 (viewBox 0 0 1200 800) */}
       <svg
-        viewBox="0 0 1200 800"
+        viewBox="0 0 1480 800"
         style={{
           width: '100%',
           height: '100%',
@@ -217,9 +222,9 @@ export default function CKMapView({
           <path
             d="
               M 35 32
-              Q 120 26 260 30 Q 420 24 580 32 Q 740 22 920 30 Q 1060 25 1165 34
-              Q 1172 120 1166 280 Q 1175 420 1167 580 Q 1174 680 1165 765
-              Q 1040 772 880 766 Q 710 775 540 768 Q 360 774 210 766 Q 100 772 32 764
+              Q 120 26 260 30 Q 420 24 580 32 Q 740 22 920 30 Q 1160 25 1445 34
+              Q 1452 120 1446 280 Q 1455 420 1447 580 Q 1454 680 1445 765
+              Q 1240 772 980 766 Q 710 775 540 768 Q 360 774 210 766 Q 100 772 32 764
               Q 26 650 34 500 Q 24 350 32 200 Q 25 100 35 32 Z
             "
             fill="url(#parchmentBase)"
@@ -231,7 +236,7 @@ export default function CKMapView({
           <path
             d="
               M 48 44
-              L 1152 44 L 1152 754 L 48 754 Z
+              L 1432 44 L 1432 754 L 48 754 Z
             "
             fill="url(#oceanParchmentTint)"
             stroke="#9d764d"
@@ -611,6 +616,56 @@ export default function CKMapView({
           })}
         </g>
       </svg>
+
+      {/* 🗺️ 좌측 상단 지도 프리셋 전환기 (Map Preset Switcher) */}
+      <div style={{
+        position: 'absolute',
+        top: '16px',
+        left: '16px',
+        display: 'flex',
+        background: 'rgba(24, 15, 10, 0.94)',
+        border: '1.5px solid rgba(200, 159, 60, 0.5)',
+        borderRadius: '8px',
+        padding: '3px',
+        gap: '4px',
+        zIndex: 10,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(4px)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '0 6px', color: '#fbbf24', fontSize: '11px', fontWeight: 'bold', gap: '4px' }}>
+          <Globe size={13} />
+          <span>세계관:</span>
+        </div>
+        {(Object.keys(MAP_PRESETS) as MapPresetId[]).map(presetKey => {
+          const preset = MAP_PRESETS[presetKey];
+          const isCurrent = currentPresetId === presetKey;
+          return (
+            <button
+              key={presetKey}
+              onClick={() => onSelectPreset && onSelectPreset(presetKey)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 9px',
+                borderRadius: '5px',
+                background: isCurrent 
+                  ? 'linear-gradient(135deg, rgba(200, 159, 60, 0.45), rgba(180, 83, 9, 0.6))' 
+                  : 'transparent',
+                border: isCurrent ? '1px solid #fbbf24' : '1px solid transparent',
+                color: isCurrent ? '#fef3c7' : '#d6d3d1',
+                fontSize: '11px',
+                fontWeight: isCurrent ? 700 : 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title={preset.description}
+            >
+              <span>{preset.name}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* 🧭 좌측 상단 조작 가이드 & 상태 바 */}
       <div style={{

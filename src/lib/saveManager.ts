@@ -260,9 +260,31 @@ export function popUndoState(): { gameState: any; turn: number } | null {
   }
 }
 
+/** 비정상적으로 오염된 인구 수치(예: 11억 명 등) 자동 치유 및 복구 */
+export function sanitizePopulationState(state: any): any {
+  if (!state) return state;
+  const faction = state.factionState;
+  if (!faction || faction.none) return state;
+
+  const popKey = ['인구', '단원', '단원 수', '영지민'].find(k => faction[k] !== undefined) || '인구';
+  const curPopStr = faction[popKey];
+  if (!curPopStr) return state;
+
+  const count = parsePopulationCount(curPopStr);
+  // 50,000명 초과 혹은 자릿수 병합 버그(1,100...)로 비정상인 경우 자동 복원
+  if (count > 50000 || (typeof curPopStr === 'string' && curPopStr.includes('1,100') && curPopStr.length > 10)) {
+    const estateLv = state.estate?.level || 1;
+    const restoredCount = estateLv >= 4 ? 4000 : estateLv === 3 ? 1500 : estateLv === 2 ? 600 : 250;
+    faction[popKey] = `영지민 ${restoredCount.toLocaleString('ko-KR')}명(안정)`;
+    state.previousPopulation = restoredCount;
+  }
+  return state;
+}
+
 /**
  * 브라우저 로컬 스토리지에 저장된 모든 세이브 슬롯 데이터(Vercel 로컬 저장 파일 포함)를 검사하여
  * 장원 올리브 압착장의 레벨을 Lv.2로 복구하고 중복 업그레이드 항목을 영구 제거 및 저장(Self-Healing)합니다.
+ * 인구 폭증 버그 데이터도 정상 수치로 자동 보정합니다.
  */
 export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
   if (typeof window === 'undefined') return { migratedCount: 0 };
@@ -281,6 +303,7 @@ export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
         if (slotData && slotData.gameState) {
           const originalStr = JSON.stringify(slotData.gameState);
           slotData.gameState = normalizeParsedState(sanitizeEstateState(slotData.gameState));
+          slotData.gameState = sanitizePopulationState(slotData.gameState);
           if (!slotData.gameState.previousPopulation && slotData.gameState.factionState?.['인구']) {
             slotData.gameState.previousPopulation = parsePopulationCount(slotData.gameState.factionState['인구']);
           }
@@ -302,7 +325,7 @@ export function autoMigrateAndSanitizeStorage(): { migratedCount: number } {
       try {
         const parsed = JSON.parse(legacyAuto);
         const originalStr = JSON.stringify(parsed);
-        const sanitized = normalizeParsedState(sanitizeEstateState(parsed));
+        const sanitized = sanitizePopulationState(normalizeParsedState(sanitizeEstateState(parsed)));
         if (!sanitized.previousPopulation && sanitized.factionState?.['인구']) {
           sanitized.previousPopulation = parsePopulationCount(sanitized.factionState['인구']);
         }
