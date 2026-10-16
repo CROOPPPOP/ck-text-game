@@ -102,7 +102,7 @@ export function turnsLeft(item: QueueItem, currentTurn: number): number {
   if (typeof (item as any).turnsLeft === 'number' && !isNaN((item as any).turnsLeft)) {
     return Math.max(0, (item as any).turnsLeft);
   }
-  const total = item.durationMonths || item.turnsTotal || 1;
+  const total = item.durationMonths || (item as any).turnsTotal || 1;
   const elapsed = (item.elapsedSeconds && item.totalDurationSeconds)
     ? item.elapsedSeconds / item.totalDurationSeconds
     : (typeof item.progressPercent === 'number' ? item.progressPercent / 100 : 0);

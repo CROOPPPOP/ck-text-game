@@ -1,4 +1,4 @@
-import { rollRandomBirth, generateRandomBirth, genesisToInitialGameState } from './src/lib/engine/genesisEngine';
+import { rollRandomBirth } from './src/lib/engine/genesisEngine';
 import { tickConstructionQueue, applyCompletedBuildingToEstate, turnsLeft } from './src/lib/construction';
 import { ParsedState } from './src/lib/parser';
 
@@ -77,7 +77,7 @@ if (!constructionChoice) {
 }
 console.log(`Found construction choice: "${constructionChoice.text}"`);
 
-const queueItem = {
+const queueItem: any = {
   id: 'test-const-1',
   building: '목조 방벽 및 순찰로',
   turnsTotal: 2,
@@ -105,7 +105,7 @@ console.log(`Tick 2: Successfully completed '${tick2.completedItems[0].building}
 
 // Apply completed building to estate
 const updatedEstate = applyCompletedBuildingToEstate(state.estate, tick2.completedItems[0]);
-const hasNewBuilding = updatedEstate?.buildings?.some(b => b.name.includes('목조 방벽'));
+const hasNewBuilding = updatedEstate?.buildings?.some((b: any) => b.name.includes('목조 방벽'));
 if (!hasNewBuilding) {
   throw new Error("Completed building was not registered into estate.buildings!");
 }
