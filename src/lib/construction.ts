@@ -96,7 +96,17 @@ export function createQueueItem(option: BuildOption, currentTurn: number): Queue
 }
 
 export function turnsLeft(item: QueueItem, currentTurn: number): number {
-  return Math.max(0, item.completeTurn - currentTurn);
+  if (typeof item.completeTurn === 'number' && !isNaN(item.completeTurn)) {
+    return Math.max(0, item.completeTurn - currentTurn);
+  }
+  if (typeof (item as any).turnsLeft === 'number' && !isNaN((item as any).turnsLeft)) {
+    return Math.max(0, (item as any).turnsLeft);
+  }
+  const total = item.durationMonths || item.turnsTotal || 1;
+  const elapsed = (item.elapsedSeconds && item.totalDurationSeconds)
+    ? item.elapsedSeconds / item.totalDurationSeconds
+    : (typeof item.progressPercent === 'number' ? item.progressPercent / 100 : 0);
+  return Math.max(0, Math.ceil(total * (1 - elapsed)));
 }
 
 /** 저장 데이터(구버전 {building, turnsLeft} 포함)를 현재 형식으로 정규화합니다. */

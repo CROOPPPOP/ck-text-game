@@ -737,13 +737,25 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
     playerGold = parseInt(goldMatch[1], 10);
   }
 
+  const ladderInfo = STATUS_LADDER[cleanStatus] || STATUS_LADDER['평민'];
+
   // 2. 명성 / 위신 수치 (소모성 점수와 영구 단계 동시 연동)
   let playerPrestige = resources.prestigeScore || 30;
-  const prestigeTier = resources.prestigeTier || 1;
+  const rawPrestige = gameState.stats?.acquired?.['명성'] || gameState.personalInfo?.['명성'];
+  if (!rawPrestige) {
+    const attrPrestige = Math.min(100, Math.round(attributes.diplomacy.value * 2.0 + attributes.martial.value * 1.5 + attributes.prowess.value * 1.5) + (ladderInfo.tier || 0) * 8);
+    if (attrPrestige > playerPrestige) playerPrestige = attrPrestige;
+  }
+  const prestigeTier = Math.max(resources.prestigeTier || 1, playerPrestige >= 90 ? 3 : playerPrestige >= 40 ? 2 : 1);
 
   // 3. 신앙 / 경건 수치 (소모성 점수와 영구 단계 동시 연동)
   let playerPiety = resources.pietyScore || 30;
-  const pietyTier = resources.pietyTier || 1;
+  const pietyStatus = gameState.playerStatus?.find(s => s.name.includes('신앙') || s.name.includes('경건'));
+  if (!pietyStatus) {
+    const attrPiety = Math.min(100, Math.round(attributes.learning.value * 3.5) + (ladderInfo.tier || 0) * 8);
+    if (attrPiety > playerPiety) playerPiety = attrPiety;
+  }
+  const pietyTier = Math.max(resources.pietyTier || 1, playerPiety >= 90 ? 3 : playerPiety >= 40 ? 2 : 1);
 
   // 거점 레벨 추출
   let estateLevel = 1;
@@ -759,8 +771,6 @@ export function checkStatusPromotion(gameState: ParsedState): PromotionStatusRep
   // 상급자 최고 신뢰도 추출
   const superiorApproval = getSuperiorApprovalTrust(gameState.relationships?.personal, resources.archetype);
   const maxSuperiorTrust = superiorApproval.maxTrust;
-
-  const ladderInfo = STATUS_LADDER[cleanStatus] || STATUS_LADDER['평민'];
 
   const possibleTargets: PromotionTarget[] = [];
 

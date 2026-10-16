@@ -1263,6 +1263,19 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
     const goldFound = wealthItems.find(w => w.includes('금') || w.includes('은') || w.includes('전') || w.includes('동'));
     if (goldFound) gold = goldFound;
   }
+  if (!gold && gameState.inventory) {
+    const allInvStrings: string[] = [];
+    for (const val of Object.values(gameState.inventory)) {
+      const rawVal: any = val;
+      if (Array.isArray(rawVal)) {
+        allInvStrings.push(...rawVal.filter((x): x is string => typeof x === 'string'));
+      } else if (typeof rawVal === 'string' && rawVal.trim()) {
+        allInvStrings.push(rawVal.trim());
+      }
+    }
+    const coinFound = allInvStrings.find(w => w.includes('금화') || w.includes('은화') || w.includes('동화') || w.includes('금') || w.includes('은') || w.includes('닢') || w.includes('전'));
+    if (coinFound) gold = coinFound;
+  }
   if (!gold) {
     gold = archetype === 'clergy' ? '은화 45닢' : archetype === 'wanderer' ? '동화 30개' : archetype === 'company' ? '금화 150닢' : '금화 350개';
   }
@@ -1370,7 +1383,11 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
   // 동적 병력 산정 엔진 (군사 조직, 거점 군사 시설, 신분 기본치 합산)
   const military = calculateDynamicLevies(gameState);
   let levies = faction['병력'] || faction['군사'] || '';
-  if (!levies || levies.includes('수도사 12명') || levies.includes('상비군 50명') || levies.includes('단신') || levies.includes('정예 단원 24명') || military.units.length > 0) {
+  if (archetype === 'wanderer' && gameState.inventory && (gameState.inventory as any).companions) {
+    const comp = (gameState.inventory as any).companions;
+    const count = Array.isArray(comp) ? comp.length : 1;
+    levies = `동행 ${count}명`;
+  } else if (!levies || levies.includes('수도사 12명') || levies.includes('상비군 50명') || levies.includes('단신') || levies.includes('정예 단원 24명') || military.units.length > 0) {
     levies = military.formattedTotal;
   }
 

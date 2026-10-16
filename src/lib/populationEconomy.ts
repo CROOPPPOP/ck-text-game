@@ -68,14 +68,23 @@ export function getEstatePopulationCapacity(estateLevelInput?: string | number):
     if (m) lv = parseInt(m[1], 10);
   }
 
+  // 교구 / 사제관 / 수도소 등 종교적 거점 규모
+  if (typeof estateLevelInput === 'string' && (estateLevelInput.includes('교구') || estateLevelInput.includes('사제') || estateLevelInput.includes('수도') || estateLevelInput.includes('성당'))) {
+    if (lv === 1) return 100;
+    if (lv === 2) return 300;
+    if (lv === 3) return 800;
+    if (lv === 4) return 2000;
+    if (lv === 5) return 5000;
+  }
+
   switch (lv) {
-    case 5: return 12000;
-    case 4: return 4000;
-    case 3: return 1500;
-    case 2: return 600;
+    case 5: return 10000;
+    case 4: return 2500;
+    case 3: return 800;
+    case 2: return 300;
     case 1:
     default:
-      return 250;
+      return 100;
   }
 }
 
