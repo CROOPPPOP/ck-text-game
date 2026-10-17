@@ -629,18 +629,13 @@ export default function Home() {
         return;
       }
 
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && activeModal === null && !isGenesisModalOpen && !isEpitaphModalOpen) {
         e.preventDefault();
         setIsPaused(prev => {
           const next = !prev;
           showQuickNotice(next ? "⏸️ 시간 일시정지됨 (Space)" : "▶️ 시간 진행 중 (Space)");
           return next;
         });
-      }
-
-      if (e.code === 'Space' && activeModal === null && !isGenesisModalOpen && !isEpitaphModalOpen) {
-        e.preventDefault();
-        setIsPaused(prev => !prev);
       }
 
       if (e.key >= '1' && e.key <= '4' && gameState?.choices && gameState.choices.length > 0 && !loading) {
