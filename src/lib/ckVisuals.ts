@@ -39,7 +39,7 @@ export interface CKStressState {
   breakdownRisk: string;
 }
 
-export type PlayerArchetype = 'noble' | 'wanderer' | 'company' | 'clergy';
+export type PlayerArchetype = 'noble' | 'wanderer' | 'company' | 'clergy' | 'peasant';
 
 export interface CKResourceLabels {
   goldLabel: string;
@@ -183,20 +183,25 @@ export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
     status.includes('조합') || status.includes('도편수') || status.includes('촌장') ||
     status.includes('관리인') || status.includes('도당') || status.includes('의적') ||
     title.includes('단장') || title.includes('행수') || title.includes('대장') ||
-    title.includes('선장') || title.includes('길드마스터') || title.includes('조합장') ||
-    title.includes('촌장')
+    title.includes('선장') || title.includes('길드마스터') || title.includes('조합장')
   ) {
     return 'company';
   }
 
   if (
+    status.includes('소작') || status.includes('농민') || status.includes('농노') ||
+    status.includes('평민') || title.includes('소작농') || title.includes('농민')
+  ) {
+    return 'peasant';
+  }
+
+  if (
     status.includes('방랑') || status.includes('낭인') || status.includes('검객') ||
     status.includes('검사') || status.includes('무인') || status.includes('모험가') ||
-    status.includes('유랑') || status.includes('평민') || status.includes('소작') ||
-    status.includes('농민') || status.includes('도제') || status.includes('장인') ||
+    status.includes('유랑') || status.includes('도제') || status.includes('장인') ||
     status.includes('부랑') || status.includes('무숙') || status.includes('학사') ||
     status.includes('음유시인') || status.includes('사냥꾼') || status.includes('용병') ||
-    title.includes('방랑자') || title.includes('소작농') || title.includes('도제') ||
+    title.includes('방랑자') || title.includes('도제') ||
     title.includes('용병') || estateType.includes('야영지')
   ) {
     return 'wanderer';
@@ -207,6 +212,19 @@ export function detectPlayerArchetype(gameState: ParsedState): PlayerArchetype {
 
 export function getArchetypeLabels(archetype: PlayerArchetype): CKResourceLabels {
   switch (archetype) {
+    case 'peasant':
+      return {
+        goldLabel: '비상금 / 푼돈',
+        goldIcon: '🪙',
+        prestigeLabel: '마을 평판',
+        prestigeIcon: '🌾',
+        pietyLabel: '신앙심',
+        pietyIcon: '🕊️',
+        leviesLabel: '가솔 / 품앗이',
+        leviesIcon: '👨‍👩‍👧',
+        domainLabel: '오두막 / 소작지',
+        domainIcon: '🛖'
+      };
     case 'clergy':
       return {
         goldLabel: '교회 헌금',
@@ -277,10 +295,27 @@ export function getArchetypeDetails(gameState: ParsedState): ArchetypeDetails {
   const archetype = detectPlayerArchetype(gameState);
   const resources = parseCKResources(gameState);
 
-  if (archetype === 'wanderer') {
+  if (archetype === 'peasant') {
     return {
       archetype,
       num: '1번',
+      title: '소작농 및 평민 (Peasant / Commoner)',
+      subtitle: '소작농 · 농노 · 장인 · 마을 주민',
+      icon: '🌾',
+      coreRule: '가혹한 조세와 부역을 견디며 생존. 봄 파종과 가을 수확, 마을 품앗이로 평판을 쌓아 오두막과 가솔을 지켜냄.',
+      badgeList: [
+        { label: '비상금', value: resources.gold, icon: '🪙', color: '#fbbf24' },
+        { label: '마을 평판', value: resources.prestige, icon: '🌾', color: '#38bdf8' },
+        { label: '소작지', value: resources.domain, icon: '🛖', color: '#34d399' },
+        { label: '가솔/품앗이', value: resources.levies, icon: '👨‍👩‍👧', color: '#f87171' }
+      ]
+    };
+  }
+
+  if (archetype === 'wanderer') {
+    return {
+      archetype,
+      num: '2번',
       title: '개인 및 방랑자 (Wanderer / Adventurer)',
       subtitle: '낭인 · 검객 · 모험가 · 유랑 학자',
       icon: '🗡️',
@@ -697,49 +732,130 @@ export function getPietyTierBonusPercent(tier: number): number {
 }
 
 // 위신 단계 룰 (CK3 5-Tier Level of Fame & Reputation)
+// 위신/평판 단계 룰 (CK3 5-Tier Level of Fame, Reputation & Standing)
 // permanentTierFloor: 신분/칭호/도달 이력에 따른 최저 보장 단계
-export function getPrestigeLevelInfo(score: number, permanentTierFloor: number = 1): { tier: number; label: string; nextThreshold: number; desc: string } {
+export function getPrestigeLevelInfo(
+  score: number,
+  archetype: PlayerArchetype = 'noble',
+  permanentTierFloor: number = 1
+): { tier: number; label: string; nextThreshold: number; desc: string } {
   let naturalTier = 1;
   let label = '무명인';
   let desc = '세간에 널리 알려지지 않은 평범한 인물';
   let nextThreshold = 40;
 
-  if (score >= 300) {
-    naturalTier = 5;
-    label = '불멸의 귀감';
-    desc = '역사에 영원히 기록될 불멸의 군주이자 성현 (모든 최고위 결단 개방)';
-    nextThreshold = 500;
-  } else if (score >= 160) {
-    naturalTier = 4;
-    label = '살아있는 전설';
-    desc = '당대 최고의 영향력과 위세를 지닌 위대한 영걸 (막후 권력 행사 가능)';
-    nextThreshold = 300;
-  } else if (score >= 90) {
-    naturalTier = 3;
-    label = '저명인사';
-    desc = '인근 제후들과 고위 성직자들 사이에서 이름이 널리 알려짐';
-    nextThreshold = 160;
-  } else if (score >= 40) {
-    naturalTier = 2;
-    label = '인정받음';
-    desc = '지역 교구와 영지 일대에서 신망을 얻기 시작함';
-    nextThreshold = 90;
+  if (archetype === 'peasant') {
+    if (score >= 300) {
+      naturalTier = 5;
+      label = '전설적 농부 (민중 영웅)';
+      desc = '영주의 가혹한 수탈을 이겨내고 온 마을 사람들의 영웅이 됨';
+      nextThreshold = 500;
+    } else if (score >= 160) {
+      naturalTier = 4;
+      label = '마을 어르신';
+      desc = '마을 대소사를 결정하고 지혜를 나누는 큰어른';
+      nextThreshold = 300;
+    } else if (score >= 90) {
+      naturalTier = 3;
+      label = '마을의 신망';
+      desc = '근면함과 성실함으로 이웃들의 두터운 신뢰를 얻음';
+      nextThreshold = 160;
+    } else if (score >= 40) {
+      naturalTier = 2;
+      label = '근면한 일꾼';
+      desc = '마을에서 성실하고 일 잘하는 소작인으로 인정받음';
+      nextThreshold = 90;
+    } else {
+      naturalTier = 1;
+      label = '이름 없는 소작인';
+      desc = '흙을 파며 하루하루를 살아가는 평범한 소작인';
+      nextThreshold = 40;
+    }
+  } else if (archetype === 'wanderer') {
+    if (score >= 300) {
+      naturalTier = 5;
+      label = '전설의 영걸';
+      desc = '대륙 전역의 음유시인들이 무용담을 노래하는 불세출의 영걸';
+      nextThreshold = 500;
+    } else if (score >= 160) {
+      naturalTier = 4;
+      label = '이름 떨친 달인';
+      desc = '제후와 영주들도 무시하지 못하는 명검의 소유자';
+      nextThreshold = 300;
+    } else if (score >= 90) {
+      naturalTier = 3;
+      label = '명성 높은 해결사';
+      desc = '어려운 의뢰를 도맡아 해결하는 실력자로 통함';
+      nextThreshold = 160;
+    } else if (score >= 40) {
+      naturalTier = 2;
+      label = '알려진 모험가';
+      desc = '주막과 가도 일대에서 얼굴을 알아보는 이가 생김';
+      nextThreshold = 90;
+    } else {
+      naturalTier = 1;
+      label = '무명의 방랑객';
+      desc = '발길 닿는 대로 유랑하는 이름 없는 방랑자';
+      nextThreshold = 40;
+    }
+  } else if (archetype === 'clergy') {
+    if (score >= 300) {
+      naturalTier = 5;
+      label = '성좌의 기둥';
+      desc = '온 교회의 존경을 받으며 교황청을 움직이는 성직의 거두';
+      nextThreshold = 500;
+    } else if (score >= 160) {
+      naturalTier = 4;
+      label = '교단의 거두';
+      desc = '교구 내에서 막강한 발언권과 교세를 자랑함';
+      nextThreshold = 300;
+    } else if (score >= 90) {
+      naturalTier = 3;
+      label = '존경받는 교구장';
+      desc = '영민들과 제후들의 영적 조언자로서 신망이 높음';
+      nextThreshold = 160;
+    } else if (score >= 40) {
+      naturalTier = 2;
+      label = '성실한 목자';
+      desc = '교구 신도들을 정성으로 돌보는 사제로 알려짐';
+      nextThreshold = 90;
+    } else {
+      naturalTier = 1;
+      label = '말단 사제/수도사';
+      desc = '이제 막 계명을 지키기 시작한 평범한 성직자';
+      nextThreshold = 40;
+    }
   } else {
-    naturalTier = 1;
-    label = '무명인';
-    desc = '세간에 널리 알려지지 않은 평범한 인물';
-    nextThreshold = 40;
+    // noble / company
+    if (score >= 300) {
+      naturalTier = 5;
+      label = '불멸의 귀감';
+      desc = '역사에 영원히 기록될 불멸의 군주이자 성현 (모든 최고위 결단 개방)';
+      nextThreshold = 500;
+    } else if (score >= 160) {
+      naturalTier = 4;
+      label = '살아있는 전설';
+      desc = '당대 최고의 영향력과 위세를 지닌 위대한 영걸 (막후 권력 행사 가능)';
+      nextThreshold = 300;
+    } else if (score >= 90) {
+      naturalTier = 3;
+      label = '저명인사';
+      desc = '인근 제후들과 고위 성직자들 사이에서 이름이 널리 알려짐';
+      nextThreshold = 160;
+    } else if (score >= 40) {
+      naturalTier = 2;
+      label = '인정받음';
+      desc = '지역 교구와 영지 일대에서 신망을 얻기 시작함';
+      nextThreshold = 90;
+    } else {
+      naturalTier = 1;
+      label = '무명인';
+      desc = '세간에 널리 알려지지 않은 평범한 인물';
+      nextThreshold = 40;
+    }
   }
 
-  // 영구 단계 보장: 점수를 소모하여 현재 점수가 낮아졌더라도 한 번 도달한 단계는 떨어지지 않음!
   const finalTier = Math.max(naturalTier, permanentTierFloor);
-  if (finalTier > naturalTier) {
-    if (finalTier === 5) { label = '불멸의 귀감'; desc = '역사에 영원히 기록될 불멸의 군주이자 성현 (영구 위상 유지)'; nextThreshold = 500; }
-    else if (finalTier === 4) { label = '살아있는 전설'; desc = '당대 최고의 영향력과 위세를 지닌 위대한 영걸 (영구 위상 유지)'; nextThreshold = 300; }
-    else if (finalTier === 3) { label = '저명인사'; desc = '인근 제후들과 고위 성직자들 사이에서 이름이 널리 알려짐 (영구 위상 유지)'; nextThreshold = 160; }
-    else if (finalTier === 2) { label = '인정받음'; desc = '지역 교구와 영지 일대에서 신망을 얻기 시작함 (영구 위상 유지)'; nextThreshold = 90; }
-  }
-
   return { tier: finalTier, label, nextThreshold, desc };
 }
 
@@ -750,7 +866,13 @@ export function getPietyLevelInfo(score: number, archetype: PlayerArchetype = 'n
   let desc = '의무적인 종교 의례만 준수함';
   let nextThreshold = 40;
 
-  if (archetype === 'company' || archetype === 'wanderer') {
+  if (archetype === 'peasant') {
+    if (score >= 300) { naturalTier = 5; label = '지상의 성자'; desc = '고난 속에서도 이웃을 구제하여 성인으로 칭송받음'; nextThreshold = 500; }
+    else if (score >= 160) { naturalTier = 4; label = '마을의 귀감'; desc = '경건하고 헌신적인 삶으로 모든 교우의 본보기가 됨'; nextThreshold = 300; }
+    else if (score >= 90) { naturalTier = 3; label = '독실한 자'; desc = '하루 일과 전후로 성실히 십자가 앞에 무릎 꿇음'; nextThreshold = 160; }
+    else if (score >= 40) { naturalTier = 2; label = '성실한 신도'; desc = '주일 미사와 십일조를 정성껏 지키는 신자'; nextThreshold = 90; }
+    else { naturalTier = 1; label = '방황하는 영혼'; desc = '먹고살기 바빠 의례를 자주 거르는 가련한 영혼'; nextThreshold = 40; }
+  } else if (archetype === 'company' || archetype === 'wanderer') {
     if (score >= 300) { naturalTier = 5; label = '전설적 의기'; desc = '죽음도 두려워하지 않는 완벽한 맹세'; nextThreshold = 500; }
     else if (score >= 160) { naturalTier = 4; label = '일기당천'; desc = '불굴의 결속력으로 어떤 역경도 돌파함'; nextThreshold = 300; }
     else if (score >= 90) { naturalTier = 3; label = '용기백배'; desc = '자신감이 넘치고 전투 의지가 충천함'; nextThreshold = 160; }
@@ -766,7 +888,12 @@ export function getPietyLevelInfo(score: number, archetype: PlayerArchetype = 'n
 
   const finalTier = Math.max(naturalTier, permanentTierFloor);
   if (finalTier > naturalTier) {
-    if (archetype === 'company' || archetype === 'wanderer') {
+    if (archetype === 'peasant') {
+      if (finalTier === 5) { label = '지상의 성자'; desc = '고난 속에서도 이웃을 구제하여 성인으로 칭송받음 (영구 위상 유지)'; nextThreshold = 500; }
+      else if (finalTier === 4) { label = '마을의 귀감'; desc = '경건하고 헌신적인 삶으로 모든 교우의 본보기가 됨 (영구 위상 유지)'; nextThreshold = 300; }
+      else if (finalTier === 3) { label = '독실한 자'; desc = '하루 일과 전후로 성실히 십자가 앞에 무릎 꿇음 (영구 위상 유지)'; nextThreshold = 160; }
+      else if (finalTier === 2) { label = '성실한 신도'; desc = '주일 미사와 십일조를 정성껏 지키는 신자 (영구 위상 유지)'; nextThreshold = 90; }
+    } else if (archetype === 'company' || archetype === 'wanderer') {
       if (finalTier === 5) { label = '전설적 의기'; desc = '죽음도 두려워하지 않는 완벽한 맹세 (영구 위상 유지)'; nextThreshold = 500; }
       else if (finalTier === 4) { label = '일기당천'; desc = '불굴의 결속력으로 어떤 역경도 돌파함 (영구 위상 유지)'; nextThreshold = 300; }
       else if (finalTier === 3) { label = '용기백배'; desc = '자신감이 넘치고 전투 의지가 충천함 (영구 위상 유지)'; nextThreshold = 160; }
@@ -1346,7 +1473,7 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
     prestigeScore = Math.max(10, basePrestige + titlePrestigeBonus + synergyBonus + traitBonus);
   }
 
-  const prestigeLevelInfo = getPrestigeLevelInfo(prestigeScore, prestigeTierFloor);
+  const prestigeLevelInfo = getPrestigeLevelInfo(prestigeScore, archetype, prestigeTierFloor);
   const prestigeGain = calculateTurnPrestigeGain(gameState, prestigeLevelInfo.tier);
   const prestige = `${prestigeScore}점 (${prestigeLevelInfo.label})`;
 
@@ -1383,7 +1510,9 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
   // 동적 병력 산정 엔진 (군사 조직, 거점 군사 시설, 신분 기본치 합산)
   const military = calculateDynamicLevies(gameState);
   let levies = faction['병력'] || faction['군사'] || '';
-  if (archetype === 'wanderer' && gameState.inventory && (gameState.inventory as any).companions) {
+  if (archetype === 'peasant') {
+    levies = `${gameState.estate?.buildings?.length ? 2 : 1}인 가솔`;
+  } else if (archetype === 'wanderer' && gameState.inventory && (gameState.inventory as any).companions) {
     const comp = (gameState.inventory as any).companions;
     const count = Array.isArray(comp) ? comp.length : 1;
     levies = `동행 ${count}명`;
@@ -1392,7 +1521,7 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
   }
 
   // 직할령 / 거점: 관리력(Stewardship) 기반 직할 한계치와 일관성 연동
-  const estateType = gameState.estate?.type || (archetype === 'clergy' ? '작은 예배당' : archetype === 'wanderer' ? '임시 야영지' : archetype === 'company' ? '상설 숙영지' : '봉건 장원');
+  const estateType = gameState.estate?.type || (archetype === 'peasant' ? '짚벽 오두막' : archetype === 'clergy' ? '작은 예배당' : archetype === 'wanderer' ? '임시 야영지' : archetype === 'company' ? '상설 숙영지' : '봉건 장원');
   const buildingCount = gameState.estate?.buildings?.length || 0;
   const domainLimit = attributes.synergies.domainLimit;
   const domain = `${estateType} (시설 ${buildingCount}동 / 직할 한계 ${domainLimit})`;
@@ -1401,7 +1530,8 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
     noble: '👑 봉건 영주 및 귀족',
     wanderer: '🗡️ 개인 및 방랑자',
     company: '👥 소규모 집단',
-    clergy: '⛪ 성직자 및 수도자'
+    clergy: '⛪ 성직자 및 수도자',
+    peasant: '🌾 소작농 및 평민'
   };
 
   const income = calculateTurnIncome(gameState);
@@ -1441,6 +1571,9 @@ export function getHeraldryEmblem(name: string, culture: string = '', archetype?
   }
   if (normName.includes('황제') || normName.includes('카이저') || normName.includes('차르') || normName.includes('바실레우스') || normName.includes('폐하')) {
     return { icon: '🦅', border: '#f59e0b', bg: 'linear-gradient(135deg, #581c87, #b45309)' };
+  }
+  if (archetype === 'peasant') {
+    return { icon: '🌾', border: '#10b981', bg: 'linear-gradient(135deg, #14532d, #166534)' };
   }
   if (archetype === 'wanderer') {
     return { icon: '🗡️', border: '#94a3b8', bg: 'linear-gradient(135deg, #1e293b, #334155)' };

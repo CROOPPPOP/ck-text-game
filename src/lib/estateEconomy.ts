@@ -31,6 +31,7 @@ export function getCurrencyForArchetype(archetype: PlayerArchetype): string {
   switch (archetype) {
     case 'clergy':
       return '은화';
+    case 'peasant':
     case 'wanderer':
       return '동화';
     case 'company':
@@ -45,7 +46,8 @@ const ARCHETYPE_BASE_BUILDING_COST: Record<PlayerArchetype, number> = {
   clergy: 25,    // 은화 25닢 (턴당 순수익 +15~20 은화 기준 약 1.5턴 저축액)
   noble: 15,     // 금화 15닢 (턴당 순수익 +1.5~3 금화 기준 약 5턴 저축액)
   company: 20,   // 금화 20닢 (턴당 순수익 +3~6 금화 기준 약 4턴 저축액)
-  wanderer: 25   // 동화 25닢 (턴당 순수익 +5~10 동화 기준 약 3턴 저축액)
+  wanderer: 25,  // 동화 25닢 (턴당 순수익 +5~10 동화 기준 약 3턴 저축액)
+  peasant: 15    // 동화 15닢 (소작농 푼돈/동화 기준)
 };
 
 // 3. 건물 유형별 가중치 및 분류 판별
@@ -141,25 +143,29 @@ const ESTATE_PROMOTION_TABLE: Record<number, Record<PlayerArchetype, { cost: num
     clergy: { cost: 60, turns: 3 },
     noble: { cost: 40, turns: 3 },
     company: { cost: 50, turns: 3 },
-    wanderer: { cost: 60, turns: 3 }
+    wanderer: { cost: 60, turns: 3 },
+    peasant: { cost: 30, turns: 2 }
   },
   2: { // Lv.2 -> Lv.3
     clergy: { cost: 120, turns: 4 },
     noble: { cost: 80, turns: 4 },
     company: { cost: 90, turns: 4 },
-    wanderer: { cost: 120, turns: 4 }
+    wanderer: { cost: 120, turns: 4 },
+    peasant: { cost: 60, turns: 3 }
   },
   3: { // Lv.3 -> Lv.4
     clergy: { cost: 220, turns: 5 },
     noble: { cost: 150, turns: 5 },
     company: { cost: 160, turns: 5 },
-    wanderer: { cost: 220, turns: 5 }
+    wanderer: { cost: 220, turns: 5 },
+    peasant: { cost: 120, turns: 4 }
   },
   4: { // Lv.4 -> Lv.5
     clergy: { cost: 380, turns: 6 },
     noble: { cost: 280, turns: 6 },
     company: { cost: 280, turns: 6 },
-    wanderer: { cost: 380, turns: 6 }
+    wanderer: { cost: 380, turns: 6 },
+    peasant: { cost: 200, turns: 5 }
   }
 };
 

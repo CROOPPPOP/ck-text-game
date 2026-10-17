@@ -187,8 +187,17 @@ export default function EpitaphModal({
               onMouseOver={e => e.currentTarget.style.filter = 'brightness(1.1)'}
               onMouseOut={e => e.currentTarget.style.filter = 'brightness(1)'}
             >
-              <Crown size={18} />
-              <span>👑 후계자 ({heir})로 가문 계승하기 (2회차 계속)</span>
+              {rulerStatus.includes('소작') || rulerStatus.includes('농민') || rulerStatus.includes('평민') ? (
+                <>
+                  <Shield size={18} />
+                  <span>🌱 자식 ({heir})에게 오두막과 삶 물려주기 (2회차 계속)</span>
+                </>
+              ) : (
+                <>
+                  <Crown size={18} />
+                  <span>👑 후계자 ({heir})로 가문 계승하기 (2회차 계속)</span>
+                </>
+              )}
             </button>
           )}
 

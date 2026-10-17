@@ -1,5 +1,6 @@
 import { EngineGameEvent } from '../types';
 import { ParsedState } from '../../parser';
+import { detectPlayerArchetype } from '../../ckVisuals';
 
 /**
  * 날짜 문자열에서 연도 파싱
@@ -11,12 +12,158 @@ function getYearFromDate(dateStr?: string): number {
 }
 
 export const HISTORICAL_TIMELINE_EVENTS: EngineGameEvent[] = [
-  // 1. [1066년 헤이스팅스 전투 - 노르만 정복]
+  // 1-1. [1066년 헤이스팅스 전투 - 소작농 시점: 군량미 및 장정 징발]
   {
-    id: 'hist_hastings_1066',
+    id: 'hist_hastings_1066_peasant',
+    category: 'historical',
+    title: '노르만 원정 군량 징발령',
+    historicalTag: '📜 역사적 대사건: 1066년 노르만 정복의 여파 (소작농 시점)',
+    narrativeTemplate: `도버 해협 너머에서 전쟁이 터졌다는 소식이 마을에 전해집니다.
+바다 건너 잉글랜드를 정복하겠다며 영주의 집사관들이 무장 병력을 이끌고 흙먼지를 일으키며 들이닥쳤습니다.
+집집마다 돌아다니며 가을 추수한 밀과 보리, 군마로 징발할 가축을 샅샅이 뒤지고 있으며, 거역하는 소작인들에게는 가차 없이 채찍질이 가해집니다.`,
+    dialogueSpeaker: '영주 장원 집사관 기욤',
+    dialogueText: '"공작 전하의 잉글랜드 원정 군량이 모자란다! 가솔마다 곡식 두 포대와 장정 한 명씩을 공출해라! 거역하는 자는 교수대에 매달릴 것이다!"',
+    trigger: (state: ParsedState) => {
+      const year = getYearFromDate(state.dateLocation);
+      return year >= 1066 && year <= 1068 && detectPlayerArchetype(state) === 'peasant';
+    },
+    weight: 950,
+    choices: [
+      {
+        id: 'hastings_peasant_hide_grain',
+        text: '숨겨둔 곡식을 내어놓지 않고 숲속 비밀 저장 구덩이에 감춘다.',
+        probability: '75% (생존 계책)',
+        groupType: '생존적 선택',
+        resolve: () => ({
+          narrativeOutcome: '집사관의 눈을 피해 곡식 두 포대를 숲속 구덩이에 안전하게 숨겼습니다. 굶주림을 면할 식량을 지켜냈습니다.',
+          judgmentResult: '성공',
+          positiveFactor: '겨울나기 식량 및 비상금 보존',
+          resourceChanges: { gold: 10, prestige: 5 }
+        })
+      },
+      {
+        id: 'hastings_peasant_petition',
+        text: '마을 어르신들과 함께 무릎 꿇고 처지를 호소하며 조세 감면을 청원한다.',
+        probability: '60% (외교 청원)',
+        groupType: '외교적 선택',
+        resolve: () => ({
+          narrativeOutcome: '간절한 호소 끝에 집사관이 마지못해 공출량을 절반으로 깎아주었습니다. 마을 주민들이 당신의 용기를 칭송합니다.',
+          judgmentResult: '성공',
+          positiveFactor: '마을 사람들의 두터운 신망 획득',
+          resourceChanges: { prestige: 25, piety: 10 },
+          relationDelta: { name: '마을 주민 자치회', delta: 30 }
+        })
+      },
+      {
+        id: 'hastings_peasant_volunteer_wagon',
+        text: '보급 마차 수송대로 차출을 자원하여 군마 관리와 전장 수송을 돕는다.',
+        probability: '80% (신분 상승의 기회)',
+        groupType: '기량적 선택',
+        resolve: () => ({
+          narrativeOutcome: '보급 마차를 성실히 몰아 노르만 보급선 유지에 공을 세웠습니다. 기사단 호위병으로 눈도장을 찍었습니다.',
+          judgmentResult: '대성공',
+          positiveFactor: '영주 기사단의 신임 및 수송 삯 획득',
+          resourceChanges: { gold: 15, prestige: 20 },
+          traitsToAdd: ['기마 보급원']
+        })
+      }
+    ]
+  },
+
+  // 1-2. [1066년 헤이스팅스 전투 - 방랑자 시점: 원정 용병 계약]
+  {
+    id: 'hist_hastings_1066_wanderer',
+    category: 'historical',
+    title: '헤이스팅스 원정대 용병 모집',
+    historicalTag: '📜 역사적 대사건: 1066년 노르만 정복 (방랑자 시점)',
+    narrativeTemplate: `루앙과 플랑드르 전역의 주막마다 노르망디 공작 윌리엄의 원정 용병 모집 깃발이 나붙었습니다.
+잉글랜드의 비옥한 토지와 은화 주머니가 약속되자, 각지의 낭인과 모험가들이 도버 해협 항구로 구름처럼 몰려들고 있습니다.`,
+    dialogueSpeaker: '용병 모집관 보두앵',
+    dialogueText: '"칼자루를 쥘 힘만 있다면 누구든 환영한다! 잉글랜드의 왕관과 전리품이 우리를 부른다!"',
+    trigger: (state: ParsedState) => {
+      const year = getYearFromDate(state.dateLocation);
+      return year >= 1066 && year <= 1068 && detectPlayerArchetype(state) === 'wanderer';
+    },
+    weight: 950,
+    choices: [
+      {
+        id: 'hastings_wanderer_enlist',
+        text: '선수금을 받고 노르만 원정 용병대에 계약병으로 참전한다.',
+        probability: '75% (무예 시험)',
+        groupType: '군사적 선택',
+        resolve: () => ({
+          narrativeOutcome: '도버 해협을 건너 치열한 전투 끝에 살아남았으며, 쏠쏠한 전리품과 참전 명성을 챙겼습니다.',
+          judgmentResult: '성공',
+          positiveFactor: '실전 무예 단련 및 전리품 획득',
+          resourceChanges: { gold: 30, prestige: 25 },
+          traitsToAdd: ['노르만 참전 용사']
+        })
+      },
+      {
+        id: 'hastings_wanderer_convoy',
+        text: '전란을 피해 내륙으로 피난하는 상인 대상단의 호위 용병을 맡는다.',
+        probability: '90% (실리적 계약)',
+        groupType: '경호적 선택',
+        resolve: () => ({
+          narrativeOutcome: '가도에서 만난 도적 떼를 격퇴하고 상단을 무사히 호위하여 후한 보수를 받았습니다.',
+          judgmentResult: '성공',
+          positiveFactor: '대상단의 신뢰 및 호위 보수',
+          resourceChanges: { gold: 20, prestige: 15 }
+        })
+      }
+    ]
+  },
+
+  // 1-3. [1066년 헤이스팅스 전투 - 성직자 시점: 성전 깃발과 구호]
+  {
+    id: 'hist_hastings_1066_clergy',
+    category: 'historical',
+    title: '노르만 원정의 축성과 교단 회합',
+    historicalTag: '📜 역사적 대사건: 1066년 노르만 정복 (성직자 시점)',
+    narrativeTemplate: `교황 성좌께서 윌리엄 공작에게 보낸 축성 깃발 아래 잉글랜드 교구의 대대적인 개편이 시작되었습니다.
+로마의 특사들이 교구 회의를 소집하여 전몰자 위령 미사와 성금 헌납을 독려하고 있습니다.`,
+    dialogueSpeaker: '대주교 특사 신부',
+    dialogueText: '"성좌의 축복 아래 잉글랜드 교회가 새롭게 거듭나고 있습니다. 우리 교구도 신앙의 등불을 밝혀야 합니다."',
+    trigger: (state: ParsedState) => {
+      const year = getYearFromDate(state.dateLocation);
+      return year >= 1066 && year <= 1068 && detectPlayerArchetype(state) === 'clergy';
+    },
+    weight: 950,
+    choices: [
+      {
+        id: 'hastings_clergy_mass',
+        text: '교구 신도들과 함께 승전 감사 미사를 집전하고 성금을 봉헌한다.',
+        probability: '90% (신앙의 길)',
+        groupType: '종교적 선택',
+        resolve: () => ({
+          narrativeOutcome: '성도들의 기도를 모아 엄숙한 미사를 올렸으며, 교단 고위 성직자들의 각별한 칭송을 받았습니다.',
+          judgmentResult: '대성공',
+          positiveFactor: '교단 내 발언권 신장',
+          resourceChanges: { piety: 40, prestige: 25 }
+        })
+      },
+      {
+        id: 'hastings_clergy_shelter',
+        text: '전쟁으로 가족을 잃은 피난민들을 위해 수도원 구호소를 개방한다.',
+        probability: '95% (자비의 길)',
+        groupType: '민생적 선택',
+        resolve: () => ({
+          narrativeOutcome: '굶주린 피난민들에게 보리죽과 약초를 베풀어 영민들의 깊은 존경을 한 몸에 받았습니다.',
+          judgmentResult: '대성공',
+          positiveFactor: '지역 민중의 성자 칭송',
+          resourceChanges: { piety: 50, prestige: 20 },
+          relationDelta: { name: '지역 빈민 자치회', delta: 40 }
+        })
+      }
+    ]
+  },
+
+  // 1-4. [1066년 헤이스팅스 전투 - 봉건 영주 시점]
+  {
+    id: 'hist_hastings_1066_noble',
     category: 'historical',
     title: '노르만 정복과 헤이스팅스 전투의 파고',
-    historicalTag: '📜 역사적 대사건: 1066년 노르만 정복 (Norman Conquest)',
+    historicalTag: '📜 역사적 대사건: 1066년 노르만 정복 (봉건 영주 시점)',
     narrativeTemplate: `도버 해협을 건너온 전령이 거친 숨을 몰아쉬며 루앙과 파리를 뒤흔든 소식을 전합니다.
 노르망디 공작 윌리엄이 헤이스팅스 벌판에서 해럴드 고드윈슨의 잉글랜드 군대를 격파하고 런던으로 진군하고 있습니다.
 프랑스 북부와 플랑드르 전역의 제후들이 이 거대한 정복의 물결 앞에서 새로운 정략혼과 용병 계약을 저울질하고 있습니다.`,
@@ -24,7 +171,7 @@ export const HISTORICAL_TIMELINE_EVENTS: EngineGameEvent[] = [
     dialogueText: '"공작 전하께서 바요의 성유물 위에 맹세하신 대로 잉글랜드의 왕관을 차지하셨습니다! 국경 제후들의 입장 표명이 시급합니다!"',
     trigger: (state: ParsedState) => {
       const year = getYearFromDate(state.dateLocation);
-      return year >= 1066 && year <= 1068;
+      return year >= 1066 && year <= 1068 && (detectPlayerArchetype(state) === 'noble' || detectPlayerArchetype(state) === 'company');
     },
     weight: 950,
     choices: [
@@ -37,7 +184,7 @@ export const HISTORICAL_TIMELINE_EVENTS: EngineGameEvent[] = [
           narrativeOutcome: '귀하의 기사들이 도버 항구의 방비에 기여하여, 새 잉글랜드 왕국과의 국경 무역 특허를 획득했습니다.',
           judgmentResult: '대성공',
           positiveFactor: '정복왕 윌리엄의 각별한 신임 획득',
-          resourceChanges: { gold: 45, prestige: 40, legitimacy: 20 },
+          resourceChanges: { gold: 45, prestige: 40 },
           relationDelta: { name: '노르망디 공국 (잉글랜드 왕가)', delta: 35 }
         })
       },

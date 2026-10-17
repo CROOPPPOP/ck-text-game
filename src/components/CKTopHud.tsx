@@ -55,10 +55,16 @@ export default function CKTopHud({
   onReturnTitle,
   onOpenApiKey
 }: Props) {
-  const rulerName = gameState.personalInfo?.['이름'] || '군주';
-  const rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '영주';
-  const culture = gameState.personalInfo?.['문화'] || '';
+  const statusStr = gameState.personalInfo?.['신분'] || '';
+  const rulerName = gameState.personalInfo?.['이름'] || '인물';
   const resources = parseCKResources(gameState);
+  let rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || statusStr || '영주';
+  if (resources.archetype === 'peasant' || resources.archetype === 'wanderer') {
+    if (rulerTitle === '영주' || rulerTitle === '군주') {
+      rulerTitle = statusStr || (resources.archetype === 'peasant' ? '소작농' : '방랑자');
+    }
+  }
+  const culture = gameState.personalInfo?.['문화'] || '';
   const stress = parseCKStress(gameState);
   const emblem = getHeraldryEmblem(rulerName, culture, resources.archetype);
   const promoReport = checkStatusPromotion(gameState);
@@ -928,154 +934,6 @@ export default function CKTopHud({
           </div>
         </div>
 
-      </div>
-
-      {/* Bottom Navigation Tabs: Clean & Distinct Navigation */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '10px',
-        marginTop: '8px',
-        paddingTop: '6px',
-        borderTop: '1px solid rgba(212, 175, 55, 0.15)',
-        flexWrap: 'wrap'
-      }}>
-        <button
-          onClick={onOpenFamilyTree}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
-            border: '1px solid rgba(200, 159, 60, 0.4)',
-            color: 'var(--gold-hover)',
-            padding: '7px 16px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
-          }}
-        >
-          <Users size={15} style={{ color: '#a7f3d0' }} />
-          <span>{resources.archetype === 'clergy' ? '⛪ 교단 계보도 (Religious Tree)' : resources.archetype === 'company' ? '👥 단원 지휘부 (Company Tree)' : resources.archetype === 'wanderer' ? '🗡️ 동료 계보 (Companions)' : '👑 가문 계보도 (Family Tree)'}</span>
-        </button>
-
-        <button
-          onClick={onOpenRealm}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
-            border: '1px solid rgba(200, 159, 60, 0.4)',
-            color: 'var(--gold-hover)',
-            padding: '7px 16px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
-          }}
-        >
-          <Castle size={15} style={{ color: 'var(--gold-accent)' }} />
-          <span>{resources.archetype === 'clergy' ? '⛪ 교구 현황 (Parish Order)' : resources.archetype === 'company' ? '⛺ 부대 본진 (Camp Order)' : resources.archetype === 'wanderer' ? '🏕️ 방랑 거점 (Camp Order)' : '🏰 영지 통치 (Realm Order)'}</span>
-        </button>
-
-        <button
-          onClick={onOpenEstate}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
-            border: '1px solid rgba(200, 159, 60, 0.4)',
-            color: 'var(--gold-hover)',
-            padding: '7px 16px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
-          }}
-        >
-          <Castle size={15} style={{ color: '#fbbf24' }} />
-          <span>⛺ 거점 시설 및 건설 (Holdings)</span>
-        </button>
-
-        <button
-          onClick={onOpenRelations}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: highestThreat.hasThreat
-              ? (highestThreat.maxHostility.tier >= 3 ? 'linear-gradient(180deg, #581c1c 0%, #2f0f0f 100%)' : 'linear-gradient(180deg, #452c10 0%, #291a0a 100%)')
-              : 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
-            border: highestThreat.hasThreat ? `1.5px solid ${highestThreat.maxHostility.color}` : '1px solid rgba(200, 159, 60, 0.4)',
-            color: 'var(--gold-hover)',
-            padding: '7px 16px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: highestThreat.hasThreat ? `0 0 12px ${highestThreat.maxHostility.bgColor}` : '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
-          }}
-        >
-          {highestThreat.hasThreat ? <Swords size={15} style={{ color: highestThreat.maxHostility.color }} /> : <Heart size={15} style={{ color: '#fca5a5' }} />}
-          <span>{
-            resources.archetype === 'clergy' ? '⛪ 교구 인맥 (Relations)' :
-            resources.archetype === 'wanderer' ? '🗡️ 방랑 인맥 (Relations)' :
-            resources.archetype === 'company' ? '👥 대외 인맥 (Relations)' :
-            '🤝 궁정 외교 (Court & Relations)'
-          }</span>
-          {highestThreat.hasThreat && (
-            <span style={{
-              fontSize: '0.68rem',
-              color: '#ffffff',
-              background: highestThreat.maxHostility.color,
-              padding: '1px 6px',
-              borderRadius: '10px',
-              marginLeft: '4px',
-              fontWeight: 800,
-              boxShadow: '0 0 6px rgba(0,0,0,0.5)'
-            }}>
-              {highestThreat.maxHostility.tierLabel.split(' ')[0]}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={onOpenChronicle}
-          className="ck-nav-btn"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'linear-gradient(180deg, #382a1c 0%, #221810 100%)',
-            border: '1px solid rgba(200, 159, 60, 0.4)',
-            color: 'var(--gold-hover)',
-            padding: '7px 16px',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
-          }}
-        >
-          <Scroll size={15} style={{ color: '#d8b4fe' }} />
-          <span>📜 연대기 & 국면 (Chronicle)</span>
-        </button>
       </div>
     </header>
   );

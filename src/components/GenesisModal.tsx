@@ -88,7 +88,7 @@ export default function GenesisModal({ isOpen, onConfirm }: Props) {
             letterSpacing: '1px'
           }}>
             <Dices size={15} />
-            <span>80억 분의 1 • 중세 운명의 주사위</span>
+            <span>운명의 연대기 • 무작위 중세 출생</span>
           </div>
           <h2 style={{
             color: '#fef3c7',
@@ -127,7 +127,15 @@ export default function GenesisModal({ isOpen, onConfirm }: Props) {
                 서기 {cardData.birthYear}년 출생 • {cardData.age}세 청년기 진입
               </div>
               <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', marginTop: '2px' }}>
-                {cardData.name} <span style={{ fontSize: '1.1rem', color: '#d4af37', fontWeight: 600 }}>{cardData.houseName}</span>
+                {cardData.archetype === 'peasant' ? (
+                  <>
+                    <span style={{ fontSize: '1.2rem', color: '#a7f3d0', fontWeight: 600 }}>{cardData.houseName}</span> {cardData.name}
+                  </>
+                ) : (
+                  <>
+                    {cardData.name} <span style={{ fontSize: '1.1rem', color: '#d4af37', fontWeight: 600 }}>{cardData.houseName}</span>
+                  </>
+                )}
               </div>
               <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
                 {cardData.gender} • {cardData.culture} 문화권 • {cardData.religion}
@@ -165,7 +173,7 @@ export default function GenesisModal({ isOpen, onConfirm }: Props) {
 
             <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ color: '#fbbf24', fontWeight: 700, marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Heart size={13} /> 가문 가언(Motto)
+                <Heart size={13} /> {cardData.archetype === 'peasant' || cardData.archetype === 'wanderer' ? '삶의 신조 (Creed)' : '가문 가언 (Motto)'}
               </div>
               <div style={{ color: '#f3f4f6', fontStyle: 'italic' }}>"{cardData.houseMotto}"</div>
             </div>

@@ -7,7 +7,7 @@ export interface GenesisCardData {
   birthYear: number;
   gender: '남성' | '여성';
   status: string;
-  archetype: 'wanderer' | 'company' | 'clergy' | 'noble';
+  archetype: 'peasant' | 'wanderer' | 'company' | 'clergy' | 'noble';
   region: string;
   culture: string;
   religion: string;
@@ -23,7 +23,7 @@ export interface GenesisCardData {
 
 interface BirthTemplate {
   status: string;
-  archetype: 'wanderer' | 'company' | 'clergy' | 'noble';
+  archetype: 'peasant' | 'wanderer' | 'company' | 'clergy' | 'noble';
   weight: number; // 확률 가중치
   parentStories: string[];
   weapons: string[];
@@ -40,7 +40,7 @@ const BIRTH_TEMPLATES: BirthTemplate[] = [
   // 1. 소작농 / 농노 / 평민 (50% 확률)
   {
     status: '소작농',
-    archetype: 'wanderer',
+    archetype: 'peasant',
     weight: 35,
     parentStories: [
       '흉년으로 빚을 진 소작농 부부의 넷째 아이로 허물어져 가는 짚더미 오두막에서 태어났습니다.',
@@ -60,7 +60,7 @@ const BIRTH_TEMPLATES: BirthTemplate[] = [
   },
   {
     status: '도제',
-    archetype: 'wanderer',
+    archetype: 'peasant',
     weight: 15,
     parentStories: [
       '자유 도시의 허름한 대장간 화덕 앞, 쇠망치 소리를 자장가 삼아 태어난 대장장이의 아들입니다.',
@@ -240,6 +240,20 @@ const HOUSE_MOTTOS = [
   '백성의 방패'
 ];
 
+const COMMONER_BYNAMES = [
+  '물레방앗간의', '개울마을의', '숲마을의', '언덕마을의', '너도밤나무숲의',
+  '쟁기마을의', '방적골의', '버드나무골의', '돌담마을의'
+];
+
+const COMMONER_CREEDS = [
+  '흙은 거짓말하지 않는다',
+  '오늘 하루의 빵을 위하여',
+  '정직한 땀방울이 최고의 보약',
+  '봄이 오면 반드시 씨를 뿌린다',
+  '모진 비바람 속에서도 싹은 튼다',
+  '가솔들의 배를 곯리지 않는 것'
+];
+
 function getRandomElement<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -287,8 +301,12 @@ export function rollRandomBirth(): {
   const gender: '남성' | '여성' = Math.random() < 0.65 ? '남성' : '여성';
   const nameList = gender === '남성' ? regionInfo.maleNames : regionInfo.femaleNames;
   const name = getRandomElement(nameList);
-  const house = getRandomElement(regionInfo.houses);
-  const motto = getRandomElement(HOUSE_MOTTOS);
+  const house = template.archetype === 'peasant' 
+    ? getRandomElement(COMMONER_BYNAMES)
+    : getRandomElement(regionInfo.houses);
+  const motto = template.archetype === 'peasant'
+    ? getRandomElement(COMMONER_CREEDS)
+    : getRandomElement(HOUSE_MOTTOS);
   const parentStory = getRandomElement(template.parentStories);
   const congenital = pickRandomCongenitalTrait();
   const weapon = getRandomElement(template.weapons);
@@ -355,7 +373,38 @@ export function rollRandomBirth(): {
 
   // 신분별 4대 초기 선택지 구성
   let initialChoices: any[] = [];
-  if (template.archetype === 'wanderer') {
+  if (template.archetype === 'peasant') {
+    initialChoices = [
+      {
+        id: '1',
+        type: '생존·품앗이',
+        groupType: '마을 품앗이',
+        text: '가을걷이를 돕고 이웃들과 품앗이를 나누어 마을 신망을 쌓는다.',
+        probability: '마을 평판 +15, 푼돈 +3'
+      },
+      {
+        id: '2',
+        type: '건설·정착',
+        groupType: '영지 경영',
+        text: '[건설] 오두막 텃밭에 돌담을 쌓고 작은 닭장을 지어 겨울나기를 준비한다.',
+        probability: '비용: 금화 5, 소요 1달 (생존력 증대)'
+      },
+      {
+        id: '3',
+        type: '입신양명',
+        groupType: '외교·청원',
+        text: '영주 장원에 곡물을 납품하러 가면서 집사관에게 성실한 일꾼으로 눈도장을 찍는다.',
+        probability: '관계 개선, 신분 상승 기회'
+      },
+      {
+        id: '4',
+        type: '생계·채집',
+        groupType: '산림 채집',
+        text: '산기슭에 올라 버섯과 약초를 채집하여 인근 장터에 내다 판다.',
+        probability: '푼돈 +6, 체력 소모'
+      }
+    ];
+  } else if (template.archetype === 'wanderer') {
     initialChoices = [
       {
         id: '1',
@@ -467,7 +516,7 @@ export function rollRandomBirth(): {
       '직위': template.status,
       '문화': regionInfo.culture,
       '종교': regionInfo.religion,
-      '칭호': `${house}의 ${name}`
+      '칭호': template.archetype === 'peasant' ? `${house} ${name}` : `${house}의 ${name}`
     },
     playerStatus: [
       { name: '건강', value: '95', risk: '최상', description: '젊고 혈기왕성함' },
@@ -526,7 +575,7 @@ export function rollRandomBirth(): {
 ${parentStory}
 마을 어귀를 나서자, 저 멀리 웅장한 영주의 성채와 가도를 오가는 상단들의 분주한 행렬이 시야에 들어옵니다.
 누군가는 흙을 파다 일생을 마감하고, 누군가는 전장에서 칼을 쥐고 영주가 됩니다.
-80억의 생명 중 오직 단 하나뿐인 당신의 인생이 지금 시작됩니다.`,
+수많은 민초와 영웅들이 명멸하는 이 가혹하고도 찬란한 중세의 대지 위에서, 오직 단 하나뿐인 당신의 운명이 지금 시작됩니다.`,
     choices: initialChoices
   };
 

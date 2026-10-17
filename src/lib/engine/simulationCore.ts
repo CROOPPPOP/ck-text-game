@@ -374,22 +374,13 @@ export function processTurn(
   const currentGold = extractNumericValue(currentState.factionState?.['세력 재정'] || currentState.inventory?.['소지 화폐']?.[0] || '65');
   const finalGold = Math.max(0, currentGold + deltaGold);
 
-  // 7. 다음 턴의 새 이벤트 추첨
-  const nextEvent = rollEvent(currentState, newTurn);
-
-  // 8. 서사 조합 (대화문 포함)
-  const speaker = nextEvent.dialogueSpeaker || '집사 아르노';
-  const speech = nextEvent.dialogueText || '"각하, 다음 조치를 결정해 주십시오."';
+  // 7. 서사 조합 (선택지 판정 및 결과)
   const fullNarrative = `${narrativeText}
 
-시간이 흘러 ${newDateLocation.split('/')[0].trim()}이 되었습니다.
-${nextEvent.narrativeTemplate}
-
-${speaker}가 다가와 고했습니다.
-${speech}
+당신의 결단이 연대기에 엄숙히 기록되었습니다. 세월의 흐름에 따라 새로운 사건과 운명이 펼쳐집니다.
 [역사적 고증: 확인됨]`;
 
-  // 9. 새 특성 병합
+  // 8. 새 특성 병합
   const existingTraits = [...(currentState.traits || [])];
   newTraitsToAdd.forEach(traitName => {
     if (!existingTraits.some(t => t.name === traitName)) {
@@ -403,13 +394,13 @@ ${speech}
     }
   });
 
-  // 10. 세력 상태 갱신
+  // 9. 세력 상태 갱신
   const updatedFactionState = {
     ...(currentState.factionState || {}),
     '세력 재정': `금화 ${finalGold}`
   };
 
-  // 11. ParsedState 규격으로 조립
+  // 10. ParsedState 규격으로 조립
   const nextParsedState: ParsedState = {
     ...currentState,
     dateLocation: newDateLocation,
@@ -429,13 +420,7 @@ ${speech}
       ...(currentState.inventory || {}),
       '소지 화폐': [`금화 ${finalGold}`, '은화 30']
     },
-    choices: nextEvent.choices.map((c, idx) => ({
-      id: c.id,
-      type: `${idx + 1}번`,
-      text: c.text,
-      probability: c.probability,
-      groupType: c.groupType
-    }))
+    choices: [] // 중요 사건 선택지 처리 완료 후 일상 시간 진행으로 전환
   };
 
   // 기존 자동 축적 엔진(위신/신앙/경제) 연동

@@ -133,48 +133,7 @@
   transform: translateY(0);
 }
 
-.freeActionBox {
-  display: flex;
-  gap: 10px;
-  padding: 14px 20px;
-  border-top: 1px solid rgba(212, 175, 55, 0.2);
-  background: rgba(14, 10, 7, 0.92);
-  box-sizing: border-box;
-}
 
-.inputField {
-  flex: 1;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1.5px solid rgba(212, 175, 55, 0.3);
-  border-radius: 8px;
-  padding: 10px 14px;
-  color: #fff;
-  font-size: 0.95rem;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.inputField:focus {
-  border-color: #fbbf24;
-  box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
-}
-
-.submitBtn {
-  padding: 10px 22px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #d4af37, #b8860b);
-  border: none;
-  color: #1a140d;
-  font-weight: 800;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: filter 0.15s ease;
-  white-space: nowrap;
-}
-
-.submitBtn:hover {
-  filter: brightness(1.1);
-}
 
 /* Right: Slim Context & Status Sidebar */
 .sideWidgetPane {

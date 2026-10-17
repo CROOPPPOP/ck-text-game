@@ -87,6 +87,13 @@ export default function CKRelationsModal({ isOpen, onClose, gameState, onOpenDia
       icon: '🏰',
       section: '궁정 신하 및 가신단',
       subordinateName: '🛡️ 직속 가신 (Vassal)'
+    },
+    peasant: {
+      title: '🌾 마을 이웃 & 품앗이 관계망',
+      desc: '마을 이웃 소작인, 집사관, 대장장이 및 향촌 주민들과의 유대와 신뢰',
+      icon: '🌾',
+      section: '마을 이웃 및 향촌 주민',
+      subordinateName: '👨‍🌾 품앗이 이웃 / 일꾼'
     }
   }[archetype] || {
     title: '대인 관계 & 외교 관계망',

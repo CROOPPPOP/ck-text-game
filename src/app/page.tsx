@@ -31,7 +31,7 @@ import {
   saveToSlot, 
   UserUXSettings 
 } from '@/lib/saveManager';
-import { extractNumericValue } from '@/lib/ckVisuals';
+import { extractNumericValue, detectPlayerArchetype, PlayerArchetype } from '@/lib/ckVisuals';
 import { GenesisCardData, rollRandomBirth } from '@/lib/engine/genesisEngine';
 
 import CKTopHud from '@/components/CKTopHud';
@@ -49,7 +49,7 @@ import CKCharacterDialogueModal, { DialogueCharacter } from '@/components/CKChar
 import { 
   Hammer, Shield, Swords, Sparkles, Award, Heart, Activity, 
   Compass, Coins, User, Users, Castle, Flame, ArrowUpRight, 
-  Clock, CheckCircle, Package, Feather
+  Clock, CheckCircle, Package, Feather, Play, Pause, FastForward
 } from 'lucide-react';
 
 const TypewriterText = ({ text, delay = 15 }: { text: string; delay?: number }) => {
@@ -106,6 +106,72 @@ const TypewriterText = ({ text, delay = 15 }: { text: string; delay?: number }) 
   );
 };
 
+function getStatusActionHeader(archetype: PlayerArchetype): string {
+  switch (archetype) {
+    case 'peasant':
+      return '🌾 소작농의 중요 결단과 생존 선택 (Dilemmas):';
+    case 'wanderer':
+      return '🗡️ 방랑자의 생존 결단과 모험 (Dilemmas):';
+    case 'clergy':
+      return '⛪ 성직자의 신앙적 결단과 성무 (Dilemmas):';
+    case 'company':
+      return '👥 용병단의 지휘 결단과 작전 (Dilemmas):';
+    case 'noble':
+    default:
+      return '👑 군주의 통치 결단과 칙령 (Dilemmas):';
+  }
+}
+
+function getAmbientMonthlyText(archetype: PlayerArchetype, date: GameDate): string {
+  const season = date.season;
+  if (archetype === 'peasant') {
+    switch (season) {
+      case '봄':
+        return `서기 ${date.year}년 ${date.month}월 (봄): 겨우내 얼었던 대지가 풀리고, 마을 사람들과 함께 흙을 갈아엎어 보리와 귀리 씨앗을 뿌렸습니다. 손마디에 굳은살이 박였으나 향긋한 흙냄새에 마음이 든든합니다.`;
+      case '여름':
+        return `서기 ${date.year}년 ${date.month}월 (여름): 따가운 뙤약볕 아래서 땀을 비 오듯 쏟으며 김을 매고 짚오두막 지붕을 손보았습니다. 이웃 소작인들과 시원한 우물물을 나누며 고된 하루를 달랬습니다.`;
+      case '가을':
+        return `서기 ${date.year}년 ${date.month}월 (가을): 황금빛 들판에서 풍성하게 익은 곡식을 낫으로 베어 타작했습니다. 영주의 십일조와 소작료를 바치고 남은 곡식을 오두막 광에 정성껏 갈무리했습니다.`;
+      case '겨울':
+        return `서기 ${date.year}년 ${date.month}월 (겨울): 매서운 눈보라가 오두막 흙벽을 때리지만, 미리 패둔 장작을 화덕에 피우고 짚신을 삼으며 가족들과 따뜻하게 겨울을 나고 있습니다.`;
+    }
+  } else if (archetype === 'wanderer') {
+    switch (season) {
+      case '봄':
+        return `서기 ${date.year}년 ${date.month}월 (봄): 눈 녹은 가도를 따라 발길을 옮기며 봄맞이 순례자들과 상단들의 분주한 행렬을 마주쳤습니다.`;
+      case '여름':
+        return `서기 ${date.year}년 ${date.month}월 (여름): 주막 평상 그늘 아래서 땀을 식히며 칼날을 숫돌에 갈고 각지에서 들려오는 풍문을 탐색했습니다.`;
+      case '가을':
+        return `서기 ${date.year}년 ${date.month}월 (가을): 가을 장터가 열린 성하 마을에서 가벼운 호위 의뢰를 수행하며 여비와 건포도를 챙겼습니다.`;
+      case '겨울':
+        return `서기 ${date.year}년 ${date.month}월 (겨울): 차가운 겨울바람을 피해 훈훈한 여관 화덕가에 머물며 옛 동료들의 무용담을 나누었습니다.`;
+    }
+  } else if (archetype === 'clergy') {
+    switch (season) {
+      case '봄':
+        return `서기 ${date.year}년 ${date.month}월 (봄): 부활절 종소리가 은은히 퍼지는 가운데 교구 성도들과 함께 봄맞이 감사 미사를 올렸습니다.`;
+      case '여름':
+        return `서기 ${date.year}년 ${date.month}월 (여름): 수도원 서고에서 촛불을 켜고 고대 약초학과 성경 사본을 정성껏 필사했습니다.`;
+      case '가을':
+        return `서기 ${date.year}년 ${date.month}월 (가을): 영민들이 바친 십일조 곡식을 검수하고, 흉년에 대비해 구빈원에 비상 양식을 갈무리했습니다.`;
+      case '겨울':
+        return `서기 ${date.year}년 ${date.month}월 (겨울): 엄동설한의 추위 속에서 성당의 종탑에 올라 평화를 위해 밤샘 기도를 올렸습니다.`;
+    }
+  } else {
+    // noble / company
+    switch (season) {
+      case '봄':
+        return `서기 ${date.year}년 ${date.month}월 (봄): 기사단을 이끌고 영지 경계와 봉건 장원을 순시하며 농민들의 봄 파종을 독려했습니다.`;
+      case '여름':
+        return `서기 ${date.year}년 ${date.month}월 (여름): 성채 연병장에서 수비대 훈련을 사열하고 가신들과 함께 영지 수리 및 성벽 보수를 점검했습니다.`;
+      case '가을':
+        return `서기 ${date.year}년 ${date.month}월 (가을): 장원 관리관들로부터 가을 조세 수납 장부를 보고받고 국고와 군량 창고를 충실히 채웠습니다.`;
+      case '겨울':
+        return `서기 ${date.year}년 ${date.month}월 (겨울): 성채 홀의 거대한 벽난로 앞에 모여 가신단과 온기를 나누며 새해의 영지 경영 계획을 논의했습니다.`;
+    }
+  }
+}
+
 const getChoiceTheme = (groupType?: string, text?: string) => {
   if (text?.includes('[건설]') || text?.includes('[증축]') || text?.includes('축조')) {
     return { 
@@ -151,7 +217,6 @@ export default function Home() {
   const [gameState, setGameState] = useState<ParsedState | null>(null);
   const [loading, setLoading] = useState(false);
   const [streamPreview, setStreamPreview] = useState("");
-  const [freeAction, setFreeAction] = useState("");
   const [constructionQueue, setConstructionQueue] = useState<QueueItem[]>([]);
   const [turn, setTurn] = useState(1);
   const [gameSpeed, setGameSpeed] = useState<GameSpeed>(1);
@@ -171,11 +236,19 @@ export default function Home() {
   const [canUndo, setCanUndo] = useState(false);
   const [quickNotice, setQuickNotice] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>('');
+  const [savedAutoGame, setSavedAutoGame] = useState<{
+    data: ParsedState;
+    name: string;
+    status: string;
+    year: string;
+    turn: number;
+  } | null>(null);
 
   const lastTickTimeRef = useRef<number>(Date.now());
   const accumulatedSecRef = useRef<number>(0);
+  const seenEventIdsRef = useRef<Set<string>>(new Set());
 
-  // 1. 초기 로드 및 세이브 검사
+  // 1. 초기 로드 및 세이브 검사 (무조건 타이틀 화면을 먼저 노출)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       autoMigrateAndSanitizeStorage();
@@ -187,24 +260,34 @@ export default function Home() {
         try {
           const parsed = JSON.parse(savedStateRaw);
           if (parsed && (parsed.personalInfo || parsed.narrative)) {
-            setGameState(parsed);
-            if (parsed._turn) setTurn(parsed._turn);
-            if (parsed._constructionQueue) setConstructionQueue(parsed._constructionQueue);
-            if (parsed.dateLocation) {
-              const parsedDate = parseDateLocation(parsed.dateLocation);
-              setGameDate(parsedDate.date);
-            }
-            setCanUndo(hasUndoState());
-            return;
+            const name = parsed.personalInfo?.['이름'] || '선대 인물';
+            const status = parsed.personalInfo?.['신분'] || '방랑자';
+            const yearMatch = parsed.dateLocation ? parsed.dateLocation.match(/(\d+)년/) : null;
+            const year = yearMatch ? yearMatch[1] : '1066';
+            setSavedAutoGame({ data: parsed, name, status, year, turn: parsed._turn || 1 });
           }
         } catch (e) {
           console.error("Auto save load error", e);
         }
       }
-      // 세이브가 없으면 무작위 출생 모달 바로 개방
-      setIsGenesisModalOpen(true);
+      // 세이브 존재 여부와 무관하게 항상 타이틀 화면(gameState = null)으로 시작
     }
   }, []);
+
+  const handleContinueGame = () => {
+    if (!savedAutoGame) return;
+    setGameState(savedAutoGame.data);
+    const autoData = savedAutoGame.data as any;
+    if (autoData._turn) setTurn(autoData._turn);
+    if (autoData._constructionQueue) setConstructionQueue(autoData._constructionQueue);
+    if (savedAutoGame.data.dateLocation) {
+      const parsedDate = parseDateLocation(savedAutoGame.data.dateLocation);
+      setGameDate(parsedDate.date);
+    }
+    setCanUndo(hasUndoState());
+    setIsPaused(true);
+    showQuickNotice(`▶️ [${savedAutoGame.name} (${savedAutoGame.status})] 님의 여정을 이어갑니다.`);
+  };
 
   const showQuickNotice = (msg: string) => {
     setQuickNotice(msg);
@@ -369,10 +452,65 @@ export default function Home() {
       if (timeResult.monthsAdvanced > 0) {
         setGameDate(timeResult.newDate);
 
-        // 월간 역사 이벤트 확률 롤
-        const rolledEvent = rollMonthlyEvent(gameState, turn, new Set());
+        // 월간 이벤트 롤링
+        const rolledEvent = rollMonthlyEvent(gameState, turn, seenEventIdsRef.current);
         if (rolledEvent) {
-          showQuickNotice(`📜 역사적 국면: [${rolledEvent.title}]`);
+          // 중요 사건 발생! -> 시간 자동 일시정지 & 중요 사건 선택지 제시!
+          seenEventIdsRef.current.add(rolledEvent.id);
+          setIsPaused(true);
+          showQuickNotice(`🚨 중요 결단 발생: [${rolledEvent.title}] (시간 정지)`);
+
+          const crisisNarrative = `【 🚨 중요 사건: ${rolledEvent.title} 】\n${rolledEvent.narrativeTemplate}\n\n${rolledEvent.dialogueSpeaker || '전령'}: ${rolledEvent.dialogueText || ''}\n[역사적 고증: 확인됨]`;
+
+          const dilemmaChoices = rolledEvent.choices.map((c, idx) => ({
+            id: c.id,
+            type: `${idx + 1}번`,
+            text: c.text,
+            probability: c.probability,
+            groupType: c.groupType
+          }));
+
+          setGameState(prev => {
+            if (!prev) return prev;
+            const loc = parseDateLocation(prev.dateLocation).location;
+            const chronicleEntry: ChronicleItem = {
+              turn,
+              dateLocation: formatDateLocation(timeResult.newDate, loc),
+              action: `중요 사건: ${rolledEvent.title}`,
+              result: '결단 대기',
+              summary: rolledEvent.narrativeTemplate.slice(0, 80) + '...'
+            };
+            return {
+              ...prev,
+              dateLocation: formatDateLocation(timeResult.newDate, loc, turn),
+              narrative: crisisNarrative,
+              choices: dilemmaChoices,
+              historicalTag: rolledEvent.historicalTag || prev.historicalTag,
+              chronicle: [...(prev.chronicle || []), chronicleEntry]
+            };
+          });
+        } else {
+          // 일반 사건 (서술만 되고 넘어가고 선택지는 비워둠)
+          const archetype = detectPlayerArchetype(gameState);
+          const ambientLog = getAmbientMonthlyText(archetype, timeResult.newDate);
+          setGameState(prev => {
+            if (!prev) return prev;
+            const loc = parseDateLocation(prev.dateLocation).location;
+            const chronicleEntry: ChronicleItem = {
+              turn,
+              dateLocation: formatDateLocation(timeResult.newDate, loc),
+              action: `일상 연대기 (${timeResult.newDate.month}월 ${timeResult.newDate.season})`,
+              result: '평온',
+              summary: ambientLog
+            };
+            return {
+              ...prev,
+              dateLocation: formatDateLocation(timeResult.newDate, loc, turn),
+              narrative: ambientLog,
+              choices: [], // 일반 사건은 선택지가 없음!
+              chronicle: [...(prev.chronicle || []), chronicleEntry]
+            };
+          });
         }
       }
     }, 1000);
@@ -500,7 +638,12 @@ export default function Home() {
         });
       }
 
-      if (e.key >= '1' && e.key <= '4' && gameState?.choices && !loading) {
+      if (e.code === 'Space' && activeModal === null && !isGenesisModalOpen && !isEpitaphModalOpen) {
+        e.preventDefault();
+        setIsPaused(prev => !prev);
+      }
+
+      if (e.key >= '1' && e.key <= '4' && gameState?.choices && gameState.choices.length > 0 && !loading) {
         const idx = parseInt(e.key, 10) - 1;
         if (gameState.choices[idx]) {
           handleAction(gameState.choices[idx].text);
@@ -510,7 +653,110 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, loading]);
+  }, [gameState, loading, activeModal, isGenesisModalOpen, isEpitaphModalOpen]);
+
+  const handlePassSeason = () => {
+    if (!gameState || loading) return;
+    let currDate = { ...gameDate };
+    let currTurn = turn;
+    let triggeredEvent: any = null;
+
+    for (let m = 0; m < 3; m++) {
+      const timeResult = advanceGameTime(currDate, 60, 1, 0);
+      currDate = timeResult.newDate;
+      currTurn += 1;
+
+      const rolled = rollMonthlyEvent(gameState, currTurn, seenEventIdsRef.current);
+      if (rolled) {
+        triggeredEvent = rolled;
+        seenEventIdsRef.current.add(rolled.id);
+        break;
+      }
+    }
+
+    setGameDate(currDate);
+    setTurn(currTurn);
+
+    if (triggeredEvent) {
+      setIsPaused(true);
+      showQuickNotice(`🚨 중요 결단 발생: [${triggeredEvent.title}] (시간 정지)`);
+      const crisisNarrative = `【 🚨 중요 사건: ${triggeredEvent.title} 】\n${triggeredEvent.narrativeTemplate}\n\n${triggeredEvent.dialogueSpeaker || '전령'}: ${triggeredEvent.dialogueText || ''}\n[역사적 고증: 확인됨]`;
+      const dilemmaChoices = triggeredEvent.choices.map((c: any, idx: number) => ({
+        id: c.id,
+        type: `${idx + 1}번`,
+        text: c.text,
+        probability: c.probability,
+        groupType: c.groupType
+      }));
+      setGameState(prev => {
+        if (!prev) return prev;
+        const loc = parseDateLocation(prev.dateLocation).location;
+        return {
+          ...prev,
+          dateLocation: formatDateLocation(currDate, loc, currTurn),
+          narrative: crisisNarrative,
+          choices: dilemmaChoices,
+          historicalTag: triggeredEvent.historicalTag || prev.historicalTag
+        };
+      });
+    } else {
+      const archetype = detectPlayerArchetype(gameState);
+      const ambientLog = getAmbientMonthlyText(archetype, currDate);
+      setGameState(prev => {
+        if (!prev) return prev;
+        const loc = parseDateLocation(prev.dateLocation).location;
+        const chronicleEntry: ChronicleItem = {
+          turn: currTurn,
+          dateLocation: formatDateLocation(currDate, loc),
+          action: `계절 경과 (+3개월)`,
+          result: '평온',
+          summary: ambientLog
+        };
+        return {
+          ...prev,
+          dateLocation: formatDateLocation(currDate, loc, currTurn),
+          narrative: ambientLog,
+          choices: [],
+          chronicle: [...(prev.chronicle || []), chronicleEntry]
+        };
+      });
+      showQuickNotice(`⏩ 3개월의 세월이 평온하게 흘렀습니다.`);
+    }
+  };
+
+  const handleAmbientRoutineAction = () => {
+    if (!gameState || loading) return;
+    const archetype = detectPlayerArchetype(gameState);
+    let actionDesc = "";
+    if (archetype === 'peasant') {
+      actionDesc = "온종일 밭을 갈고 오두막 짚단을 손보며 땀방울을 흘렸습니다. (마을 평판 +5, 비상금 +2닢)";
+    } else if (archetype === 'wanderer') {
+      actionDesc = "가도를 정찰하고 무구를 정비하며 몸과 마음을 가다듬었습니다. (개인 명망 +5, 여비 +3닢)";
+    } else if (archetype === 'clergy') {
+      actionDesc = "성당에서 조용히 성경을 묵상하고 마을 병자들을 위로했습니다. (신앙심 +8)";
+    } else {
+      actionDesc = "성채를 순찰하고 가신단과 국정을 논의하며 영지 기강을 점검했습니다. (가문 위신 +8)";
+    }
+
+    setGameState(prev => {
+      if (!prev) return prev;
+      const loc = parseDateLocation(prev.dateLocation).location;
+      const chronicleEntry: ChronicleItem = {
+        turn,
+        dateLocation: formatDateLocation(gameDate, loc),
+        action: `일상 정비`,
+        result: '성공',
+        summary: actionDesc
+      };
+      return {
+        ...prev,
+        narrative: actionDesc,
+        choices: [],
+        chronicle: [...(prev.chronicle || []), chronicleEntry]
+      };
+    });
+    showQuickNotice("🌾 일상적인 노고와 정비를 마쳤습니다.");
+  };
 
   const handleUndoTurn = () => {
     const popped = popUndoState();
@@ -549,14 +795,40 @@ export default function Home() {
             크루세이더 킹즈: 연대기
           </h1>
           <p style={{ color: '#fbbf24', fontSize: '13px', fontWeight: 600, letterSpacing: '1px', marginBottom: '24px' }}>
-            80억 분의 1 • 중세 봉건 라이프 시뮬레이터
+            중세 봉건 라이프 시뮬레이터 • 운명의 연대기
           </p>
           <p style={{ color: '#a8a29e', fontSize: '12.5px', lineHeight: '1.7', marginBottom: '28px' }}>
             서기 1066년, 당신은 누구의 자식으로 태어났습니까?<br />
-            무작위로 부여받은 운명 속에서 생존하고 입신양명하여 불멸의 가문을 세우십시오.
+            무작위로 부여받은 운명 속에서 생존하고 입신양명하여 역사의 한 페이지를 새기십시오.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {savedAutoGame && (
+              <button
+                onClick={handleContinueGame}
+                style={{
+                  padding: '16px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: '1px solid #34d399',
+                  color: '#ffffff',
+                  fontSize: '15px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <span>▶️ 이전 여정 이어하기</span>
+                <span style={{ fontSize: '12px', opacity: 0.9 }}>
+                  ({savedAutoGame.name} • {savedAutoGame.status} • {savedAutoGame.year}년)
+                </span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsGenesisModalOpen(true)}
               style={{
@@ -571,7 +843,7 @@ export default function Home() {
                 boxShadow: '0 4px 20px rgba(212, 175, 55, 0.4)'
               }}
             >
-              🎲 새로운 역사 시작하기 (무작위 80억 분의 1 출생)
+              🎲 새로운 인생 시작하기 (무작위 중세 출생)
             </button>
 
             <button
@@ -587,7 +859,7 @@ export default function Home() {
                 cursor: 'pointer'
               }}
             >
-              💾 세이브 데이터 불러오기 (Load Game)
+              💾 저장된 기록 불러오기 (Load Game)
             </button>
           </div>
         </div>
@@ -622,10 +894,10 @@ export default function Home() {
   }
 
   // 기본 인물 정보 추출
-  const rulerName = gameState.personalInfo?.['이름'] || '군주';
+  const rulerName = gameState.personalInfo?.['이름'] || '인물';
   const rulerAge = gameState.personalInfo?.['나이'] || '16';
   const rulerStatus = gameState.personalInfo?.['신분'] || '방랑자';
-  const rulerHouse = gameState.personalInfo?.['칭호'] || '가문';
+  const rulerHouse = gameState.personalInfo?.['칭호'] || '';
   const currentLocation = parseDateLocation(gameState.dateLocation).location;
 
   return (
@@ -713,118 +985,183 @@ export default function Home() {
               />
             </div>
 
-            {/* 4 Choices Section */}
+            {/* Choices or Ambient Time Progress Section */}
             <div className={styles.choicesSection}>
-              <div style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                color: '#fbbf24',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                marginBottom: '4px'
-              }}>
-                <Compass size={14} />
-                <span>⚖️ 군주의 결단과 선택 (Choices):</span>
-                <span style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 400 }}>
-                  (키보드 1~4번 또는 클릭)
-                </span>
-              </div>
+              {gameState.choices && gameState.choices.length > 0 ? (
+                <>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#fbbf24',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginBottom: '4px'
+                  }}>
+                    <Compass size={14} />
+                    <span>{getStatusActionHeader(detectPlayerArchetype(gameState))}</span>
+                    <span style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 400 }}>
+                      (키보드 1~4번 또는 클릭)
+                    </span>
+                  </div>
 
-              {(!gameState.choices || gameState.choices.length === 0) ? (
-                <div style={{ fontSize: '12px', color: '#78716c', fontStyle: 'italic', padding: '12px' }}>
-                  현재 제시된 고유 선택지가 없습니다. 아래 직접 칙령을 입력하여 행동하십시오.
-                </div>
-              ) : (
-                gameState.choices.map((choice, idx) => {
-                  const theme = getChoiceTheme(choice.groupType, choice.text);
-                  return (
-                    <button
-                      key={idx}
-                      className={styles.choiceItemBtn}
-                      style={{
-                        background: theme.bg,
-                        borderColor: theme.border
-                      }}
-                      onClick={() => handleAction(choice.text)}
-                      disabled={loading}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                        <span style={{ fontSize: '1.4rem' }}>{theme.icon}</span>
-                        <div>
-                          <div style={{ fontSize: '11px', color: theme.tagColor, fontWeight: 700 }}>
-                            [{idx + 1}] {choice.type} &bull; {choice.groupType || '일반 결단'}
-                          </div>
-                          <div style={{ fontSize: '13.5px', color: '#fff', fontWeight: 700, marginTop: '2px', lineHeight: '1.4' }}>
-                            {choice.text}
+                  {gameState.choices.map((choice, idx) => {
+                    const theme = getChoiceTheme(choice.groupType, choice.text);
+                    return (
+                      <button
+                        key={idx}
+                        className={styles.choiceItemBtn}
+                        style={{
+                          background: theme.bg,
+                          borderColor: theme.border
+                        }}
+                        onClick={() => handleAction(choice.text)}
+                        disabled={loading}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                          <span style={{ fontSize: '1.4rem' }}>{theme.icon}</span>
+                          <div>
+                            <div style={{ fontSize: '11px', color: theme.tagColor, fontWeight: 700 }}>
+                              [{idx + 1}] {choice.type} &bull; {choice.groupType || '중요 결단'}
+                            </div>
+                            <div style={{ fontSize: '13.5px', color: '#fff', fontWeight: 700, marginTop: '2px', lineHeight: '1.4' }}>
+                              {choice.text}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {choice.probability && (
-                        <span style={{
-                          fontSize: '11px',
-                          color: choice.probability.includes('성공') || choice.probability.includes('상승') ? '#34d399' : '#f87171',
-                          background: 'rgba(0,0,0,0.5)',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {choice.probability}
-                        </span>
-                      )}
+                        {choice.probability && (
+                          <span style={{
+                            fontSize: '11px',
+                            color: choice.probability.includes('성공') || choice.probability.includes('상승') ? '#34d399' : '#f87171',
+                            background: 'rgba(0,0,0,0.5)',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {choice.probability}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </>
+              ) : (
+                <div style={{
+                  background: 'rgba(28, 22, 17, 0.85)',
+                  border: '1.5px solid rgba(212, 175, 55, 0.35)',
+                  borderRadius: '10px',
+                  padding: '16px 20px',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>{isPaused ? '⏸️' : '⏳'}</span>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#fef3c7' }}>
+                          {isPaused 
+                            ? `시간이 멈추었습니다 (${gameDate.year}년 ${gameDate.month}월 ${gameDate.season})` 
+                            : `평온한 일상이 흐르고 있습니다 (${gameDate.year}년 ${gameDate.month}월 ${gameDate.season})`}
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#a8a29e', marginTop: '2px' }}>
+                          계절이 바뀌며 삶의 서사가 기록됩니다. 중대한 위기나 기회가 발생하면 시간이 멈추고 결단이 주어집니다.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px', borderTop: '1px solid rgba(212, 175, 55, 0.15)', paddingTop: '12px' }}>
+                    <button
+                      onClick={() => setIsPaused(prev => !prev)}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '6px',
+                        background: isPaused ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      {isPaused ? <Play size={14} /> : <Pause size={14} />}
+                      <span>{isPaused ? '▶️ 시간 흘려보내기 (재생)' : '⏸️ 시간 멈추기 (일시정지)'}</span>
                     </button>
-                  );
-                })
+
+                    <button
+                      onClick={handlePassSeason}
+                      disabled={loading}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      <FastForward size={14} />
+                      <span>⏩ 계절 넘기기 (+3달)</span>
+                    </button>
+
+                    <button
+                      onClick={handleAmbientRoutineAction}
+                      disabled={loading}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '6px',
+                        background: 'rgba(212, 175, 55, 0.15)',
+                        border: '1px solid rgba(212, 175, 55, 0.4)',
+                        color: '#fbbf24',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>🌾 일상 근로 및 정비</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
-
-          {/* Bottom Direct Action / Decree Bar */}
-          <div className={styles.freeActionBox}>
-            <input
-              type="text"
-              value={freeAction}
-              onChange={e => setFreeAction(e.target.value)}
-              className={styles.inputField}
-              placeholder="✍️ 직접 행동 또는 영주 칙령 하달 (예: [건설] 감시탑 증축, 영주에게 농토 청원, 기습 타격)..."
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && freeAction.trim()) {
-                  handleAction(freeAction);
-                  setFreeAction("");
-                }
-              }}
-              disabled={loading}
-            />
-            <button
-              className={styles.submitBtn}
-              onClick={() => {
-                if (freeAction.trim()) {
-                  handleAction(freeAction);
-                  setFreeAction("");
-                }
-              }}
-              disabled={loading}
-            >
-              칙령 반포
-            </button>
           </div>
         </section>
 
         {/* Right Column: Slim Context & Status Sidebar */}
         <aside className={styles.sideWidgetPane}>
-          {/* Widget 1: Identity & House */}
+          {/* Widget 1: Identity & Station */}
           <div className={styles.widgetCard}>
             <div className={styles.widgetTitle}>
               <User size={15} />
-              <span>신분 및 가문 정체성</span>
+              <span>신분 및 정체성</span>
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <div>
                 <div style={{ fontSize: '15px', fontWeight: 800, color: '#fff' }}>
-                  {rulerName} <span style={{ color: '#d4af37' }}>{rulerHouse}</span>
+                  {rulerStatus.includes('소작') || rulerStatus.includes('농민') || rulerStatus.includes('평민') ? (
+                    <>
+                      <span style={{ color: '#a7f3d0' }}>{rulerHouse}</span> {rulerName}
+                    </>
+                  ) : (
+                    <>
+                      {rulerName} <span style={{ color: '#d4af37' }}>{rulerHouse}</span>
+                    </>
+                  )}
                 </div>
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>
                   {rulerStatus} • {rulerAge}세 • {gameState.personalInfo?.['문화'] || '중세인'}
