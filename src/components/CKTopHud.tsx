@@ -5,7 +5,7 @@ import { ParsedState } from '@/lib/parser';
 import { parseCKResources, parseCKStress, getHeraldryEmblem, formatDecimal } from '@/lib/ckVisuals';
 import { checkStatusPromotion } from '@/lib/statusPromotion';
 import { getHighestThreatFaction } from '@/lib/factionRelations';
-import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X, Swords, Play, Pause, FastForward } from 'lucide-react';
+import { Crown, Coins, Shield, Castle, Flame, Heart, Scroll, Users, Calendar, Sparkles, Settings, Save, RotateCcw, Zap, TrendingUp, TrendingDown, X, Swords, Play, Pause, FastForward, BookOpen } from 'lucide-react';
 import { GameSpeed } from '@/lib/engine/timeEngine';
 
 interface Props {
@@ -30,6 +30,7 @@ interface Props {
   canUndo?: boolean;
   onReturnTitle: () => void;
   onOpenApiKey?: () => void;
+  onOpenPastLives?: () => void;
 }
 
 export default function CKTopHud({
@@ -53,7 +54,8 @@ export default function CKTopHud({
   onUndoTurn,
   canUndo = false,
   onReturnTitle,
-  onOpenApiKey
+  onOpenApiKey,
+  onOpenPastLives
 }: Props) {
   const statusStr = gameState.personalInfo?.['신분'] || '';
   const rulerName = gameState.personalInfo?.['이름'] || '인물';
@@ -845,6 +847,30 @@ export default function CKTopHud({
               >
                 <RotateCcw size={13} />
                 <span>되돌리기</span>
+              </button>
+            )}
+
+            {/* Past Lives Memorial Codex Button */}
+            {onOpenPastLives && (
+              <button
+                onClick={onOpenPastLives}
+                title="역대 선대 인물들의 지난 삶과 묘비명 서고 열기"
+                style={{
+                  background: 'rgba(167, 139, 250, 0.15)',
+                  border: '1px solid rgba(167, 139, 250, 0.4)',
+                  color: '#c4b5fd',
+                  padding: '5px 9px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <BookOpen size={13} />
+                <span>지난 삶들</span>
               </button>
             )}
 

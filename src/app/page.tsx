@@ -44,12 +44,13 @@ import ChronicleModal from '@/components/ChronicleModal';
 import CKSaveModal from '@/components/CKSaveModal';
 import CKSettingsModal from '@/components/CKSettingsModal';
 import CKApiKeyModal from '@/components/CKApiKeyModal';
+import CKPastLivesModal, { PastLifeRecord } from '@/components/CKPastLivesModal';
 import CKCharacterDialogueModal, { DialogueCharacter } from '@/components/CKCharacterDialogueModal';
 
 import { 
   Hammer, Shield, Swords, Sparkles, Award, Heart, Activity, 
   Compass, Coins, User, Users, Castle, Flame, ArrowUpRight, 
-  Clock, CheckCircle, Package, Feather, Play, Pause, FastForward
+  Clock, CheckCircle, Package, Feather, Play, Pause, FastForward, BookOpen
 } from 'lucide-react';
 
 const TypewriterText = ({ text, delay = 15 }: { text: string; delay?: number }) => {
@@ -227,9 +228,16 @@ export default function Home() {
   // Modals
   const [isGenesisModalOpen, setIsGenesisModalOpen] = useState(false);
   const [isEpitaphModalOpen, setIsEpitaphModalOpen] = useState(false);
+  const [isPastLivesModalOpen, setIsPastLivesModalOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<'character' | 'familyTree' | 'relations' | 'chronicle' | 'save' | 'settings' | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [activeDialogueCharacter, setActiveDialogueCharacter] = useState<DialogueCharacter | null>(null);
+
+  // 2-Tier Real-time System & Stream
+  const [minorCountdown, setMinorCountdown] = useState<number>(0);
+  const [isMinorEvent, setIsMinorEvent] = useState<boolean>(false);
+  const [pastLivesCount, setPastLivesCount] = useState<number>(0);
+  const chronicleBottomRef = useRef<HTMLDivElement | null>(null);
 
   // UX & System
   const [uxSettings, setUxSettings] = useState<UserUXSettings>(loadUXSettings());
@@ -254,6 +262,17 @@ export default function Home() {
       autoMigrateAndSanitizeStorage();
       const savedKey = localStorage.getItem('ck_api_key') || '';
       setApiKey(savedKey);
+
+      // 지난 삶들의 서고 기록 개수 확인
+      try {
+        const rawPast = localStorage.getItem('ck_past_lives');
+        if (rawPast) {
+          const parsedPast = JSON.parse(rawPast);
+          if (Array.isArray(parsedPast)) setPastLivesCount(parsedPast.length);
+        }
+      } catch (e) {
+        console.error("Past lives count load error", e);
+      }
 
       const savedStateRaw = localStorage.getItem('ck_auto_save');
       if (savedStateRaw) {
@@ -296,7 +315,22 @@ export default function Home() {
 
   // 2. 무작위 출생 확정 (새 게임 시작)
   const handleGenesisConfirm = (cardData: GenesisCardData, initialState: ParsedState) => {
-    setGameState(initialState);
+    const initialChronicle: ChronicleItem = {
+      turn: 1,
+      dateLocation: '1066년 10월 (가을) / 잉글랜드 헤이스팅스 [턴 수: 1]',
+      action: '운명의 연대기 시작',
+      result: '출생',
+      summary: `${cardData.name} ${cardData.houseName} (${cardData.status})의 여정이 시작되었습니다.`,
+      narrative: initialState.narrative || `${cardData.name}의 중세 서사가 시작되었습니다.`,
+      kind: 'major',
+      historicalTag: '🎲 무작위 중세 출생'
+    };
+    const stateWithChronicle: ParsedState = {
+      ...initialState,
+      chronicle: [initialChronicle]
+    };
+
+    setGameState(stateWithChronicle);
     setTurn(1);
     setGameDate({ year: 1066, month: 10, day: 14, season: '가을' });
     setConstructionQueue([]);
@@ -305,18 +339,51 @@ export default function Home() {
     setIsPaused(true);
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem('ck_auto_save', JSON.stringify({ ...initialState, _turn: 1, _constructionQueue: [] }));
+      localStorage.setItem('ck_auto_save', JSON.stringify({ ...stateWithChronicle, _turn: 1, _constructionQueue: [] }));
     }
     showQuickNotice(`🎲 ${cardData.name} ${cardData.houseName} (${cardData.status})의 역사가 시작되었습니다!`);
   };
 
-  // 3. 엔딩 및 사망 처리
+  // 3. 엔딩 및 사망 처리 (지난 삶들의 서고 자동 보존)
   useEffect(() => {
     if (gameState?.ending) {
       setIsEpitaphModalOpen(true);
       setIsPaused(true);
+
+      // 지난 삶들의 서고(Past Lives Codex) 자동 기록
+      try {
+        const raw = localStorage.getItem('ck_past_lives');
+        const list: PastLifeRecord[] = raw ? JSON.parse(raw) : [];
+        const name = gameState.personalInfo?.['이름'] || '인물';
+        const house = gameState.personalInfo?.['칭호'] || '';
+        const archetype = detectPlayerArchetype(gameState);
+        const age = parseInt(gameState.personalInfo?.['나이'] || '40', 10);
+        const deathText = gameState.ending || '세월의 흐름과 영면';
+        const record: PastLifeRecord = {
+          id: `life_${Date.now()}`,
+          name,
+          house,
+          archetype,
+          startYear: 1066,
+          endYear: gameDate.year,
+          finalAge: age,
+          deathCause: deathText.length > 50 ? deathText.slice(0, 50) + '...' : deathText,
+          epitaph: deathText,
+          summary: deathText,
+          totalTurns: turn,
+          timestamp: Date.now()
+        };
+
+        if (!list.some(l => l.name === name && l.endYear === gameDate.year && l.finalAge === age)) {
+          list.unshift(record);
+          localStorage.setItem('ck_past_lives', JSON.stringify(list));
+          setPastLivesCount(list.length);
+        }
+      } catch (e) {
+        console.error("Past life save error", e);
+      }
     }
-  }, [gameState?.ending]);
+  }, [gameState?.ending, gameDate.year, turn]);
 
   // 4. 가문 계승 및 환생 핸들러
   const handleSuccession = () => {
@@ -398,7 +465,38 @@ export default function Home() {
     setIsGenesisModalOpen(true);
   };
 
-  // 5. 실시간 틱 루프 (시간 전진, 건설 틱, 월간 이벤트)
+  // 4-1. 소결단(Minor Event) 흘려보내기 핸들러
+  const handlePassMinorChoice = () => {
+    if (!gameState || loading) return;
+    setIsMinorEvent(false);
+    setMinorCountdown(0);
+    showQuickNotice("🍃 사소한 일화는 관례에 맡기고 평온한 일상을 이어갑니다.");
+
+    const loc = parseDateLocation(gameState.dateLocation).location;
+    const passLog = "사소한 소요와 일화는 현지 관례와 사람들의 뜻에 맡겨둔 채, 당신은 자신의 삶과 본업에 집중하며 계절을 보냈습니다.";
+    const chronicleEntry: ChronicleItem = {
+      turn,
+      dateLocation: formatDateLocation(gameDate, loc),
+      action: "사소한 일화 지나침",
+      result: "흘려보냄",
+      summary: passLog,
+      narrative: passLog,
+      kind: 'minor',
+      choiceTaken: '[0] 흘려보내기'
+    };
+
+    setGameState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        narrative: passLog,
+        choices: [],
+        chronicle: [...(prev.chronicle || []), chronicleEntry]
+      };
+    });
+  };
+
+  // 5. 실시간 틱 루프 (시간 전진, 건설 틱, 소결단 카운트다운, 월간 이벤트)
   useEffect(() => {
     lastTickTimeRef.current = Date.now();
     const interval = setInterval(() => {
@@ -408,8 +506,19 @@ export default function Home() {
       const deltaSec = deltaMs / 1000;
 
       // 일시정지, 모달 열림, 로딩, 엔딩 시 틱 중단
-      if (isPaused || loading || !gameState || activeModal !== null || isGenesisModalOpen || isEpitaphModalOpen || gameState.ending) {
+      if (isPaused || loading || !gameState || activeModal !== null || isGenesisModalOpen || isEpitaphModalOpen || isPastLivesModalOpen || gameState.ending) {
         return;
+      }
+
+      // 소결단(Minor Event) 카운트다운 타이머 처리 (시간이 흘러가며 자동 종료)
+      if (isMinorEvent && minorCountdown > 0) {
+        const nextCountdown = minorCountdown - (deltaSec * gameSpeed);
+        if (nextCountdown <= 0) {
+          handlePassMinorChoice();
+          return;
+        } else {
+          setMinorCountdown(nextCountdown);
+        }
       }
 
       // 시간 전진
@@ -436,7 +545,9 @@ export default function Home() {
                 dateLocation: formatDateLocation(timeResult.newDate, loc),
                 action: `시설 완공: ${item.building}`,
                 result: '대성공',
-                summary: `${item.building} 건물이 영지 인프라로 완공되어 주민들의 찬사를 받았습니다.`
+                summary: `${item.building} 건물이 완공되어 영지 인프라로 확충되었습니다.`,
+                narrative: `장인들과 일꾼들의 땀방울 끝에 마침내 [${item.building}] 공사가 성공리에 완공되었습니다! 주민들과 이웃들이 환호성을 지르며 완공된 시설을 둘러봅니다.`,
+                kind: 'milestone'
               };
               return {
                 ...prev,
@@ -455,12 +566,16 @@ export default function Home() {
         // 월간 이벤트 롤링
         const rolledEvent = rollMonthlyEvent(gameState, turn, seenEventIdsRef.current);
         if (rolledEvent) {
-          // 중요 사건 발생! -> 시간 자동 일시정지 & 중요 사건 선택지 제시!
           seenEventIdsRef.current.add(rolledEvent.id);
-          setIsPaused(true);
-          showQuickNotice(`🚨 중요 결단 발생: [${rolledEvent.title}] (시간 정지)`);
 
-          const crisisNarrative = `【 🚨 중요 사건: ${rolledEvent.title} 】\n${rolledEvent.narrativeTemplate}\n\n${rolledEvent.dialogueSpeaker || '전령'}: ${rolledEvent.dialogueText || ''}\n[역사적 고증: 확인됨]`;
+          // 2계층 사건 분기 판별 (대결단 vs 소결단)
+          const isMajor = rolledEvent.category === 'historical' || 
+                          rolledEvent.category === 'epidemic' || 
+                          rolledEvent.category === 'intrigue' || 
+                          rolledEvent.weight >= 400 || 
+                          rolledEvent.title.includes('징발') || 
+                          rolledEvent.title.includes('전쟁') || 
+                          rolledEvent.title.includes('위기');
 
           const dilemmaChoices = rolledEvent.choices.map((c, idx) => ({
             id: c.id,
@@ -470,27 +585,45 @@ export default function Home() {
             groupType: c.groupType
           }));
 
+          const eventNarrative = `【 ${isMajor ? '🚨 대결단' : '💬 일상 조우'}: ${rolledEvent.title} 】\n${rolledEvent.narrativeTemplate}${rolledEvent.dialogueSpeaker ? `\n\n${rolledEvent.dialogueSpeaker}: "${rolledEvent.dialogueText || ''}"` : ''}`;
+
+          if (isMajor) {
+            // 대결단: 시간 완전 정지
+            setIsPaused(true);
+            setIsMinorEvent(false);
+            setMinorCountdown(0);
+            showQuickNotice(`🚨 중요 대결단 발생: [${rolledEvent.title}] (시간 정지)`);
+          } else {
+            // 소결단: 시간 흐름 유지 + 6초 카운트다운
+            setIsMinorEvent(true);
+            setMinorCountdown(6.0);
+            showQuickNotice(`💬 일상 조우 발생: [${rolledEvent.title}] (흐르는 시간 속 선택)`);
+          }
+
           setGameState(prev => {
             if (!prev) return prev;
             const loc = parseDateLocation(prev.dateLocation).location;
             const chronicleEntry: ChronicleItem = {
               turn,
               dateLocation: formatDateLocation(timeResult.newDate, loc),
-              action: `중요 사건: ${rolledEvent.title}`,
+              action: `${isMajor ? '대결단' : '일상'}: ${rolledEvent.title}`,
               result: '결단 대기',
-              summary: rolledEvent.narrativeTemplate.slice(0, 80) + '...'
+              summary: rolledEvent.narrativeTemplate.slice(0, 90) + '...',
+              narrative: eventNarrative,
+              kind: isMajor ? 'major' : 'minor',
+              historicalTag: rolledEvent.historicalTag
             };
             return {
               ...prev,
               dateLocation: formatDateLocation(timeResult.newDate, loc, turn),
-              narrative: crisisNarrative,
+              narrative: eventNarrative,
               choices: dilemmaChoices,
               historicalTag: rolledEvent.historicalTag || prev.historicalTag,
               chronicle: [...(prev.chronicle || []), chronicleEntry]
             };
           });
         } else {
-          // 일반 사건 (서술만 되고 넘어가고 선택지는 비워둠)
+          // 일반 사건 (평온한 계절 서술 로그 누적)
           const archetype = detectPlayerArchetype(gameState);
           const ambientLog = getAmbientMonthlyText(archetype, timeResult.newDate);
           setGameState(prev => {
@@ -501,13 +634,15 @@ export default function Home() {
               dateLocation: formatDateLocation(timeResult.newDate, loc),
               action: `일상 연대기 (${timeResult.newDate.month}월 ${timeResult.newDate.season})`,
               result: '평온',
-              summary: ambientLog
+              summary: ambientLog,
+              narrative: ambientLog,
+              kind: 'ambient'
             };
             return {
               ...prev,
               dateLocation: formatDateLocation(timeResult.newDate, loc, turn),
               narrative: ambientLog,
-              choices: [], // 일반 사건은 선택지가 없음!
+              choices: [],
               chronicle: [...(prev.chronicle || []), chronicleEntry]
             };
           });
@@ -516,7 +651,7 @@ export default function Home() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPaused, loading, gameState, activeModal, isGenesisModalOpen, isEpitaphModalOpen, gameDate, gameSpeed, constructionQueue, turn]);
+  }, [isPaused, loading, gameState, activeModal, isGenesisModalOpen, isEpitaphModalOpen, isPastLivesModalOpen, isMinorEvent, minorCountdown, gameDate, gameSpeed, constructionQueue, turn]);
 
   // 6. 플레이어 행동 및 선택지 처리 핸들러
   const handleAction = async (actionText: string) => {
@@ -629,7 +764,8 @@ export default function Home() {
         return;
       }
 
-      if (e.code === 'Space' && activeModal === null && !isGenesisModalOpen && !isEpitaphModalOpen) {
+      // Space 키: 시간 일시정지 / 계속 토글
+      if (e.code === 'Space' && activeModal === null && !isGenesisModalOpen && !isEpitaphModalOpen && !isPastLivesModalOpen) {
         e.preventDefault();
         setIsPaused(prev => {
           const next = !prev;
@@ -638,6 +774,34 @@ export default function Home() {
         });
       }
 
+      // [ 키: 배속 감소 (1x, 2x, 4x)
+      if ((e.key === '[' || e.key === '{') && activeModal === null) {
+        e.preventDefault();
+        setGameSpeed(prev => {
+          const next: GameSpeed = prev === 4 ? 2 : prev === 2 ? 1 : 1;
+          showQuickNotice(`⏪ 배속 감소: ${next}x ([ 키)`);
+          return next;
+        });
+      }
+
+      // ] 키: 배속 증가 (1x, 2x, 4x)
+      if ((e.key === ']' || e.key === '}') && activeModal === null) {
+        e.preventDefault();
+        setGameSpeed(prev => {
+          const next: GameSpeed = prev === 1 ? 2 : prev === 2 ? 4 : 4;
+          showQuickNotice(`⏩ 배속 증가: ${next}x (] 키)`);
+          return next;
+        });
+      }
+
+      // 0 키: 소결단 흘려보내기
+      if (e.key === '0' && isMinorEvent && activeModal === null && !loading) {
+        e.preventDefault();
+        handlePassMinorChoice();
+        return;
+      }
+
+      // 1~4 키: 선택지 결정
       if (e.key >= '1' && e.key <= '4' && gameState?.choices && gameState.choices.length > 0 && !loading) {
         const idx = parseInt(e.key, 10) - 1;
         if (gameState.choices[idx]) {
@@ -648,7 +812,12 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, loading, activeModal, isGenesisModalOpen, isEpitaphModalOpen]);
+  }, [gameState, loading, activeModal, isGenesisModalOpen, isEpitaphModalOpen, isPastLivesModalOpen, isMinorEvent]);
+
+  // 연대기 새 서사 추가 시 하단 자동 부드러운 스크롤
+  useEffect(() => {
+    chronicleBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [gameState?.chronicle?.length, gameState?.narrative, isMinorEvent]);
 
   const handlePassSeason = () => {
     if (!gameState || loading) return;
@@ -673,9 +842,26 @@ export default function Home() {
     setTurn(currTurn);
 
     if (triggeredEvent) {
-      setIsPaused(true);
-      showQuickNotice(`🚨 중요 결단 발생: [${triggeredEvent.title}] (시간 정지)`);
-      const crisisNarrative = `【 🚨 중요 사건: ${triggeredEvent.title} 】\n${triggeredEvent.narrativeTemplate}\n\n${triggeredEvent.dialogueSpeaker || '전령'}: ${triggeredEvent.dialogueText || ''}\n[역사적 고증: 확인됨]`;
+      const isMajor = triggeredEvent.category === 'historical' || 
+                      triggeredEvent.category === 'epidemic' || 
+                      triggeredEvent.category === 'intrigue' || 
+                      triggeredEvent.weight >= 400 || 
+                      triggeredEvent.title.includes('징발') || 
+                      triggeredEvent.title.includes('전쟁') || 
+                      triggeredEvent.title.includes('위기');
+
+      if (isMajor) {
+        setIsPaused(true);
+        setIsMinorEvent(false);
+        setMinorCountdown(0);
+        showQuickNotice(`🚨 중요 대결단 발생: [${triggeredEvent.title}] (시간 정지)`);
+      } else {
+        setIsMinorEvent(true);
+        setMinorCountdown(6.0);
+        showQuickNotice(`💬 일상 조우 발생: [${triggeredEvent.title}] (흐르는 시간 속 선택)`);
+      }
+
+      const eventNarrative = `【 ${isMajor ? '🚨 대결단' : '💬 일상 조우'}: ${triggeredEvent.title} 】\n${triggeredEvent.narrativeTemplate}${triggeredEvent.dialogueSpeaker ? `\n\n${triggeredEvent.dialogueSpeaker}: "${triggeredEvent.dialogueText || ''}"` : ''}`;
       const dilemmaChoices = triggeredEvent.choices.map((c: any, idx: number) => ({
         id: c.id,
         type: `${idx + 1}번`,
@@ -683,15 +869,27 @@ export default function Home() {
         probability: c.probability,
         groupType: c.groupType
       }));
+
       setGameState(prev => {
         if (!prev) return prev;
         const loc = parseDateLocation(prev.dateLocation).location;
+        const chronicleEntry: ChronicleItem = {
+          turn: currTurn,
+          dateLocation: formatDateLocation(currDate, loc),
+          action: `${isMajor ? '대결단' : '일상'}: ${triggeredEvent.title}`,
+          result: '결단 대기',
+          summary: triggeredEvent.narrativeTemplate.slice(0, 90) + '...',
+          narrative: eventNarrative,
+          kind: isMajor ? 'major' : 'minor',
+          historicalTag: triggeredEvent.historicalTag
+        };
         return {
           ...prev,
           dateLocation: formatDateLocation(currDate, loc, currTurn),
-          narrative: crisisNarrative,
+          narrative: eventNarrative,
           choices: dilemmaChoices,
-          historicalTag: triggeredEvent.historicalTag || prev.historicalTag
+          historicalTag: triggeredEvent.historicalTag || prev.historicalTag,
+          chronicle: [...(prev.chronicle || []), chronicleEntry]
         };
       });
     } else {
@@ -705,7 +903,9 @@ export default function Home() {
           dateLocation: formatDateLocation(currDate, loc),
           action: `계절 경과 (+3개월)`,
           result: '평온',
-          summary: ambientLog
+          summary: ambientLog,
+          narrative: ambientLog,
+          kind: 'ambient'
         };
         return {
           ...prev,
@@ -856,6 +1056,27 @@ export default function Home() {
             >
               💾 저장된 기록 불러오기 (Load Game)
             </button>
+
+            <button
+              onClick={() => setIsPastLivesModalOpen(true)}
+              style={{
+                padding: '14px',
+                borderRadius: '8px',
+                background: 'rgba(167, 139, 250, 0.12)',
+                border: '1px solid rgba(167, 139, 250, 0.35)',
+                color: '#e9d5ff',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              <BookOpen size={15} color="#c084fc" />
+              <span>📜 지난 삶들의 서고 ({pastLivesCount}권)</span>
+            </button>
           </div>
         </div>
 
@@ -863,6 +1084,12 @@ export default function Home() {
         <GenesisModal
           isOpen={isGenesisModalOpen}
           onConfirm={handleGenesisConfirm}
+        />
+
+        {/* Past Lives Modal on Title */}
+        <CKPastLivesModal
+          isOpen={isPastLivesModalOpen}
+          onClose={() => setIsPastLivesModalOpen(false)}
         />
 
         {/* Save Modal on Title */}
@@ -935,6 +1162,7 @@ export default function Home() {
             }
           }}
           onOpenApiKey={() => setIsApiKeyModalOpen(true)}
+          onOpenPastLives={() => setIsPastLivesModalOpen(true)}
         />
       </div>
 
@@ -970,81 +1198,225 @@ export default function Home() {
             )}
           </div>
 
-          {/* Paper Scroll Area: Narrative & Choices */}
+          {/* Paper Scroll Area: Chronicle Stream & Choices */}
           <div className={styles.chronicleScrollArea}>
-            {/* Main Narrative Text */}
-            <div className={styles.narrativeBox}>
-              <TypewriterText 
-                text={streamPreview || gameState.narrative || "서기 1066년, 격변하는 유럽의 운명이 시작되었습니다."} 
-                delay={uxSettings.typewriterSpeed} 
-              />
+            {/* 1. Chronicle Log Stream (누적형 인생 일대기 로그 스트림) */}
+            <div className={styles.chronicleStream}>
+              {gameState.chronicle && gameState.chronicle.length > 0 ? (
+                gameState.chronicle.map((item, idx) => {
+                  const isMajor = item.kind === 'major' || item.action?.includes('대결단') || item.action?.includes('중요');
+                  const isMilestone = item.kind === 'milestone' || item.action?.includes('완공');
+                  return (
+                    <div
+                      key={idx}
+                      className={`${styles.chronicleEntry} ${isMajor ? styles.chronicleEntryMajor : isMilestone ? styles.chronicleEntryMilestone : ''}`}
+                    >
+                      <div className={styles.chronicleEntryHeader}>
+                        <span className={styles.chronicleEntryDate}>
+                          📜 {item.dateLocation || `서기 ${gameDate.year}년`}
+                        </span>
+                        <span className={styles.chronicleEntryTag}>
+                          {item.historicalTag || item.action}
+                        </span>
+                      </div>
+
+                      <div className={styles.chronicleEntryText}>
+                        {item.narrative || item.summary}
+                      </div>
+
+                      {item.choiceTaken && (
+                        <div className={styles.chronicleChoiceOutcome}>
+                          <span>✓ 나의 결단: {item.choiceTaken}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className={styles.chronicleEntry}>
+                  <div className={styles.chronicleEntryHeader}>
+                    <span className={styles.chronicleEntryDate}>📜 {gameState.dateLocation || '서기 1066년'}</span>
+                    <span className={styles.chronicleEntryTag}>운명의 시작</span>
+                  </div>
+                  <div className={styles.chronicleEntryText}>
+                    <TypewriterText 
+                      text={streamPreview || gameState.narrative || "서기 1066년, 격변하는 유럽의 운명이 시작되었습니다."} 
+                      delay={uxSettings.typewriterSpeed} 
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Choices or Ambient Time Progress Section */}
+            {/* 2. Choices or Ambient Time Progress Section */}
             <div className={styles.choicesSection}>
               {gameState.choices && gameState.choices.length > 0 ? (
                 <>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    color: '#fbbf24',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    marginBottom: '4px'
-                  }}>
-                    <Compass size={14} />
-                    <span>{getStatusActionHeader(detectPlayerArchetype(gameState))}</span>
-                    <span style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 400 }}>
-                      (키보드 1~4번 또는 클릭)
-                    </span>
-                  </div>
-
-                  {gameState.choices.map((choice, idx) => {
-                    const theme = getChoiceTheme(choice.groupType, choice.text);
-                    return (
-                      <button
-                        key={idx}
-                        className={styles.choiceItemBtn}
-                        style={{
-                          background: theme.bg,
-                          borderColor: theme.border
-                        }}
-                        onClick={() => handleAction(choice.text)}
-                        disabled={loading}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                          <span style={{ fontSize: '1.4rem' }}>{theme.icon}</span>
+                  {isMinorEvent ? (
+                    /* 소결단 (Minor Event) 카드: 시간 흐름 유지 + 카운트다운 타이머 */
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(24, 30, 20, 0.95), rgba(15, 20, 14, 0.98))',
+                      border: '1.5px solid rgba(56, 189, 248, 0.45)',
+                      borderRadius: '10px',
+                      padding: '14px 18px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.2rem' }}>💬</span>
                           <div>
-                            <div style={{ fontSize: '11px', color: theme.tagColor, fontWeight: 700 }}>
-                              [{idx + 1}] {choice.type} &bull; {choice.groupType || '중요 결단'}
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#38bdf8' }}>
+                              일상 조우 • 작은 선택은 흘러갑니다
                             </div>
-                            <div style={{ fontSize: '13.5px', color: '#fff', fontWeight: 700, marginTop: '2px', lineHeight: '1.4' }}>
-                              {choice.text}
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                              선택하지 않거나 [0]번을 누르면 일상으로 자연스럽게 넘어갑니다.
                             </div>
                           </div>
                         </div>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#38bdf8' }}>
+                          ⏳ {Math.ceil(minorCountdown)}초 남음
+                        </span>
+                      </div>
 
-                        {choice.probability && (
-                          <span style={{
-                            fontSize: '11px',
-                            color: choice.probability.includes('성공') || choice.probability.includes('상승') ? '#34d399' : '#f87171',
-                            background: 'rgba(0,0,0,0.5)',
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {choice.probability}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                      {/* Countdown progress bar */}
+                      <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden', marginBottom: '12px' }}>
+                        <div style={{
+                          width: `${Math.max(0, Math.min(100, (minorCountdown / 6.0) * 100))}%`,
+                          height: '100%',
+                          background: 'linear-gradient(90deg, #38bdf8, #818cf8)',
+                          transition: 'width 0.2s linear'
+                        }} />
+                      </div>
+
+                      {/* Choices */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {gameState.choices.map((choice, idx) => {
+                          const theme = getChoiceTheme(choice.groupType, choice.text);
+                          return (
+                            <button
+                              key={idx}
+                              className={styles.choiceItemBtn}
+                              style={{
+                                background: theme.bg,
+                                borderColor: theme.border
+                              }}
+                              onClick={() => handleAction(choice.text)}
+                              disabled={loading}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                <span style={{ fontSize: '1.3rem' }}>{theme.icon}</span>
+                                <div>
+                                  <div style={{ fontSize: '11px', color: theme.tagColor, fontWeight: 700 }}>
+                                    [{idx + 1}] {choice.type} &bull; {choice.groupType || '일상 선택'}
+                                  </div>
+                                  <div style={{ fontSize: '13.5px', color: '#fff', fontWeight: 700, marginTop: '2px', lineHeight: '1.4' }}>
+                                    {choice.text}
+                                  </div>
+                                </div>
+                              </div>
+                              {choice.probability && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  color: '#34d399',
+                                  background: 'rgba(0,0,0,0.5)',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px'
+                                }}>
+                                  {choice.probability}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+
+                        <button
+                          onClick={handlePassMinorChoice}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            color: '#cbd5e1',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <span>🍃 [0] 흘려보내기 (관례에 맡기고 일상 지속)</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 대결단 (Major Event) 카드: 시간 완전 정지 + 중요 결단 제시 */
+                    <>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#fbbf24',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginBottom: '4px'
+                      }}>
+                        <Compass size={14} />
+                        <span>{getStatusActionHeader(detectPlayerArchetype(gameState))}</span>
+                        <span style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 400 }}>
+                          (시간 정지 중 &bull; 키보드 1~4번 또는 클릭)
+                        </span>
+                      </div>
+
+                      {gameState.choices.map((choice, idx) => {
+                        const theme = getChoiceTheme(choice.groupType, choice.text);
+                        return (
+                          <button
+                            key={idx}
+                            className={styles.choiceItemBtn}
+                            style={{
+                              background: theme.bg,
+                              borderColor: theme.border
+                            }}
+                            onClick={() => handleAction(choice.text)}
+                            disabled={loading}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                              <span style={{ fontSize: '1.4rem' }}>{theme.icon}</span>
+                              <div>
+                                <div style={{ fontSize: '11px', color: theme.tagColor, fontWeight: 700 }}>
+                                  [{idx + 1}] {choice.type} &bull; {choice.groupType || '중요 대결단'}
+                                </div>
+                                <div style={{ fontSize: '13.5px', color: '#fff', fontWeight: 700, marginTop: '2px', lineHeight: '1.4' }}>
+                                  {choice.text}
+                                </div>
+                              </div>
+                            </div>
+
+                            {choice.probability && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: choice.probability.includes('성공') || choice.probability.includes('상승') ? '#34d399' : '#f87171',
+                                background: 'rgba(0,0,0,0.5)',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {choice.probability}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
                 </>
               ) : (
+                /* 평온한 일상 제어 카드: 재생/정지, 배속 조절, 계절 넘기기, 일상 정비 */
                 <div style={{
-                  background: 'rgba(28, 22, 17, 0.85)',
+                  background: 'rgba(28, 22, 17, 0.88)',
                   border: '1.5px solid rgba(212, 175, 55, 0.35)',
                   borderRadius: '10px',
                   padding: '16px 20px',
@@ -1057,12 +1429,50 @@ export default function Home() {
                         <div style={{ fontSize: '14px', fontWeight: 700, color: '#fef3c7' }}>
                           {isPaused 
                             ? `시간이 멈추었습니다 (${gameDate.year}년 ${gameDate.month}월 ${gameDate.season})` 
-                            : `평온한 일상이 흐르고 있습니다 (${gameDate.year}년 ${gameDate.month}월 ${gameDate.season})`}
+                            : `평온한 일상이 흐르고 있습니다 (${gameDate.year}년 ${gameDate.month}월 ${gameDate.season} • ${gameSpeed}x)`}
                         </div>
                         <div style={{ fontSize: '11.5px', color: '#a8a29e', marginTop: '2px' }}>
-                          계절이 바뀌며 삶의 서사가 기록됩니다. 중대한 위기나 기회가 발생하면 시간이 멈추고 결단이 주어집니다.
+                          계절이 바뀌며 삶의 서사가 기록됩니다. 중대한 대결단이 발생하면 시간이 멈추고 선택지가 제시됩니다.
                         </div>
                       </div>
+                    </div>
+
+                    {/* Speed Controls (1x, 2x, 4x) */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(0,0,0,0.4)',
+                      padding: '3px 6px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(212, 175, 55, 0.25)'
+                    }}>
+                      <span style={{ fontSize: '10.5px', color: '#94a3b8', marginRight: '4px' }}>배속([ ]):</span>
+                      {([1, 2, 4] as const).map((spd) => {
+                        const isActive = gameSpeed === spd;
+                        return (
+                          <button
+                            key={spd}
+                            onClick={() => {
+                              setGameSpeed(spd);
+                              if (isPaused) setIsPaused(false);
+                              showQuickNotice(`⏩ 배속 변경: ${spd}x`);
+                            }}
+                            style={{
+                              background: isActive ? 'linear-gradient(135deg, #d4af37, #b8860b)' : 'transparent',
+                              border: 'none',
+                              color: isActive ? '#1a140d' : '#d4af37',
+                              fontWeight: 700,
+                              fontSize: '11px',
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {spd}x
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1085,7 +1495,7 @@ export default function Home() {
                       }}
                     >
                       {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                      <span>{isPaused ? '▶️ 시간 흘려보내기 (재생)' : '⏸️ 시간 멈추기 (일시정지)'}</span>
+                      <span>{isPaused ? '▶️ 시간 흘려보내기 (Space)' : '⏸️ 시간 멈추기 (Space)'}</span>
                     </button>
 
                     <button
@@ -1130,9 +1540,28 @@ export default function Home() {
                       <span>🌾 일상 근로 및 정비</span>
                     </button>
                   </div>
+
+                  {/* Keyboard Guide Footer */}
+                  <div style={{
+                    marginTop: '10px',
+                    paddingTop: '8px',
+                    borderTop: '1px dashed rgba(255,255,255,0.08)',
+                    fontSize: '11px',
+                    color: '#78716c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '6px'
+                  }}>
+                    <span>⌨️ 단축키: Space 일시정지/재생 · [ ] 배속 조절 · 1~4 선택지 · 0 흘려보내기</span>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Auto-scroll bottom target */}
+            <div ref={chronicleBottomRef} />
           </div>
         </section>
 
@@ -1525,6 +1954,12 @@ export default function Home() {
           }}
         />
       )}
+
+      {/* Past Lives Memorial Codex Modal */}
+      <CKPastLivesModal
+        isOpen={isPastLivesModalOpen}
+        onClose={() => setIsPastLivesModalOpen(false)}
+      />
 
       {/* ⚡ Quick Notification Toast */}
       {quickNotice && (

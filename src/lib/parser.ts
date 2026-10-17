@@ -4,6 +4,11 @@ export interface ChronicleItem {
   action: string;
   result?: string;
   summary?: string;
+  narrative?: string;
+  kind?: 'major' | 'minor' | 'ambient' | 'milestone';
+  age?: number | string;
+  historicalTag?: string;
+  choiceTaken?: string;
 }
 
 export interface BloodlineIntrigue {
