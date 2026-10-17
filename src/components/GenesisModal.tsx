@@ -194,8 +194,8 @@ export default function GenesisModal({ isOpen, onConfirm }: Props) {
               <div style={{ color: '#34d399', fontWeight: 700, marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <Coins size={13} /> 초기 자산 및 무구
               </div>
-              <div style={{ color: '#f3f4f6' }}>
-                금화 {cardData.startingGold}닢 • {cardData.startingWeapon}
+              <div style={{ color: '#f3f4f6', fontWeight: 600 }}>
+                재산 {cardData.startingWealth.toFixed(1)} <span style={{ fontSize: '11px', color: '#a7f3d0', fontWeight: 'normal' }}>({cardData.wealthBreakdown?.formulaText || '산정 공식 적용'})</span> • {cardData.startingWeapon}
               </div>
               <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
                 {cardData.startingItems.join(', ')}

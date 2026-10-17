@@ -31,7 +31,7 @@ import {
   saveToSlot, 
   UserUXSettings 
 } from '@/lib/saveManager';
-import { extractNumericValue, detectPlayerArchetype, PlayerArchetype } from '@/lib/ckVisuals';
+import { extractNumericValue, detectPlayerArchetype, PlayerArchetype, calculateTurnIncome } from '@/lib/ckVisuals';
 import { GenesisCardData, rollRandomBirth } from '@/lib/engine/genesisEngine';
 
 import CKTopHud from '@/components/CKTopHud';
@@ -236,6 +236,9 @@ export default function Home() {
   // 2-Tier Real-time System & Stream
   const [minorCountdown, setMinorCountdown] = useState<number>(0);
   const [isMinorEvent, setIsMinorEvent] = useState<boolean>(false);
+  const [isHoveringMinor, setIsHoveringMinor] = useState<boolean>(false);
+  const isHoveringMinorRef = useRef<boolean>(false);
+  isHoveringMinorRef.current = isHoveringMinor;
   const [pastLivesCount, setPastLivesCount] = useState<number>(0);
   const chronicleBottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -510,9 +513,9 @@ export default function Home() {
         return;
       }
 
-      // 소결단(Minor Event) 카운트다운 타이머 처리 (시간이 흘러가며 자동 종료)
-      if (isMinorEvent && minorCountdown > 0) {
-        const nextCountdown = minorCountdown - (deltaSec * gameSpeed);
+      // 소결단(Minor Event) 카운트다운 타이머 처리 (현실 시간 기준 25초, 호버 시 일시 정지)
+      if (isMinorEvent && minorCountdown > 0 && !isHoveringMinorRef.current) {
+        const nextCountdown = minorCountdown - deltaSec; // 배속 무관 현실 시간 기준
         if (nextCountdown <= 0) {
           handlePassMinorChoice();
           return;
@@ -525,6 +528,11 @@ export default function Home() {
       const timeResult = advanceGameTime(gameDate, deltaSec, gameSpeed, accumulatedSecRef.current);
       accumulatedSecRef.current = timeResult.leftoverSeconds;
       setMonthProgressPercent(timeResult.monthProgressPercent);
+
+      // 일자(Day) 실시간 갱신: 2초당 1일 전진 시 HUD 날짜 즉시 반영 (14일 -> 15일 -> 16일...)
+      if (timeResult.daysAdvanced > 0) {
+        setGameDate(timeResult.newDate);
+      }
 
       // 실시간 건설 틱
       const effectiveSec = deltaSec * gameSpeed;
@@ -562,9 +570,37 @@ export default function Home() {
       // 월이 넘어갔을 때
       if (timeResult.monthsAdvanced > 0) {
         setGameDate(timeResult.newDate);
+        const nextTurn = turn + timeResult.monthsAdvanced;
+        setTurn(nextTurn);
+
+        // 연도 경과 시 캐릭터 나이 자동 가산
+        let nextPersonalInfo = { ...gameState.personalInfo };
+        if (timeResult.yearsAdvanced > 0) {
+          const currentAge = parseInt(gameState.personalInfo?.['나이'] || '16', 10);
+          const newAge = currentAge + timeResult.yearsAdvanced;
+          nextPersonalInfo['나이'] = String(newAge);
+          showQuickNotice(`🎂 세월이 흘러 ${newAge}세가 되었습니다!`);
+        }
+
+        // 월간 재정 수지 자동 정산 (범용 재산 가산)
+        const income = calculateTurnIncome(gameState);
+        const monthlyNet = income.netIncome * timeResult.monthsAdvanced;
+        let nextInventory = { ...(gameState.inventory || {}) };
+        let nextFactionState = gameState.factionState ? { ...gameState.factionState } : undefined;
+
+        if (monthlyNet !== 0) {
+          const curWealthStr = (nextInventory['소지 화폐'] && nextInventory['소지 화폐'][0]) || '재산 10.0';
+          const match = curWealthStr.match(/([0-9]+(?:\.[0-9]+)?)/);
+          const oldWealth = match ? parseFloat(match[1]) : 10.0;
+          const newWealth = Math.max(0, Math.round((oldWealth + monthlyNet) * 10) / 10);
+          nextInventory['소지 화폐'] = [`재산 ${newWealth.toFixed(1)}`];
+          if (nextFactionState && nextFactionState['세력 재정']) {
+            nextFactionState['세력 재정'] = `재산 ${newWealth.toFixed(1)}`;
+          }
+        }
 
         // 월간 이벤트 롤링
-        const rolledEvent = rollMonthlyEvent(gameState, turn, seenEventIdsRef.current);
+        const rolledEvent = rollMonthlyEvent(gameState, nextTurn, seenEventIdsRef.current);
         if (rolledEvent) {
           seenEventIdsRef.current.add(rolledEvent.id);
 
@@ -594,9 +630,9 @@ export default function Home() {
             setMinorCountdown(0);
             showQuickNotice(`🚨 중요 대결단 발생: [${rolledEvent.title}] (시간 정지)`);
           } else {
-            // 소결단: 시간 흐름 유지 + 6초 카운트다운
+            // 소결단: 시간 흐름 유지 + 25초 카운트다운
             setIsMinorEvent(true);
-            setMinorCountdown(6.0);
+            setMinorCountdown(25.0);
             showQuickNotice(`💬 일상 조우 발생: [${rolledEvent.title}] (흐르는 시간 속 선택)`);
           }
 
@@ -604,7 +640,7 @@ export default function Home() {
             if (!prev) return prev;
             const loc = parseDateLocation(prev.dateLocation).location;
             const chronicleEntry: ChronicleItem = {
-              turn,
+              turn: nextTurn,
               dateLocation: formatDateLocation(timeResult.newDate, loc),
               action: `${isMajor ? '대결단' : '일상'}: ${rolledEvent.title}`,
               result: '결단 대기',
@@ -615,7 +651,10 @@ export default function Home() {
             };
             return {
               ...prev,
-              dateLocation: formatDateLocation(timeResult.newDate, loc, turn),
+              personalInfo: nextPersonalInfo,
+              inventory: nextInventory,
+              factionState: nextFactionState || prev.factionState,
+              dateLocation: formatDateLocation(timeResult.newDate, loc, nextTurn),
               narrative: eventNarrative,
               choices: dilemmaChoices,
               historicalTag: rolledEvent.historicalTag || prev.historicalTag,
@@ -630,7 +669,7 @@ export default function Home() {
             if (!prev) return prev;
             const loc = parseDateLocation(prev.dateLocation).location;
             const chronicleEntry: ChronicleItem = {
-              turn,
+              turn: nextTurn,
               dateLocation: formatDateLocation(timeResult.newDate, loc),
               action: `일상 연대기 (${timeResult.newDate.month}월 ${timeResult.newDate.season})`,
               result: '평온',
@@ -640,7 +679,10 @@ export default function Home() {
             };
             return {
               ...prev,
-              dateLocation: formatDateLocation(timeResult.newDate, loc, turn),
+              personalInfo: nextPersonalInfo,
+              inventory: nextInventory,
+              factionState: nextFactionState || prev.factionState,
+              dateLocation: formatDateLocation(timeResult.newDate, loc, nextTurn),
               narrative: ambientLog,
               choices: [],
               chronicle: [...(prev.chronicle || []), chronicleEntry]
@@ -857,7 +899,7 @@ export default function Home() {
         showQuickNotice(`🚨 중요 대결단 발생: [${triggeredEvent.title}] (시간 정지)`);
       } else {
         setIsMinorEvent(true);
-        setMinorCountdown(6.0);
+        setMinorCountdown(25.0);
         showQuickNotice(`💬 일상 조우 발생: [${triggeredEvent.title}] (흐르는 시간 속 선택)`);
       }
 
@@ -1253,14 +1295,18 @@ export default function Home() {
               {gameState.choices && gameState.choices.length > 0 ? (
                 <>
                   {isMinorEvent ? (
-                    /* 소결단 (Minor Event) 카드: 시간 흐름 유지 + 카운트다운 타이머 */
-                    <div style={{
-                      background: 'linear-gradient(135deg, rgba(24, 30, 20, 0.95), rgba(15, 20, 14, 0.98))',
-                      border: '1.5px solid rgba(56, 189, 248, 0.45)',
-                      borderRadius: '10px',
-                      padding: '14px 18px',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
-                    }}>
+                    /* 소결단 (Minor Event) 카드: 현실 시간 기준 25초 타이머 (호버 시 일시 정지) */
+                    <div 
+                      onMouseEnter={() => setIsHoveringMinor(true)}
+                      onMouseLeave={() => setIsHoveringMinor(false)}
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(24, 30, 20, 0.95), rgba(15, 20, 14, 0.98))',
+                        border: '1.5px solid rgba(56, 189, 248, 0.45)',
+                        borderRadius: '10px',
+                        padding: '14px 18px',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '1.2rem' }}>💬</span>
@@ -1269,21 +1315,21 @@ export default function Home() {
                               일상 조우 • 작은 선택은 흘러갑니다
                             </div>
                             <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                              선택하지 않거나 [0]번을 누르면 일상으로 자연스럽게 넘어갑니다.
+                              마우스를 올리면 타이머가 정지되며, [0]번을 누르면 일상으로 자연스럽게 넘어갑니다.
                             </div>
                           </div>
                         </div>
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#38bdf8' }}>
-                          ⏳ {Math.ceil(minorCountdown)}초 남음
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: isHoveringMinor ? '#fbbf24' : '#38bdf8' }}>
+                          ⏳ {Math.ceil(minorCountdown)}초 남음 {isHoveringMinor ? '⏸️ (마우스 정지 중)' : ''}
                         </span>
                       </div>
 
-                      {/* Countdown progress bar */}
+                      {/* Countdown progress bar (25초 기준) */}
                       <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden', marginBottom: '12px' }}>
                         <div style={{
-                          width: `${Math.max(0, Math.min(100, (minorCountdown / 6.0) * 100))}%`,
+                          width: `${Math.max(0, Math.min(100, (minorCountdown / 25.0) * 100))}%`,
                           height: '100%',
-                          background: 'linear-gradient(90deg, #38bdf8, #818cf8)',
+                          background: isHoveringMinor ? 'linear-gradient(90deg, #fbbf24, #f59e0b)' : 'linear-gradient(90deg, #38bdf8, #818cf8)',
                           transition: 'width 0.2s linear'
                         }} />
                       </div>
@@ -1541,20 +1587,21 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* Keyboard Guide Footer */}
+                  {/* Keyboard & Time Guide Footer */}
                   <div style={{
                     marginTop: '10px',
                     paddingTop: '8px',
                     borderTop: '1px dashed rgba(255,255,255,0.08)',
                     fontSize: '11px',
-                    color: '#78716c',
+                    color: '#a8a29e',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
                     gap: '6px'
                   }}>
-                    <span>⌨️ 단축키: Space 일시정지/재생 · [ ] 배속 조절 · 1~4 선택지 · 0 흘려보내기</span>
+                    <span style={{ color: '#fbbf24', fontWeight: 600 }}>⏱️ 시간 규격: 1분 = 1달 (2초=1일, 1년=12분)</span>
+                    <span style={{ color: '#78716c' }}>⌨️ 단축키: Space 일시정지/재생 · [ ] 배속 · 1~4 선택 · 0 흘려보내기</span>
                   </div>
                 </div>
               )}
@@ -1793,7 +1840,7 @@ export default function Home() {
           <div className={styles.widgetCard}>
             <div className={styles.widgetTitle}>
               <Package size={15} />
-              <span>소지 화폐 및 물품</span>
+              <span>보유 재산 및 소지 물품</span>
             </div>
 
             {(() => {
@@ -1805,7 +1852,9 @@ export default function Home() {
               };
 
               const inv = gameState.inventory || {};
-              const moneyText = safeJoin(inv['소지 화폐'] || inv.wealth || (inv as any)['재산및병력'] || (inv as any)['재산 및 병력'], '금화 10');
+              const rawMoney = safeJoin(inv['소지 화폐'] || inv.wealth || (inv as any)['재산및병력'] || (inv as any)['재산 및 병력'], '재산 10.0');
+              const moneyNumMatch = rawMoney.match(/([0-9]+(?:\.[0-9]+)?)/);
+              const moneyText = moneyNumMatch ? `재산 ${parseFloat(moneyNumMatch[1]).toFixed(1)}` : rawMoney;
               const weaponText = safeJoin(inv['착용 무구'] || (inv as any)['장비및영지'] || (inv as any)['장비'], '기본 무기');
               const itemsText = safeJoin(inv['소지품'], '기본 소지품');
 

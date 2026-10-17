@@ -26,28 +26,18 @@ export interface EstatePromotionCostEstimate {
   name: string;
 }
 
-// 1. 아키타입별 표준 통화 정의
-export function getCurrencyForArchetype(archetype: PlayerArchetype): string {
-  switch (archetype) {
-    case 'clergy':
-      return '은화';
-    case 'peasant':
-    case 'wanderer':
-      return '동화';
-    case 'company':
-    case 'noble':
-    default:
-      return '금화';
-  }
+// 1. 아키타입별 표준 통화 정의 (범용 수치 '재산'으로 단일 통합)
+export function getCurrencyForArchetype(archetype?: PlayerArchetype): string {
+  return '재산';
 }
 
-// 2. 아키타입별 시설 기본 단가 (Base Cost)
+// 2. 아키타입별 시설 기본 단가 (Universal Wealth Base Cost)
 const ARCHETYPE_BASE_BUILDING_COST: Record<PlayerArchetype, number> = {
-  clergy: 25,    // 은화 25닢 (턴당 순수익 +15~20 은화 기준 약 1.5턴 저축액)
-  noble: 15,     // 금화 15닢 (턴당 순수익 +1.5~3 금화 기준 약 5턴 저축액)
-  company: 20,   // 금화 20닢 (턴당 순수익 +3~6 금화 기준 약 4턴 저축액)
-  wanderer: 25,  // 동화 25닢 (턴당 순수익 +5~10 동화 기준 약 3턴 저축액)
-  peasant: 15    // 동화 15닢 (소작농 푼돈/동화 기준)
+  clergy: 12,    // 성직자 범용 재산 기준
+  noble: 20,     // 영주 범용 재산 기준
+  company: 15,   // 용병단 범용 재산 기준
+  wanderer: 8,   // 방랑자 범용 재산 기준
+  peasant: 4.0   // 소작농 범용 재산 기준
 };
 
 // 3. 건물 유형별 가중치 및 분류 판별
@@ -117,14 +107,14 @@ export function calculateBuildingUpgradeCost(
   const discountPercent = Math.min(25, Math.max(0, Math.floor(stewardshipScore * 1.2)));
   const discountFactor = (100 - discountPercent) / 100;
 
-  // 최종 금액 (최소 5 단위)
+  // 최종 금액 (최소 2 단위)
   const rawAmount = baseCost * lvlMult * typeMultiplier * discountFactor;
-  const amount = Math.max(5, Math.round(rawAmount));
+  const amount = Math.max(2, Math.round(rawAmount * 10) / 10);
 
   // 소요 턴수 (Lv.1->2: 2턴, Lv.2->3: 3턴, Lv.3->4: 4턴, Lv.4->5: 5턴)
   const turns = Math.min(6, Math.max(2, currentLevel + 1));
 
-  const formattedCost = `${currency} ${amount}닢`;
+  const formattedCost = `재산 ${amount.toFixed(1)}`;
 
   return {
     amount,
@@ -137,35 +127,35 @@ export function calculateBuildingUpgradeCost(
   };
 }
 
-// 5. 거점 승격(Estate Promotion) 비용 고정 표준 테이블
+// 5. 거점 승격(Estate Promotion) 비용 고정 표준 테이블 (범용 재산 기준)
 const ESTATE_PROMOTION_TABLE: Record<number, Record<PlayerArchetype, { cost: number; turns: number }>> = {
   1: { // Lv.1 -> Lv.2
-    clergy: { cost: 60, turns: 3 },
+    clergy: { cost: 30, turns: 3 },
     noble: { cost: 40, turns: 3 },
-    company: { cost: 50, turns: 3 },
-    wanderer: { cost: 60, turns: 3 },
-    peasant: { cost: 30, turns: 2 }
+    company: { cost: 35, turns: 3 },
+    wanderer: { cost: 20, turns: 3 },
+    peasant: { cost: 10, turns: 2 }
   },
   2: { // Lv.2 -> Lv.3
-    clergy: { cost: 120, turns: 4 },
+    clergy: { cost: 60, turns: 4 },
     noble: { cost: 80, turns: 4 },
-    company: { cost: 90, turns: 4 },
-    wanderer: { cost: 120, turns: 4 },
-    peasant: { cost: 60, turns: 3 }
+    company: { cost: 70, turns: 4 },
+    wanderer: { cost: 45, turns: 4 },
+    peasant: { cost: 25, turns: 3 }
   },
   3: { // Lv.3 -> Lv.4
-    clergy: { cost: 220, turns: 5 },
+    clergy: { cost: 120, turns: 5 },
     noble: { cost: 150, turns: 5 },
-    company: { cost: 160, turns: 5 },
-    wanderer: { cost: 220, turns: 5 },
-    peasant: { cost: 120, turns: 4 }
+    company: { cost: 130, turns: 5 },
+    wanderer: { cost: 90, turns: 5 },
+    peasant: { cost: 50, turns: 4 }
   },
   4: { // Lv.4 -> Lv.5
-    clergy: { cost: 380, turns: 6 },
+    clergy: { cost: 220, turns: 6 },
     noble: { cost: 280, turns: 6 },
-    company: { cost: 280, turns: 6 },
-    wanderer: { cost: 380, turns: 6 },
-    peasant: { cost: 200, turns: 5 }
+    company: { cost: 240, turns: 6 },
+    wanderer: { cost: 160, turns: 6 },
+    peasant: { cost: 90, turns: 5 }
   }
 };
 
@@ -178,15 +168,15 @@ export function calculateEstatePromotionCost(
   const targetLevel = Math.min(5, currentLevel + 1);
   const currency = getCurrencyForArchetype(archetype);
 
-  const baseInfo = ESTATE_PROMOTION_TABLE[currentLevel]?.[archetype] || { cost: 100, turns: 4 };
+  const baseInfo = ESTATE_PROMOTION_TABLE[currentLevel]?.[archetype] || { cost: 50, turns: 4 };
 
   // 관리력 할인율 (최대 25%)
   const discountPercent = Math.min(25, Math.max(0, Math.floor(stewardshipScore * 1.2)));
   const discountFactor = (100 - discountPercent) / 100;
 
-  const amount = Math.max(10, Math.round(baseInfo.cost * discountFactor));
+  const amount = Math.max(5, Math.round(baseInfo.cost * discountFactor));
   const turns = baseInfo.turns;
-  const formattedCost = `${currency} ${amount}닢`;
+  const formattedCost = `재산 ${amount.toFixed(1)}`;
   const name = `거점 승격 공사 (Lv.${currentLevel} → Lv.${targetLevel})`;
 
   return {
@@ -202,12 +192,13 @@ export function calculateEstatePromotionCost(
 }
 
 // 7. 플레이어 보유 재화 추출 (지불 능력 검증용)
-export function getPlayerWealthAmount(gameState: ParsedState, currencyName: string): number {
+export function getPlayerWealthAmount(gameState: ParsedState, currencyName: string = '재산'): number {
   if (!gameState) return 0;
 
   const faction = gameState.factionState || {};
   const toSafeArray = (v: any): string[] => Array.isArray(v) ? v : typeof v === 'string' && v.trim() ? [v.trim()] : [];
   const wealthList: string[] = [
+    ...toSafeArray(gameState.inventory?.['소지 화폐']),
     ...toSafeArray(gameState.inventory?.wealth),
     ...toSafeArray(gameState.inventory?.['재산및병력']),
     ...toSafeArray(gameState.inventory?.['소지품']),
@@ -221,26 +212,13 @@ export function getPlayerWealthAmount(gameState: ParsedState, currencyName: stri
   let bestAmount = 0;
 
   wealthList.forEach(item => {
-    // 플레이어의 주요 화폐와 일치하는 항목 우선 탐색
-    if (item.includes(currencyName)) {
-      const match = item.match(/(\d+)/);
-      if (match) {
-        const val = parseInt(match[1], 10);
-        if (val > bestAmount) bestAmount = val;
-      }
+    // '재산 14.5' 형태 우선 탐색 (소수점 포함)
+    const floatMatch = item.match(/(?:재산|금화|은화|동화)?\s*([0-9]+(?:\.[0-9]+)?)/);
+    if (floatMatch) {
+      const val = parseFloat(floatMatch[1]);
+      if (!isNaN(val) && val > bestAmount) bestAmount = val;
     }
   });
-
-  if (bestAmount > 0) return bestAmount;
-
-  // 화폐명이 명시되지 않은 일반 정수 탐색
-  for (const item of wealthList) {
-    const match = item.match(/(\d+)/);
-    if (match) {
-      const val = parseInt(match[1], 10);
-      if (val > bestAmount) bestAmount = val;
-    }
-  }
 
   return bestAmount;
 }

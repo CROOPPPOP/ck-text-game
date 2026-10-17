@@ -17,7 +17,13 @@ export interface GenesisCardData {
   congenitalTrait: CongenitalTraitDef;
   birthStory: string;
   startingWeapon: string;
-  startingGold: number;
+  startingWealth: number;
+  wealthBreakdown: {
+    base: number;
+    origin: number;
+    stewardship: number;
+    formulaText: string;
+  };
   startingItems: string[];
 }
 
@@ -290,6 +296,54 @@ function pickRandomBirthTemplate(): BirthTemplate {
 }
 
 /**
+ * 범용 재산 산정 공식 (Universal Wealth Formula)
+ * 초기 재산 = 신분 기본값 + 출생 배경 보정 + 행정력(관리력) 보정
+ */
+export function calculateInitialWealth(
+  archetype: 'peasant' | 'wanderer' | 'company' | 'clergy' | 'noble',
+  status: string,
+  stewardshipScore: number,
+  parentStory: string
+): { wealth: number; breakdown: { base: number; origin: number; stewardship: number; formulaText: string } } {
+  // 1. 신분별 기초 자산 (Base Wealth)
+  let base = 2.0;
+  if (archetype === 'peasant') base = status === '도제' ? 4.0 : 2.5;
+  else if (archetype === 'wanderer') base = status === '방랑 검사' ? 10.0 : 8.0;
+  else if (archetype === 'clergy') base = status === '수도원장' ? 24.0 : 16.0;
+  else if (archetype === 'company') base = 35.0;
+  else if (archetype === 'noble') base = 70.0;
+
+  // 2. 가문/부모 출생 배경 보정 (Origin Mod)
+  let origin = 0.0;
+  if (parentStory.includes('빚') || parentStory.includes('도망') || parentStory.includes('가난') || parentStory.includes('도적 떼')) {
+    origin = archetype === 'noble' ? -8.0 : archetype === 'peasant' ? -0.8 : -1.5;
+  } else if (parentStory.includes('부호') || parentStory.includes('장원') || parentStory.includes('정당한 적장자') || parentStory.includes('친위 기사')) {
+    origin = archetype === 'noble' ? 15.0 : archetype === 'company' ? 8.0 : 3.0;
+  } else if (parentStory.includes('대장장이') || parentStory.includes('상단') || parentStory.includes('공방')) {
+    origin = 1.2;
+  } else {
+    origin = 0.5;
+  }
+
+  // 3. 행정력 보정 (Stewardship Mod)
+  const stewFactor = archetype === 'noble' ? 0.8 : archetype === 'company' ? 0.5 : archetype === 'clergy' ? 0.4 : 0.2;
+  const stewardshipMod = Math.round((stewardshipScore * stewFactor) * 10) / 10;
+
+  const total = Math.max(1.0, Math.round((base + origin + stewardshipMod) * 10) / 10);
+  const formulaText = `기초 ${base.toFixed(1)} + 배경 ${origin >= 0 ? `+${origin.toFixed(1)}` : origin.toFixed(1)} + 행정력 +${stewardshipMod.toFixed(1)}`;
+
+  return {
+    wealth: total,
+    breakdown: {
+      base,
+      origin,
+      stewardship: stewardshipMod,
+      formulaText
+    }
+  };
+}
+
+/**
  * 🎲 핵심 함수: 무작위 중세 출생 데이터 생성
  */
 export function rollRandomBirth(): {
@@ -310,28 +364,7 @@ export function rollRandomBirth(): {
   const parentStory = getRandomElement(template.parentStories);
   const congenital = pickRandomCongenitalTrait();
   const weapon = getRandomElement(template.weapons);
-  const gold = getRandomInt(template.goldRange[0], template.goldRange[1]);
   const birthYear = 1050; // 16세에 1066년이 되도록 설정
-
-  const cardData: GenesisCardData = {
-    name,
-    age: 16, // 본격적인 역사적 결단이 시작되는 성인식 나이
-    birthYear,
-    gender,
-    status: template.status,
-    archetype: template.archetype,
-    region: regionInfo.region,
-    culture: regionInfo.culture,
-    religion: regionInfo.religion,
-    houseName: house,
-    houseMotto: motto,
-    parentsDescription: parentStory,
-    congenitalTrait: congenital,
-    birthStory: `서기 ${birthYear}년, ${regionInfo.region}의 거친 바람 속에서 당신의 첫 울음소리가 터져 나왔습니다. ${parentStory} 모진 풍파를 견디며 마침내 16세 청년으로 장성하여, 역사와 운명의 거대한 소용돌이 속으로 첫 발을 내딛습니다.`,
-    startingWeapon: weapon,
-    startingGold: gold,
-    startingItems: template.items
-  };
 
   // 선천/후천 스탯 초기화
   const innateStats: Record<string, string> = {
@@ -353,6 +386,41 @@ export function rollRandomBirth(): {
     '무기 숙련도': `${getRandomInt(9, 14)}`,
     '생존술': `${getRandomInt(10, 16)}`,
     '학문': `${getRandomInt(6, 12)}`
+  };
+
+  // 문화/종교에 맞는 시작 소지품 정제
+  const tailoredItems = template.items.map(item => {
+    if (item.includes('묵주') || item.includes('성모 마리아')) {
+      if (regionInfo.religion === '불교') return '단향목 108 염주';
+      if (regionInfo.religion === '정교회') return '정교회 나무 십자가 성물';
+      if (regionInfo.religion === '이슬람') return '미스바하 기도 구슬';
+      return '성모 마리아 나무 묵주';
+    }
+    return item;
+  });
+
+  const stewardshipScore = parseInt(acquiredStats['행정력'], 10) || 10;
+  const initialWealth = calculateInitialWealth(template.archetype, template.status, stewardshipScore, parentStory);
+
+  const cardData: GenesisCardData = {
+    name,
+    age: 16, // 본격적인 역사적 결단이 시작되는 성인식 나이
+    birthYear,
+    gender,
+    status: template.status,
+    archetype: template.archetype,
+    region: regionInfo.region,
+    culture: regionInfo.culture,
+    religion: regionInfo.religion,
+    houseName: house,
+    houseMotto: motto,
+    parentsDescription: parentStory,
+    congenitalTrait: congenital,
+    birthStory: `서기 ${birthYear}년, ${regionInfo.region}의 거친 바람 속에서 당신의 첫 울음소리가 터져 나왔습니다. ${parentStory} 모진 풍파를 견디며 마침내 16세 청년으로 장성하여, 역사와 운명의 거대한 소용돌이 속으로 첫 발을 내딛습니다.`,
+    startingWeapon: weapon,
+    startingWealth: initialWealth.wealth,
+    wealthBreakdown: initialWealth.breakdown,
+    startingItems: tailoredItems
   };
 
   // 유전 특성 적용
@@ -387,7 +455,7 @@ export function rollRandomBirth(): {
         type: '건설·정착',
         groupType: '영지 경영',
         text: '[건설] 오두막 텃밭에 돌담을 쌓고 작은 닭장을 지어 겨울나기를 준비한다.',
-        probability: '비용: 금화 5, 소요 1달 (생존력 증대)'
+        probability: '비용: 재산 5.0, 소요 1달 (생존력 증대)'
       },
       {
         id: '3',
@@ -418,7 +486,7 @@ export function rollRandomBirth(): {
         type: '건설·정착',
         groupType: '영지 경영',
         text: '[건설] 마을 공터에 튼튼한 목조 오두막을 짓고 텃밭을 일궈 기반을 닦는다.',
-        probability: '비용: 금화 10, 소요 2달 (치안·민생 상승)'
+        probability: '비용: 재산 8.0, 소요 2달 (치안·민생 상승)'
       },
       {
         id: '3',
@@ -449,7 +517,7 @@ export function rollRandomBirth(): {
         type: '건설·자선',
         groupType: '영지 경영',
         text: '[건설] 사제관 옆에 빈민 구호용 작은 약초 시약소를 증축한다.',
-        probability: '비용: 금화 15, 소요 1달 (민심 대폭 상승)'
+        probability: '비용: 재산 12.0, 소요 1달 (민심 대폭 상승)'
       },
       {
         id: '3',
@@ -481,7 +549,7 @@ export function rollRandomBirth(): {
         type: '건설·경제',
         groupType: '영지 경영',
         text: '[건설] 가도 변에 통행세 징수소 및 장원 창고를 증축하여 재정을 확충한다.',
-        probability: '비용: 금화 35, 소요 2달 (월 수입 증가)'
+        probability: '비용: 재산 25.0, 소요 2달 (월 수입 증가)'
       },
       {
         id: '3',
@@ -495,13 +563,13 @@ export function rollRandomBirth(): {
         type: '가신 포상',
         groupType: '내정·가신',
         text: '성채에서 연회를 베풀어 충성스러운 가신단과 기사들에게 하사품을 내린다.',
-        probability: '비용: 금화 20 (가신 충성도 급상승)'
+        probability: '비용: 재산 15.0 (가신 충성도 급상승)'
       }
     ];
   }
 
   const gameState: ParsedState = {
-    dateLocation: `1066년 10월 (가을) / ${regionInfo.region} [턴 수: 1]`,
+    dateLocation: `1066년 10월 14일 (가을) / ${regionInfo.region} [턴 수: 1]`,
     historicalTag: `역사적 고증: 확인됨 (${regionInfo.culture} 문화권, 서기 1066년)`,
     judgment: {
       result: '운명의 서막',
@@ -534,17 +602,17 @@ export function rollRandomBirth(): {
     },
     traits: startingTraits,
     inventory: {
-      '소지 화폐': [`금화 ${gold}`],
+      '소지 화폐': [`재산 ${initialWealth.wealth.toFixed(1)}`],
       '착용 무구': [weapon],
       '소지품': cardData.startingItems
     },
     factionState: template.archetype === 'noble' 
-      ? { '인구': '1,200명', '세력 재정': `금화 ${gold}`, '치안': '안전 (75%)', '민심': '안정 (80%)', '병력': '징집병 100명' }
+      ? { '인구': '1,200명', '세력 재정': `재산 ${initialWealth.wealth.toFixed(1)}`, '치안': '안전 (75%)', '민심': '안정 (80%)', '병력': '징집병 100명' }
       : { '통치 상태': `통치 중인 영지 없음 (${template.status})` },
     estate: template.startingEstate,
     buildOptions: [
-      { name: '목조 방벽 강화', cost: '금화 25', turns: 2, desc: '거점 방어력 증대', tags: ['군사'] },
-      { name: '약초 텃밭 확충', cost: '금화 15', turns: 1, desc: '부상 치료 및 민생 안정', tags: ['민생'] }
+      { name: '목조 방벽 강화', cost: '재산 15.0', turns: 2, desc: '거점 방어력 증대', tags: ['군사'] },
+      { name: '약초 텃밭 확충', cost: '재산 8.0', turns: 1, desc: '부상 치료 및 민생 안정', tags: ['민생'] }
     ],
     familyState: {
       spouse: '미혼',

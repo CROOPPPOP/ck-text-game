@@ -214,7 +214,7 @@ export function getArchetypeLabels(archetype: PlayerArchetype): CKResourceLabels
   switch (archetype) {
     case 'peasant':
       return {
-        goldLabel: '비상금 / 푼돈',
+        goldLabel: '가산 / 재산',
         goldIcon: '🪙',
         prestigeLabel: '마을 평판',
         prestigeIcon: '🌾',
@@ -227,7 +227,7 @@ export function getArchetypeLabels(archetype: PlayerArchetype): CKResourceLabels
       };
     case 'clergy':
       return {
-        goldLabel: '교회 헌금',
+        goldLabel: '교구 재산',
         goldIcon: '🪙',
         prestigeLabel: '교단 발언권',
         prestigeIcon: '📜',
@@ -253,7 +253,7 @@ export function getArchetypeLabels(archetype: PlayerArchetype): CKResourceLabels
       };
     case 'wanderer':
       return {
-        goldLabel: '소지 여비',
+        goldLabel: '소지 여비 / 재산',
         goldIcon: '💰',
         prestigeLabel: '개인 명망',
         prestigeIcon: '🗡️',
@@ -267,7 +267,7 @@ export function getArchetypeLabels(archetype: PlayerArchetype): CKResourceLabels
     case 'noble':
     default:
       return {
-        goldLabel: '국고 / 금화',
+        goldLabel: '국고 / 재산',
         goldIcon: '🪙',
         prestigeLabel: '가문 위신',
         prestigeIcon: '👑',
@@ -1384,13 +1384,13 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
   const labels = getArchetypeLabels(archetype);
   const attributes = calculateCKAttributes(gameState);
 
-  // 금화
-  let gold = faction['세력 재정'] || faction['재정'] || faction['금화'] || '';
-  if (!gold && wealthItems.length > 0) {
-    const goldFound = wealthItems.find(w => w.includes('금') || w.includes('은') || w.includes('전') || w.includes('동'));
-    if (goldFound) gold = goldFound;
+  // 재산 (Universal Wealth)
+  let rawGold = faction['세력 재정'] || faction['재정'] || faction['재산'] || faction['금화'] || '';
+  if (!rawGold && wealthItems.length > 0) {
+    const goldFound = wealthItems.find(w => w.includes('재산') || w.includes('금') || w.includes('은') || w.includes('전') || w.includes('동'));
+    if (goldFound) rawGold = goldFound;
   }
-  if (!gold && gameState.inventory) {
+  if (!rawGold && gameState.inventory) {
     const allInvStrings: string[] = [];
     for (const val of Object.values(gameState.inventory)) {
       const rawVal: any = val;
@@ -1400,12 +1400,20 @@ export function parseCKResources(gameState: ParsedState, previousPopulation?: nu
         allInvStrings.push(rawVal.trim());
       }
     }
-    const coinFound = allInvStrings.find(w => w.includes('금화') || w.includes('은화') || w.includes('동화') || w.includes('금') || w.includes('은') || w.includes('닢') || w.includes('전'));
-    if (coinFound) gold = coinFound;
+    const coinFound = allInvStrings.find(w => w.includes('재산') || w.includes('금화') || w.includes('은화') || w.includes('동화') || w.includes('금') || w.includes('은') || w.includes('닢') || w.includes('전'));
+    if (coinFound) rawGold = coinFound;
   }
-  if (!gold) {
-    gold = archetype === 'clergy' ? '은화 45닢' : archetype === 'wanderer' ? '동화 30개' : archetype === 'company' ? '금화 150닢' : '금화 350개';
+
+  let goldVal = 10.0;
+  if (rawGold) {
+    const numMatch = rawGold.match(/([0-9]+(?:\.[0-9]+)?)/);
+    if (numMatch) {
+      goldVal = parseFloat(numMatch[1]);
+    }
+  } else {
+    goldVal = archetype === 'clergy' ? 18.0 : archetype === 'wanderer' ? 8.0 : archetype === 'company' ? 35.0 : archetype === 'peasant' ? 3.0 : 70.0;
   }
+  const gold = goldVal.toFixed(1);
 
   const statusStr = ((gameState.personalInfo?.['신분'] || '') + ' ' + (gameState.personalInfo?.['직위'] || '')).toLowerCase();
   const titleStr = (gameState.personalInfo?.['칭호'] || '').toLowerCase();
@@ -1662,7 +1670,7 @@ const RANK_BASE_INCOME: Record<string, number> = {
 // 턴 당 수입 및 재정 수지(Financial Ledger) 정밀 산정 함수
 export function calculateTurnIncome(gameState: ParsedState): CKIncomeBreakdown {
   const archetype = detectPlayerArchetype(gameState);
-  const currencyName = archetype === 'clergy' ? '은화' : archetype === 'wanderer' ? '동화' : '금화';
+  const currencyName = '재산';
   const attributes = calculateCKAttributes(gameState);
   const stewScore = attributes.stewardship.value; // 1~30
 
@@ -1917,33 +1925,14 @@ export function applyTurnResourceAccumulation(
     const prevIncome = calculateTurnIncome(prevState);
     const netIncome = prevIncome.netIncome; // e.g. +3.2 or -1.5
     const archetype = detectPlayerArchetype(prevState);
-    const currencyName = prevIncome.currencyName || (archetype === 'clergy' ? '은화' : archetype === 'wanderer' ? '동화' : '금화');
+    const currencyName = '재산';
 
-    // 재정 문자열 업데이트 헬퍼: 기존 포맷("금화 1,500닢", "은화 45.0닢" 등)을 보존하며 가산
+    // 재정 문자열 업데이트 헬퍼: 범용 수치("재산 14.5") 포맷으로 갱신
     const updateWealthString = (orig: string, delta: number): string => {
-      if (!orig) return `${currencyName} ${Math.max(0, Math.round(delta * 10) / 10).toLocaleString('ko-KR')}닢`;
-      // 쉼표를 포함한 전체 숫자 패턴 정밀 추출
-      const match = orig.match(/^([^\d]*?)([\d,]+(?:\.\d+)?)(.*)$/);
-      if (match) {
-        const prefix = match[1] || '';
-        const numClean = match[2].replace(/,/g, '');
-        const oldVal = parseFloat(numClean);
-        const suffix = match[3] || '';
-        if (!isNaN(oldVal)) {
-          const rawNew = Math.max(0, oldVal + delta);
-          const rounded = Math.round(rawNew * 10) / 10;
-          const formattedNum = Number.isInteger(rounded)
-            ? rounded.toLocaleString('ko-KR')
-            : `${Math.floor(rounded).toLocaleString('ko-KR')}.${Math.round((rounded - Math.floor(rounded)) * 10)}`;
-          return `${prefix}${formattedNum}${suffix}`;
-        }
-      }
-      const rawNew = Math.max(0, delta);
-      const rounded = Math.round(rawNew * 10) / 10;
-      const formattedNum = Number.isInteger(rounded)
-        ? rounded.toLocaleString('ko-KR')
-        : `${Math.floor(rounded).toLocaleString('ko-KR')}.${Math.round((rounded - Math.floor(rounded)) * 10)}`;
-      return `${currencyName} ${formattedNum}닢`;
+      const match = (orig || '').match(/([0-9]+(?:\.[0-9]+)?)/);
+      const oldVal = match ? parseFloat(match[1]) : 0;
+      const newVal = Math.max(0, (isNaN(oldVal) ? 0 : oldVal) + delta);
+      return `재산 ${(Math.round(newVal * 10) / 10).toFixed(1)}`;
     };
 
     // 1-1. 세력 재정 업데이트

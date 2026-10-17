@@ -480,7 +480,7 @@ const clergyGameState: any = {
 };
 
 const clergyIncome = calculateTurnIncome(clergyGameState);
-assert(clergyIncome.currencyName === '은화', "Clergy currency is silver (은화)");
+assert(clergyIncome.currencyName === '재산', "Clergy currency is universal wealth (재산)");
 assert(clergyIncome.grossIncome > 10, `Clergy gross income is substantial (found: ${clergyIncome.grossIncome})`);
 assert(clergyIncome.grossExpense > 0, `Clergy gross expense is non-zero (found: ${clergyIncome.grossExpense})`);
 assert(clergyIncome.netIncome > 0, `Clergy net income is profitable (+${clergyIncome.netIncome})`);
@@ -497,13 +497,13 @@ assert(titheItem !== undefined, "Church tithe expense exists when superior bisho
 const altarBoyUpkeep = clergyIncome.expenseItems.find(i => i.id === 'subordinate_upkeep');
 assert(altarBoyUpkeep !== undefined, "Altar boy courtier upkeep is accounted for");
 
-// 10.2 Wanderer archetype (Vagrant with 동화)
+// 10.2 Wanderer archetype (Vagrant with 재산)
 const wandererGameState: any = {
   personalInfo: { '이름': '떠돌이', '신분': '부랑자' },
   estate: { type: '임시 거처', level: 'Lv.1', buildings: [] }
 };
 const wandererIncome = calculateTurnIncome(wandererGameState);
-assert(wandererIncome.currencyName === '동화', "Wanderer currency is copper (동화)");
+assert(wandererIncome.currencyName === '재산', "Wanderer currency is universal wealth (재산)");
 assert(wandererIncome.grossIncome >= 1.0, `Wanderer has basic survival income (found: ${wandererIncome.grossIncome})`);
 
 // 10.3 Noble archetype with vassals
@@ -527,7 +527,7 @@ const nobleGameState: any = {
   }
 };
 const nobleIncome = calculateTurnIncome(nobleGameState);
-assert(nobleIncome.currencyName === '금화', "Noble currency is gold (금화)");
+assert(nobleIncome.currencyName === '재산', "Noble currency is universal wealth (재산)");
 const vassalTax = nobleIncome.incomeItems.find(i => i.id.startsWith('vassal_'));
 assert(vassalTax !== undefined, "Noble receives feudal vassal tax (+1.2)");
 
@@ -644,11 +644,11 @@ assert(council.every(c => c.name !== '마르코 대주교' && c.name !== '마테
 // ==========================================
 console.log("\n--- 14. Testing Estate & Building Upgrade Economy Standards ---");
 
-// 14.1 Archetype currency standards
-assert(getCurrencyForArchetype('clergy') === '은화', "Clergy currency is 은화 (Silver)");
-assert(getCurrencyForArchetype('noble') === '금화', "Noble currency is 금화 (Gold)");
-assert(getCurrencyForArchetype('company') === '금화', "Company currency is 금화 (Gold)");
-assert(getCurrencyForArchetype('wanderer') === '동화', "Wanderer currency is 동화 (Copper)");
+// 14.1 Archetype currency standards (Now unified into universal wealth '재산')
+assert(getCurrencyForArchetype('clergy') === '재산', "Clergy currency is '재산' (Universal Wealth)");
+assert(getCurrencyForArchetype('noble') === '재산', "Noble currency is '재산' (Universal Wealth)");
+assert(getCurrencyForArchetype('company') === '재산', "Company currency is '재산' (Universal Wealth)");
+assert(getCurrencyForArchetype('wanderer') === '재산', "Wanderer currency is '재산' (Universal Wealth)");
 
 // 14.2 Building type multipliers
 const pressMult = getBuildingTypeMultiplier({ name: '장원 올리브 압착장', tags: ['생산', '재정'] });
@@ -670,15 +670,15 @@ assert(scriptMult.multiplier === 0.9, "Admin building has 0.9x cost multiplier")
 // 14.3 Building upgrade cost calculation & turns (Clergy test case from user image)
 const testOlivePress = { name: '장원 올리브 압착장', desc: '고품질 성유 생산', level: 1, tags: ['생산', '재정'] };
 const oliveEstimate = calculateBuildingUpgradeCost(testOlivePress, 2, 'clergy', 0); // stewScore 0
-assert(oliveEstimate.currency === '은화', "Olive press cost currency is 은화");
-assert(oliveEstimate.amount === 30, `Olive press Lv.1->2 base amount is 30 은화 (found: ${oliveEstimate.amount})`);
+assert(oliveEstimate.currency === '재산', "Olive press cost currency is '재산'");
+assert(oliveEstimate.amount === 14.4, `Olive press Lv.1->2 base amount is 14.4 재산 (found: ${oliveEstimate.amount})`);
 assert(oliveEstimate.turns === 2, `Olive press Lv.1->2 requires 2 turns (found: ${oliveEstimate.turns})`);
-assert(oliveEstimate.formattedCost === '은화 30닢', `Formatted cost is '은화 30닢' (found: '${oliveEstimate.formattedCost}')`);
+assert(oliveEstimate.formattedCost === '재산 14.4', `Formatted cost is '재산 14.4' (found: '${oliveEstimate.formattedCost}')`);
 
 // 14.4 Stewardship discount
 const discountedOlive = calculateBuildingUpgradeCost(testOlivePress, 2, 'clergy', 15); // stewScore 15 -> 18% discount
 assert(discountedOlive.discountPercent === 18, `Stewardship 15 gives 18% discount (found: ${discountedOlive.discountPercent})`);
-assert(discountedOlive.amount === 25, `Discounted amount is 25 은화 (found: ${discountedOlive.amount})`);
+assert(discountedOlive.amount === 11.8, `Discounted amount is 11.8 재산 (found: ${discountedOlive.amount})`);
 
 // 14.5 Full candidates generation for holding (Image regression defense)
 const mockEstateBuildings = [
@@ -692,31 +692,31 @@ const mockEstateBuildings = [
 const upgCandidates = getUpgradeCandidates(2, mockEstateBuildings, 'clergy', 10);
 assert(upgCandidates.length === 6, "All 6 Lv.1 buildings generated as candidates for Lv.2 holding");
 assert(upgCandidates.every(c => !c.formattedCost.includes('단위')), "NO candidates contain placeholder '단위'");
-assert(upgCandidates.every(c => c.currency === '은화'), "All candidates use 은화 currency");
+assert(upgCandidates.every(c => c.currency === '재산'), "All candidates use '재산' currency");
 assert(upgCandidates.every(c => c.turns === 2), "All Lv.1->2 candidates take exactly 2 turns");
-assert(upgCandidates.some(c => c.cost < 30), "Supplies/Admin buildings cost less than 30 은화");
+assert(upgCandidates.some(c => c.cost < 15), "Supplies/Admin buildings cost less than 15 재산");
 
 // 14.6 Estate Promotion Cost standards
 const clergyPromoLv1to2 = calculateEstatePromotionCost(1, 'clergy', 0);
-assert(clergyPromoLv1to2.amount === 60, `Lv.1->2 Clergy promotion costs 60 은화 (found: ${clergyPromoLv1to2.amount})`);
+assert(clergyPromoLv1to2.amount === 30, `Lv.1->2 Clergy promotion costs 30 재산 (found: ${clergyPromoLv1to2.amount})`);
 assert(clergyPromoLv1to2.turns === 3, `Lv.1->2 promotion takes 3 turns (found: ${clergyPromoLv1to2.turns})`);
-assert(clergyPromoLv1to2.formattedCost === '은화 60닢', "Formatted cost has '은화 60닢'");
+assert(clergyPromoLv1to2.formattedCost === '재산 30.0', "Formatted cost has '재산 30.0'");
 
 const clergyPromoLv2to3 = calculateEstatePromotionCost(2, 'clergy', 0);
-assert(clergyPromoLv2to3.amount === 120, `Lv.2->3 Clergy promotion costs 120 은화 (found: ${clergyPromoLv2to3.amount})`);
+assert(clergyPromoLv2to3.amount === 60, `Lv.2->3 Clergy promotion costs 60 재산 (found: ${clergyPromoLv2to3.amount})`);
 assert(clergyPromoLv2to3.turns === 4, `Lv.2->3 promotion takes 4 turns (found: ${clergyPromoLv2to3.turns})`);
 
 const noblePromoLv2to3 = calculateEstatePromotionCost(2, 'noble', 0);
-assert(noblePromoLv2to3.amount === 80, `Lv.2->3 Noble promotion costs 80 금화 (found: ${noblePromoLv2to3.amount})`);
-assert(noblePromoLv2to3.currency === '금화', "Noble promotion uses 금화");
+assert(noblePromoLv2to3.amount === 80, `Lv.2->3 Noble promotion costs 80 재산 (found: ${noblePromoLv2to3.amount})`);
+assert(noblePromoLv2to3.currency === '재산', "Noble promotion uses '재산'");
 
 // 14.7 Wealth parsing and affordability
 const testGameStateWealth: any = {
-  factionState: { '세력 재정': '은화 145닢' },
-  inventory: { wealth: ['은화 145닢'] }
+  factionState: { '세력 재정': '재산 145.0' },
+  inventory: { wealth: ['재산 145.0'] }
 };
-const parsedWealth = getPlayerWealthAmount(testGameStateWealth, '은화');
-assert(parsedWealth === 145, `Player wealth parsed as 145 은화 (found: ${parsedWealth})`);
+const parsedWealth = getPlayerWealthAmount(testGameStateWealth, '재산');
+assert(parsedWealth === 145, `Player wealth parsed as 145 재산 (found: ${parsedWealth})`);
 
 // ==========================================
 // TEST 15: Universal Population Growth Engine & Save Compatibility
