@@ -175,7 +175,7 @@ export default function GenesisModal({ isOpen, onConfirm }: Props) {
               <div style={{ color: '#fbbf24', fontWeight: 700, marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <Heart size={13} /> {cardData.archetype === 'peasant' || cardData.archetype === 'wanderer' ? '삶의 신조 (Creed)' : '가문 가언 (Motto)'}
               </div>
-              <div style={{ color: '#f3f4f6', fontStyle: 'italic' }}>"{cardData.houseMotto}"</div>
+              <div style={{ color: '#f3f4f6', fontStyle: 'italic' }}>&quot;{cardData.houseMotto}&quot;</div>
             </div>
 
             <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>

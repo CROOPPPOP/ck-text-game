@@ -157,7 +157,7 @@ export function parseAzgaarGeoJSON(geoJson: any): Province[] {
 
     if (geom && (geom.type === 'Polygon' || geom.type === 'MultiPolygon')) {
       const rings = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
-      let pathCommands: string[] = [];
+      const pathCommands: string[] = []
       let totalX = 0;
       let totalY = 0;
       let pointCount = 0;

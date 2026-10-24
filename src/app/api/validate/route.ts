@@ -1,15 +1,23 @@
 import { GoogleGenAI } from "@google/genai";
+import { isRecord, isValidOptionalApiKey, readJsonBody } from "@/lib/api/request";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { formData } = body;
-    const apiKey = formData?.apiKey;
-
-    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
+    const parsedBody = await readJsonBody<Record<string, unknown>>(req, 64 * 1024);
+    if (!parsedBody.ok) return parsedBody.response;
+    const body = parsedBody.body;
+    if (!isRecord(body) || !isRecord(body.formData)) {
+      return Response.json({ error: 'Invalid validation request.' }, { status: 400 });
+    }
+    const formData = body.formData;
+    const apiKey = formData.apiKey;
+    if (!isValidOptionalApiKey(apiKey)) {
+      return Response.json({ error: 'Invalid API key.' }, { status: 400 });
+    }
+    const finalApiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     if (!finalApiKey) {
       // 로컬/오프라인 모드 기본 검증: 인물 이름이 비어있지 않으면 통과
-      const charName = formData?.character?.trim();
+      const charName = typeof formData.character === 'string' ? formData.character.trim() : '';
       if (!charName) {
         return new Response(JSON.stringify({ valid: false, reason: "인물 항목에 이름을 입력해주세요. (예: 샤를 드 발루아)" }));
       }

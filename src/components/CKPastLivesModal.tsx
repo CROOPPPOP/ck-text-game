@@ -225,7 +225,7 @@ export default function CKPastLivesModal({ isOpen, onClose }: CKPastLivesModalPr
                       <span>사인: {life.deathCause || '세월의 흐름과 영면'}</span>
                     </div>
                     <div style={{ fontSize: '13px', color: '#e7e5e4', fontStyle: 'italic', lineHeight: 1.6 }}>
-                      "{life.epitaph || life.summary || '그의 삶은 이 중세 땅에 깊은 궤적을 남겼습니다.'}"
+                      &quot;{life.epitaph || life.summary || '그의 삶은 이 중세 땅에 깊은 궤적을 남겼습니다.'}&quot;
                     </div>
                   </div>
                 </div>

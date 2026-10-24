@@ -1,3 +1,5 @@
+import { getGeminiApiKey } from '../apiKeyStorage';
+
 /**
  * AI 역사·인물 서관(Grand Chronicler) 모듈
  * - 사용자의 Gemini API Key를 통해 역사적 사건, 전투 상보, 외교 서한, 인물 알현 대화를 고풍스러운 중세 서사로 생성합니다.
@@ -48,7 +50,7 @@ export async function requestCharacterDialogue(
   context: CharacterDialogueContext,
   apiKey?: string
 ): Promise<string> {
-  const finalKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('ck_api_key') || '' : '');
+  const finalKey = apiKey || getGeminiApiKey();
   
   if (finalKey) {
     try {
@@ -89,7 +91,7 @@ export async function requestDiplomaticLetter(
   context: DiplomacyLetterContext,
   apiKey?: string
 ): Promise<string> {
-  const finalKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('ck_api_key') || '' : '');
+  const finalKey = apiKey || getGeminiApiKey();
 
   if (finalKey) {
     try {
@@ -130,7 +132,7 @@ export async function requestBattleDispatch(
   context: BattleDispatchContext,
   apiKey?: string
 ): Promise<string> {
-  const finalKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('ck_api_key') || '' : '');
+  const finalKey = apiKey || getGeminiApiKey();
 
   if (finalKey) {
     try {

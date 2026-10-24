@@ -1,11 +1,22 @@
 import { GoogleGenAI } from "@google/genai";
+import { isRecord, isValidOptionalApiKey, readJsonBody } from "@/lib/api/request";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { type, context, apiKey } = body;
+    const parsedBody = await readJsonBody<Record<string, unknown>>(req, 64 * 1024);
+    if (!parsedBody.ok) return parsedBody.response;
+    const body = parsedBody.body;
+    if (!isRecord(body) || !isRecord(body.context) || !['character_dialogue', 'diplomacy_letter', 'battle_dispatch', 'historical_event'].includes(String(body.type))) {
+      return Response.json({ error: 'Invalid chronicler request.' }, { status: 400 });
+    }
+    if (!isValidOptionalApiKey(body.apiKey)) {
+      return Response.json({ error: 'Invalid API key.' }, { status: 400 });
+    }
 
-    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
+    const type = body.type;
+    const context = body.context as Record<string, any>;
+    const apiKey = body.apiKey;
+    const finalApiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     if (!finalApiKey) {
       return new Response(JSON.stringify({
         error: "NO_API_KEY",

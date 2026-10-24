@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { clearGeminiApiKey, getGeminiApiKey, setGeminiApiKey } from '@/lib/apiKeyStorage';
 import { X, Key, Check, ShieldCheck, Sparkles, ExternalLink, Trash2 } from 'lucide-react';
 
 interface Props {
@@ -18,7 +19,7 @@ export default function CKApiKeyModal({ isOpen, onClose, onKeySaved }: Props) {
 
   useEffect(() => {
     if (isOpen && typeof window !== 'undefined') {
-      const stored = localStorage.getItem('ck_api_key') || '';
+      const stored = getGeminiApiKey();
       setSavedKey(stored);
       setApiKey(stored);
       setStatus('idle');
@@ -32,7 +33,7 @@ export default function CKApiKeyModal({ isOpen, onClose, onKeySaved }: Props) {
     const trimmed = apiKey.trim();
     if (!trimmed) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('ck_api_key');
+        clearGeminiApiKey();
       }
       setSavedKey('');
       setStatus('idle');
@@ -42,11 +43,15 @@ export default function CKApiKeyModal({ isOpen, onClose, onKeySaved }: Props) {
     }
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem('ck_api_key', trimmed);
+      if (!setGeminiApiKey(trimmed)) {
+        setStatus('error');
+        setMessage('브라우저 세션 저장소를 사용할 수 없습니다. 설정을 확인한 뒤 다시 시도해주세요.');
+        return;
+      }
     }
     setSavedKey(trimmed);
     setStatus('success');
-    setMessage('✨ Gemini API 키가 안전하게 등록되었습니다! 이제 역사적 사건, 인물 대화, 전투 상보를 AI가 실시간 보조합니다.');
+    setMessage('Gemini API 키를 이 탭의 세션에 저장했습니다. AI 요청 시 앱 서버를 거쳐 Google Gemini로 전달됩니다. 탭을 닫으면 세션 키가 삭제됩니다.');
     if (onKeySaved) onKeySaved(true, trimmed);
     setTimeout(() => {
       onClose();
@@ -55,7 +60,7 @@ export default function CKApiKeyModal({ isOpen, onClose, onKeySaved }: Props) {
 
   const handleRemove = () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('ck_api_key');
+      clearGeminiApiKey();
     }
     setSavedKey('');
     setApiKey('');
@@ -234,8 +239,8 @@ export default function CKApiKeyModal({ isOpen, onClose, onKeySaved }: Props) {
           marginBottom: '20px'
         }}>
           💡 <strong>안내사항</strong>:
-          <br />• API 키는 브라우저 로컬 저장소에만 보관되며 외부 서버에 수집되지 않습니다.
-          <br />• 등록된 API 키는 <strong>인물과의 대화, 선전포고문 및 외교 서신, 전황 상보</strong>에 실시간 문학적 서사를 부여하는 데 사용됩니다.
+          <br />• API 키는 이 브라우저 탭의 세션 저장소에 보관되며 탭을 닫으면 삭제됩니다. API 요청 시 앱 서버를 거쳐 Google Gemini로 전달됩니다.
+          <br />• 동일 출처에서 실행되는 스크립트는 세션 키에 접근할 수 있습니다. 개인 API 키를 사용하고 Google 쪽에서 사용량과 제한을 설정해주세요.
           <br />• 키가 없어도 맵 조작, 군사 이동, 전투 계산, 영지 경영 등 모든 핵심 게임플레이는 100% 정상 작동합니다.
           <div style={{ marginTop: '6px' }}>
             <a
