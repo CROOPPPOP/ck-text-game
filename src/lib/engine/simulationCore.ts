@@ -5,37 +5,7 @@ import { rollEvent, findEventChoiceById } from './events/eventRegistry';
 import { EngineGameEvent, EngineEventChoice } from './types';
 import { PIETY_DECISIONS, PRESTIGE_DECISIONS } from '../ckDecisions';
 import { PERSONALITY_PAIRS, CONGENITAL_POINT_TRAITS } from './customizationTypes';
-
-const SEASONS = ['봄', '여름', '가을', '겨울'];
-
-function advanceDateString(currentDateLocation?: string, currentTurn: number = 1): { newDateLocation: string; newTurn: number; yearIncremented: boolean } {
-  const nextTurn = currentTurn + 1;
-  let year = 1066;
-  let location = '샤르트르 영지';
-
-  if (currentDateLocation) {
-    const yearMatch = currentDateLocation.match(/(\d+)년/);
-    if (yearMatch) year = parseInt(yearMatch[1], 10);
-    const locMatch = currentDateLocation.match(/\/\s*(.*?)(?:\s*\[턴 수|$)/);
-    if (locMatch && locMatch[1].trim()) location = locMatch[1].trim();
-  }
-
-  // 4턴당 1년 경과 (계절 순환)
-  const seasonIndex = (nextTurn - 1) % 4;
-  const season = SEASONS[seasonIndex];
-  const yearDelta = Math.floor((nextTurn - 1) / 4);
-  const currentYear = year + (nextTurn % 4 === 1 && nextTurn > 1 ? 1 : 0);
-  const yearIncremented = nextTurn % 4 === 1 && nextTurn > 1;
-
-  const monthMap = [4, 7, 10, 1]; // 봄(4월), 여름(7월), 가을(10월), 겨울(1월)
-  const month = monthMap[seasonIndex];
-
-  return {
-    newDateLocation: `${currentYear}년 ${month}월 (${season}) / ${location} [턴 수: ${nextTurn}]`,
-    newTurn: nextTurn,
-    yearIncremented
-  };
-}
+import { applyActionClock } from './simulationClock';
 
 export function createInitialGameState(config: any): ParsedState {
   const name = config?.character || '샤를 드 발루아';
@@ -303,15 +273,11 @@ export function processTurn(
   currentTurn: number,
   constructionQueue: QueueItem[]
 ): { parsed: ParsedState; raw: string } {
-  // 1. 날짜 및 턴 진척
-  const { newDateLocation, newTurn, yearIncremented } = advanceDateString(currentState.dateLocation, currentTurn);
-
-  // 2. 나이 계산 (해 넘어갔을 때 1세 증가)
-  const currentAge = parseInt(currentState.personalInfo?.['나이'] || '25', 10);
-  const updatedAge = yearIncremented ? currentAge + 1 : currentAge;
+  // Actions resolve at the current calendar date. The real-time clock is the only source
+  // that advances calendar time; this counter is for chronicle activity only.
+  const newTurn = currentTurn + 1;
 
   // 3. 결단(Decisions) 또는 선택지(Choices) 매칭
-  let matchedOutcome: any = null;
 
   // 3-1. 결단 확인
   const allDecisions = [...PIETY_DECISIONS, ...PRESTIGE_DECISIONS];
@@ -403,17 +369,13 @@ export function processTurn(
   // 10. ParsedState 규격으로 조립
   const nextParsedState: ParsedState = {
     ...currentState,
-    dateLocation: newDateLocation,
+    dateLocation: currentState.dateLocation,
     judgment: {
       result: judgmentResult,
       positive: positiveFactor,
       negative: negativeFactor
     },
     narrative: fullNarrative,
-    personalInfo: {
-      ...(currentState.personalInfo || {}),
-      '나이': `${updatedAge}`
-    },
     traits: existingTraits,
     factionState: updatedFactionState,
     inventory: {
@@ -427,7 +389,7 @@ export function processTurn(
   const finalizedState = applyTurnResourceAccumulation(nextParsedState, currentState);
 
   return {
-    parsed: finalizedState,
+    parsed: applyActionClock(currentState, finalizedState, newTurn),
     raw: fullNarrative
   };
 }

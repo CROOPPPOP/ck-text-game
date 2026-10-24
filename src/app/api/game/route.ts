@@ -1,18 +1,39 @@
 import { GoogleGenAI } from "@google/genai";
-import { parseLLMResponse } from "@/lib/parser";
+import { ParsedState, parseLLMResponse } from "@/lib/parser";
 import { formatNPCAgendasForPrompt } from "@/lib/characterRelations";
 import { formatFactionHostilityForPrompt } from "@/lib/factionRelations";
+import { isRecord, isValidOptionalApiKey, readJsonBody } from "@/lib/api/request";
+
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { action, currentState, isInitialSetup, apiKey, stream: wantStream } = body;
-
-    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
-    if (!finalApiKey) {
-      return new Response(JSON.stringify({ error: "Gemini API 키가 제공되지 않았습니다. 시작 화면에서 API 키를 입력하거나 서버 환경 변수를 확인해주세요." }), { status: 400 });
+    const parsedBody = await readJsonBody<Record<string, unknown>>(req, 1024 * 1024);
+    if (!parsedBody.ok) return parsedBody.response;
+    const body = parsedBody.body;
+    if (!isRecord(body) || (body.currentState !== undefined && body.currentState !== null && !isRecord(body.currentState))) {
+      return Response.json({ error: 'Invalid game action request.' }, { status: 400 });
+    }
+    if (!isValidOptionalApiKey(body.apiKey) || (body.stream !== undefined && typeof body.stream !== 'boolean') || (body.isInitialSetup !== undefined && typeof body.isInitialSetup !== 'boolean')) {
+      return Response.json({ error: 'Invalid API options.' }, { status: 400 });
     }
 
+    const isInitialSetup = body.isInitialSetup === true;
+    const isValidAction = isInitialSetup
+      ? isRecord(body.action) && JSON.stringify(body.action).length <= 4000
+      : typeof body.action === 'string' && body.action.length <= 4000;
+    if (!isValidAction) {
+      return Response.json({ error: 'Invalid game action.' }, { status: 400 });
+    }
+    const action: any = body.action;
+    const currentState = isRecord(body.currentState) ? body.currentState as unknown as ParsedState : null;
+    const initialSetupData = isRecord(action) ? { ...action } : null;
+    if (initialSetupData) delete initialSetupData.apiKey;
+    const apiKey = body.apiKey;
+    const wantStream = body.stream === true;
+    const finalApiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    if (!finalApiKey) {
+      return Response.json({ error: 'Gemini API key is required. Add your key in the API key settings.' }, { status: 400 });
+    }
     const ai = new GoogleGenAI({
       apiKey: finalApiKey,
       httpOptions: {
@@ -377,9 +398,9 @@ YYYY년 MM월 DD일 / 위치 [턴 수: N]
     if (isInitialSetup) {
        const chosenStatus = action.playerStatus || (action.archetype === 'clergy' ? '사제' : action.archetype === 'company' ? '용병대장' : action.archetype === 'wanderer' ? '방랑자' : '남작');
        if (action.previousState) {
-         userPrompt = `[세대 교체 발동] 이전 턴에서 캐릭터가 사망(또는 퇴위)했습니다.\n이전 턴의 세계 상태(JSON): ${JSON.stringify(action.previousState)}\n\n다음의 [새로운 후계자 설정]을 바탕으로 세대가 교체된 새로운 오프닝 시나리오와 첫 번째 선택지들을 생성하세요.\n[새로운 후계자 설정]\n${JSON.stringify(action, null, 2)}\n\n★ 필수 규칙: 【 개인 정보 】의 [신분]은 반드시 플레이어가 지정한 '${chosenStatus}'(으)로 100% 동일하게 표기해야 합니다.\n위의 정해진 포맷을 반드시 지켜서 응답하세요.`;
+         userPrompt = `[세대 교체 발동] 이전 턴에서 캐릭터가 사망(또는 퇴위)했습니다.\n이전 턴의 세계 상태(JSON): ${JSON.stringify(action.previousState)}\n\n다음의 [새로운 후계자 설정]을 바탕으로 세대가 교체된 새로운 오프닝 시나리오와 첫 번째 선택지들을 생성하세요.\n[새로운 후계자 설정]\n${JSON.stringify(initialSetupData, null, 2)}\n\n★ 필수 규칙: 【 개인 정보 】의 [신분]은 반드시 플레이어가 지정한 '${chosenStatus}'(으)로 100% 동일하게 표기해야 합니다.\n위의 정해진 포맷을 반드시 지켜서 응답하세요.`;
        } else {
-         userPrompt = `게임의 첫 시작입니다. 다음의 [초기 설정]을 바탕으로 오프닝 시나리오와 첫 번째 선택지들을 생성하세요.\n\n[초기 설정]\n${JSON.stringify(action, null, 2)}\n\n★ 필수 규칙: 플레이어가 선택한 시작 신분은 '${chosenStatus}'입니다. 따라서 【 개인 정보 】의 [신분]란에는 반드시 '${chosenStatus}'(을)를 그대로 출력해야 하며, 임의로 다른 신분으로 변경하지 마십시오.\n위의 정해진 포맷을 반드시 지켜서 응답하세요.`;
+         userPrompt = `게임의 첫 시작입니다. 다음의 [초기 설정]을 바탕으로 오프닝 시나리오와 첫 번째 선택지들을 생성하세요.\n\n[초기 설정]\n${JSON.stringify(initialSetupData, null, 2)}\n\n★ 필수 규칙: 플레이어가 선택한 시작 신분은 '${chosenStatus}'입니다. 따라서 【 개인 정보 】의 [신분]란에는 반드시 '${chosenStatus}'(을)를 그대로 출력해야 하며, 임의로 다른 신분으로 변경하지 마십시오.\n위의 정해진 포맷을 반드시 지켜서 응답하세요.`;
        }
     } else if (!currentState) {
        userPrompt = `게임의 첫 시작입니다. 유비(32세, 평민)가 낙양의 골목길에서 비밀 서신을 쥐고 있는 상황에서 시작해주세요. 위의 정해진 포맷을 반드시 지켜서 응답하세요.`;

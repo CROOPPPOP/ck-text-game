@@ -1,12 +1,22 @@
 import { GoogleGenAI } from "@google/genai";
+import { isRecord, isValidOptionalApiKey, readJsonBody } from "@/lib/api/request";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { formData } = body;
-    const apiKey = formData?.apiKey;
-
-    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
+    const parsedBody = await readJsonBody<Record<string, unknown>>(req, 128 * 1024);
+    if (!parsedBody.ok) return parsedBody.response;
+    const body = parsedBody.body;
+    if (!isRecord(body) || !isRecord(body.formData)) {
+      return Response.json({ error: 'Invalid recommendation request.' }, { status: 400 });
+    }
+    const formData = body.formData;
+    const apiKey = formData.apiKey;
+    if (!isValidOptionalApiKey(apiKey)) {
+      return Response.json({ error: 'Invalid API key.' }, { status: 400 });
+    }
+    const safeFormData = { ...formData };
+    delete safeFormData.apiKey;
+    const finalApiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     if (!finalApiKey) {
       // 오프라인 추천 프리셋 반환
       return Response.json({
@@ -70,7 +80,7 @@ The JSON object must have exactly the following keys:
 - "traits": array of objects, each containing "category" (신체특성, 정신특성, 감각특성, 전문특성, 잠재특성, 일시적특성) and "name" (the trait name). Create 3 to 5 fitting traits.
 
 Current partial inputs:
-${JSON.stringify(formData, null, 2)}
+${JSON.stringify(safeFormData, null, 2)}
     `;
 
     const result = await ai.models.generateContent({

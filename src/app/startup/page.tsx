@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import { getGeminiApiKey } from '@/lib/apiKeyStorage';
 import {
   calculate5AttributesFromStats,
   PERSONALITY_PAIRS,
@@ -223,7 +224,7 @@ export default function Startup() {
   });
 
   useEffect(() => {
-    const savedKey = localStorage.getItem("ck_api_key");
+    const savedKey = getGeminiApiKey();
     if (savedKey) {
       setFormData(fd => ({ ...fd, apiKey: savedKey }));
     }
@@ -358,7 +359,7 @@ export default function Startup() {
       return;
     }
 
-    console.log("게임 시작 요청", formData);
+    console.info("게임 시작 요청");
 
     let finalAdditional = formData.additionalSettings || '';
     if (formData.archetype === 'noble' && (formData.houseName || formData.houseMotto)) {
@@ -367,6 +368,8 @@ export default function Startup() {
         finalAdditional = finalAdditional ? `${finalAdditional}\n${houseDesc}` : houseDesc;
       }
     }
+
+    const safeFormData = { ...formData, apiKey: '' };
 
     if (formData.inheritedState) {
       // 상속인 경우, 이전 상태를 병합하여 새로운 추가 설정을 만듭니다.
@@ -379,7 +382,7 @@ export default function Startup() {
 소지품: ${JSON.stringify(formData.inheritedState.inventory)}
 `;
       const finalFormData = {
-        ...formData,
+        ...safeFormData,
         dynastyLegacy: selectedArchetype === 'noble' ? dynastyLegacy : 'martial',
         personalityTraits,
         congenitalTraits,
@@ -392,7 +395,7 @@ export default function Startup() {
       localStorage.removeItem("ck_inheritance");
     } else {
       const finalFormData = {
-        ...formData,
+        ...safeFormData,
         dynastyLegacy: selectedArchetype === 'noble' ? dynastyLegacy : 'martial',
         personalityTraits,
         congenitalTraits,

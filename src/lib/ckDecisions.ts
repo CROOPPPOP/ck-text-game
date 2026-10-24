@@ -476,7 +476,7 @@ export function executeDecisionLocalEffects(
   };
 
   if (decision.id === 'piety_absolution') {
-    let stressIdx = newState.playerStatus?.findIndex(s => s && s.name && s.name.includes('스트레스')) ?? -1;
+    const stressIdx = newState.playerStatus?.findIndex(s => s && s.name && s.name.includes('스트레스')) ?? -1;
     let curStress = 15;
     if (stressIdx !== -1 && newState.playerStatus) {
       curStress = extractNumericValue(newState.playerStatus[stressIdx].value, 15);

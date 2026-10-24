@@ -158,7 +158,7 @@ export default function EpitaphModal({
 
           {/* Historical Eulogy */}
           <div style={{ fontSize: '11.5px', color: '#94a3b8', fontStyle: 'italic', lineHeight: '1.6', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
-            "흙에서 태어나 흙으로 돌아갔으나, 그가 남긴 발자취와 결단은 연대기 속에 영원히 새겨질 것입니다."
+            &quot;흙에서 태어나 흙으로 돌아갔으나, 그가 남긴 발자취와 결단은 연대기 속에 영원히 새겨질 것입니다.&quot;
           </div>
         </div>
 

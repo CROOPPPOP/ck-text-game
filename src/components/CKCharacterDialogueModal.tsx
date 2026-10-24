@@ -51,6 +51,8 @@ export default function CKCharacterDialogueModal({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentOpinion, setCurrentOpinion] = useState<number>(character?.opinion ?? 50);
+  const messageIdRef = React.useRef(0);
+  const nextMessageId = (sender: MessageItem['sender']) => 'msg_' + sender + '_' + messageIdRef.current++;
 
   // 캐릭터 변경 시 초기화
   React.useEffect(() => {
@@ -75,7 +77,7 @@ export default function CKCharacterDialogueModal({
     if (!content || isLoading) return;
 
     const userMsg: MessageItem = {
-      id: `msg_player_${Date.now()}`,
+      id: nextMessageId('player'),
       sender: 'player',
       senderName: playerRulerName,
       text: content,
@@ -101,13 +103,14 @@ export default function CKCharacterDialogueModal({
       }, apiKey);
 
       // 대화 감정 분석에 따른 호감도 변동 (간단한 키워드 판정)
+      const sentimentSeed = Array.from(aiReply).reduce((sum, character) => sum + character.charCodeAt(0), currentOpinion);
       let delta = 0;
       if (/존중|기쁨|감사|충성|환영|동의|기꺼이/.test(aiReply)) {
-        delta = Math.floor(Math.random() * 5) + 3; // +3 ~ +7
+        delta = sentimentSeed % 5 + 3; // +3 ~ +7
       } else if (/불쾌|의구심|경계|거절|모욕|위협/.test(aiReply)) {
-        delta = -(Math.floor(Math.random() * 6) + 4); // -4 ~ -9
+        delta = -(sentimentSeed % 6 + 4); // -4 ~ -9
       } else {
-        delta = Math.random() > 0.5 ? 2 : -2;
+        delta = sentimentSeed % 2 === 0 ? 2 : -2;
       }
 
       const newOp = Math.max(0, Math.min(100, currentOpinion + delta));
@@ -117,7 +120,7 @@ export default function CKCharacterDialogueModal({
       }
 
       const npcMsg: MessageItem = {
-        id: `msg_npc_${Date.now()}`,
+        id: nextMessageId('npc'),
         sender: 'npc',
         senderName: character.name,
         text: aiReply,

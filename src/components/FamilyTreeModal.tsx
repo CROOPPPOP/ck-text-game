@@ -13,9 +13,8 @@ interface Props {
 }
 
 export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccession }: Props) {
-  if (!isOpen) return null;
-
   const [activeTab, setActiveTab] = React.useState<'lineage' | 'intrigue'>('lineage');
+  if (!isOpen) return null;
 
   const rulerName = gameState.personalInfo?.['이름'] || '군주';
   const rulerTitle = gameState.personalInfo?.['칭호'] || gameState.personalInfo?.['직위'] || '영주';
@@ -572,7 +571,7 @@ export default function FamilyTreeModal({ isOpen, onClose, gameState, onSuccessi
                         <strong>⛪ 성직자의 고해성사 밀회 & 뻐꾸기 탁란 전략:</strong><br />
                         1. 영지 내 귀족 미망인이나 영주 부인과 신뢰/애정도를 쌓아 은밀한 밀회 관계를 맺으십시오.<br />
                         2. 아이가 태어나면 남편 영주의 적장자로 속여 입적(탁란)시키거나, 교황청 인맥으로 적자 공인을 획득하십시오.<br />
-                        3. 기존 영주 유고 시 아이를 영주로 옹립하고, 플레이어는 '영지 섭정(Regent) 및 대교구 총대리'로 취임하여 교권과 세속 권력을 한 손에 쥡니다.
+                        3. 기존 영주 유고 시 아이를 영주로 옹립하고, 플레이어는 &apos;영지 섭정(Regent) 및 대교구 총대리&apos;로 취임하여 교권과 세속 권력을 한 손에 쥡니다.
                       </>
                     ) : archetype === 'wanderer' ? (
                       <>
